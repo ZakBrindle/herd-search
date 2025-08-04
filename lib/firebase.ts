@@ -13,23 +13,24 @@ if (typeof window === "undefined") {
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   });
-}
+  console.log("DEBUG: process.env.NEXT_PUBLIC_FIREBASE_API_KEY =", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
 
-// Check for missing env vars and throw a clear error -- fixed mapping
-const requiredEnv = [
-  "NEXT_PUBLIC_FIREBASE_API_KEY",
-  "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-  "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-  "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-  "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-  "NEXT_PUBLIC_FIREBASE_APP_ID",
-];
-for (const key of requiredEnv) {
-  if (!process.env[key]) {
-    throw new Error(
-      `Missing Firebase env variable: ${key}. ` +
-      `Check your .env.local file and ensure you have restarted the dev server.`
-    );
+  // Check for missing env vars and throw a clear error -- fixed
+  const requiredEnv = [
+    "NEXT_PUBLIC_FIREBASE_API_KEY",
+    "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+    "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+    "NEXT_PUBLIC_FIREBASE_APP_ID",
+  ];
+  for (const key of requiredEnv) {
+    if (!process.env[key]) {
+      throw new Error(
+        `Missing Firebase env variable: ${key}. ` +
+        `Check your .env.local file and ensure you have restarted the dev server.`
+      );
+    }
   }
 }
 

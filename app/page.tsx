@@ -436,7 +436,7 @@ export default function HomePage() {
       {isDevMode && (
           <div className={styles.devPanel}>
               <h3 style={{fontWeight: 700}}>Developer Mode: Drawing Area</h3>
-              <p>Click on the map to draw. Click near the first point to finish and name the shape.</p>
+              <p>Click on the map to draw. Click near the first point to finish and name the shape ✏️ </p>
               <button onClick={cancelDrawing} className={styles.dangerButton} style={{padding: '0.25rem 0.75rem', marginTop: '0.5rem'}}>Cancel Drawing</button>
           </div>
       )}
