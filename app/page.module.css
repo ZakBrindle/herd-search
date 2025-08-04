@@ -1,16 +1,18 @@
-/* Main container for the app */
+/* === Global App Layout === */
 .container {
-  padding: 2rem;
+  padding: 1rem 2rem;
   max-width: 1200px;
   margin: auto;
+  font-family: 'Inter', sans-serif;
 }
 
-/* Header styles */
 .header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  gap: 1rem;
 }
 
 .headerTitle {
@@ -23,9 +25,8 @@
   color: #4b5563;
 }
 
-/* Button styles */
-.primaryButton {
-  background-color: #3b82f6; /* bg-blue-500 */
+/* === Buttons === */
+.button {
   color: white;
   font-weight: 700;
   padding: 0.5rem 1rem;
@@ -33,19 +34,84 @@
   border: none;
   cursor: pointer;
   transition: background-color 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
+.primaryButton {
+  composes: button;
+  background-color: #3b82f6; /* blue-500 */
+}
 .primaryButton:hover {
-  background-color: #2563eb; /* hover:bg-blue-600 */
+  background-color: #2563eb; /* blue-600 */
 }
 
-/* Map related styles */
+.secondaryButton {
+  composes: button;
+  background-color: #a855f7; /* purple-600 */
+}
+.secondaryButton:hover {
+  background-color: #9333ea; /* purple-700 */
+}
+
+.dangerButton {
+  composes: button;
+  background-color: #ef4444; /* red-500 */
+}
+.dangerButton:hover {
+  background-color: #dc2626; /* red-600 */
+}
+
+.neutralButton {
+  composes: button;
+  background-color: #d1d5db; /* gray-300 */
+  color: #1f2937;
+}
+.neutralButton:hover {
+  background-color: #9ca3af; /* gray-400 */
+}
+
+.floatingButton {
+  composes: button;
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  background-color: #4f46e5; /* indigo-600 */
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.floatingButton:hover {
+  background-color: #4338ca; /* indigo-700 */
+}
+
+
+/* === Map & Canvas === */
 .mapContainer {
   position: relative;
   width: 100%;
-  overflow: hidden;
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  overflow: hidden; /* Ensures canvas and image align */
+}
+
+.mapImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.mapCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
 }
 
 .userMarker {
@@ -55,17 +121,19 @@
   border: 2px solid white;
   box-shadow: 0 0 10px rgba(0,0,0,0.5);
   transition: all 0.5s ease;
+  z-index: 10;
 }
 
 .userMarker img {
   width: 40px;
   height: 40px;
   border-radius: 50%;
+  display: block;
 }
 
-.userMarker .nameLabel { /* Note: No space for descendant selectors */
+.nameLabel {
   position: absolute;
-  bottom: -20px;
+  bottom: -22px;
   left: 50%;
   transform: translateX(-50%);
   background-color: rgba(0, 0, 0, 0.7);
@@ -76,11 +144,66 @@
   white-space: nowrap;
 }
 
-/* Add other styles for cards, modals, etc. here */
+/* === Modals === */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modalContent {
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  width: 100%;
+  max-width: 24rem; /* max-w-sm */
+}
+
+.modalHeader {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.textInput {
+  width: 100%;
+  border: 1px solid #d1d5db; /* border-gray-300 */
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* === Other Components === */
+.devPanel {
+  background-color: #fefce8; /* bg-yellow-100 */
+  border-left: 4px solid #f59e0b; /* border-yellow-500 */
+  color: #854d0e; /* text-yellow-700 */
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
 .squadList {
   display: grid;
   grid-template-columns: repeat(1, 1fr);
   gap: 1rem;
+  margin-top: 2rem;
 }
 
 @media (min-width: 768px) {
@@ -107,5 +230,5 @@
 }
 
 .currentUserCard {
-  border-color: #3b82f6; /* border-blue-500 */
+  border-color: #3b82f6;
 }
