@@ -9,19 +9,31 @@ import {
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
-import { FaMapMarkerAlt, FaCog } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCog, FaTrash } from 'react-icons/fa';
 
-// Define types for our data for better TypeScript support
+// --- Type Definitions ---
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
-type FriendData = DocumentData & { uid: string; location?: Point; photoURL?: string; displayName?: string; currentArea?: string };
+type UserData = DocumentData & { 
+    uid: string; 
+    location?: Point; 
+    photoURL?: string; 
+    displayName?: string; 
+    currentArea?: string; 
+    friends?: string[];
+    useGps?: boolean;
+};
+type ConfirmAction = {
+    message: string;
+    onConfirm: () => void;
+};
 
 // --- Main Page Component ---
 export default function HomePage() {
-  // State Management
+  // --- State Management ---
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<FriendData | null>(null);
-  const [friendsData, setFriendsData] = useState<FriendData[]>([]);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [friendsData, setFriendsData] = useState<UserData[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isDevMode, setIsDevMode] = useState(false);
@@ -29,8 +41,9 @@ export default function HomePage() {
   const [friendEmail, setFriendEmail] = useState('');
   const [areaName, setAreaName] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
 
-  // Refs for DOM elements that need direct manipulation (like canvas)
+  // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentPolygonPoints = useRef<Point[]>([]);
@@ -41,10 +54,27 @@ export default function HomePage() {
     setActiveModal('alert');
   };
 
+  const showConfirm = (message: string, onConfirm: () => void) => {
+    setConfirmAction({ message, onConfirm });
+    setActiveModal('confirm');
+  };
+
   const getPublicProfileCollection = () => collection(db, `public/user_profiles/users`);
   const getUserDocRef = (uid: string) => doc(db, 'users', uid);
 
-  // --- Canvas Drawing Logic ---
+  const isPointInPolygon = (point: Point, polygon: Point[]): boolean => {
+    if (!polygon) return false;
+    let isInside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].x, yi = polygon[i].y;
+        const xj = polygon[j].x, yj = polygon[j].y;
+        const intersect = ((yi > point.y) !== (yj > point.y)) && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+        if (intersect) isInside = !isInside;
+    }
+    return isInside;
+  };
+
+  // --- Canvas Drawing & Map Logic ---
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -52,18 +82,16 @@ export default function HomePage() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw saved areas
     areas.forEach(area => {
       drawPolygon(ctx, area.polygon, 'rgba(29, 78, 216, 0.3)', 'rgba(29, 78, 216, 0.7)');
     });
 
-    // Draw the current polygon being created by the developer
     if (isDevMode && currentPolygonPoints.current.length > 0) {
-      drawPolygon(ctx, currentPolygonPoints.current, 'rgba(255, 255, 0, 0.3)', 'rgba(255, 255, 0, 0.7)');
+      drawPolygon(ctx, currentPolygonPoints.current, 'rgba(255, 255, 0, 0.3)', 'rgba(255, 255, 0, 0.7)', true);
     }
   }, [areas, isDevMode]);
 
-  const drawPolygon = (ctx: CanvasRenderingContext2D, points: Point[], fill: string, stroke: string) => {
+  const drawPolygon = (ctx: CanvasRenderingContext2D, points: Point[], fill: string, stroke: string, drawVertices = false) => {
     if (points.length < 1) return;
     const canvas = canvasRef.current!;
     ctx.fillStyle = fill;
@@ -79,9 +107,18 @@ export default function HomePage() {
       ctx.fill();
     }
     ctx.stroke();
+
+    if (drawVertices) {
+        ctx.fillStyle = 'yellow';
+        points.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x * canvas.width, p.y * canvas.height, 5, 0, 2 * Math.PI);
+            ctx.fill();
+        });
+    }
   };
 
-  // Resize canvas whenever the map image resizes
+  // Resize canvas when map image resizes
   useEffect(() => {
     const canvas = canvasRef.current;
     const mapImage = mapImageRef.current;
@@ -96,11 +133,16 @@ export default function HomePage() {
     resizeObserver.observe(mapImage);
     return () => resizeObserver.disconnect();
   }, [redrawCanvas]);
+  
+  // Redraw canvas whenever areas data changes
+  useEffect(() => {
+    redrawCanvas();
+  }, [areas, redrawCanvas]);
 
 
-  // --- Firebase & App Logic ---
+  // --- Event Handlers & App Logic ---
+
   const handlePasscodeSubmit = () => {
-    // In a real app, this would be a secure check.
     if (passcode === '1979') {
       setIsDevMode(true);
       setActiveModal('locations');
@@ -129,6 +171,19 @@ export default function HomePage() {
       showAlert("Could not save area.");
     }
   };
+
+  const handleDeleteArea = async (areaId: string) => {
+    const areaName = areas.find(a => a.id === areaId)?.name || 'the selected area';
+    showConfirm(`Are you sure you want to delete "${areaName}"?`, async () => {
+        try {
+            await deleteDoc(doc(db, 'areas', areaId));
+            showAlert("Area deleted successfully.");
+        } catch (error) {
+            console.error("Error deleting area:", error);
+            showAlert("Could not delete the area.");
+        }
+    });
+  };
   
   const handleAddFriend = async () => {
     if (!friendEmail || !currentUser) return;
@@ -145,6 +200,11 @@ export default function HomePage() {
         return showAlert("You can't add yourself as a friend!");
       }
 
+      const userFriends = userData?.friends || [];
+      if (userFriends.includes(friendUid)) {
+        return showAlert("This user is already your friend.");
+      }
+
       await updateDoc(getUserDocRef(currentUser.uid), {
         friends: arrayUnion(friendUid)
       });
@@ -158,8 +218,69 @@ export default function HomePage() {
     }
   };
 
+  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDevMode || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const pos = {
+        x: (event.clientX - rect.left) / rect.width,
+        y: (event.clientY - rect.top) / rect.height
+    };
 
-  // --- UseEffect Hooks for Data Subscriptions ---
+    if (currentPolygonPoints.current.length > 2) {
+        const firstPoint = currentPolygonPoints.current[0];
+        const clickRadius = 15 / canvas.width; 
+        if (Math.hypot(pos.x - firstPoint.x, pos.y - firstPoint.y) < clickRadius) {
+            setActiveModal('areaName');
+            return;
+        }
+    }
+
+    currentPolygonPoints.current.push(pos);
+    redrawCanvas();
+  };
+
+  const handleManualCheckIn = async (area: Area) => {
+    if (!currentUser || !area.polygon) return;
+    let cx = 0, cy = 0;
+    area.polygon.forEach(p => {
+        cx += p.x;
+        cy += p.y;
+    });
+    const centroid = {
+        x: cx / area.polygon.length,
+        y: cy / area.polygon.length,
+    };
+
+    try {
+        await updateDoc(getUserDocRef(currentUser.uid), {
+            location: centroid,
+            currentArea: area.name
+        });
+        setActiveModal(null);
+    } catch (error) {
+        console.error("Error checking in manually:", error);
+        showAlert("Could not perform check-in.");
+    }
+  };
+
+  const handleGpsToggle = async (useGps: boolean) => {
+    if (!currentUser) return;
+    try {
+        await updateDoc(getUserDocRef(currentUser.uid), { useGps });
+    } catch (error) {
+        console.error("Error updating GPS preference:", error);
+        showAlert("Could not save setting.");
+    }
+  };
+
+  const cancelDrawing = () => {
+    currentPolygonPoints.current = [];
+    setIsDevMode(false);
+    redrawCanvas();
+  };
+
+  // --- Data Subscription Hooks ---
   useEffect(() => {
     // Auth state listener
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -176,13 +297,14 @@ export default function HomePage() {
             email: user.email?.toLowerCase(),
             photoURL: user.photoURL
           };
-          await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown' });
+          await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true });
           await setDoc(publicProfileRef, profileData);
         }
       } else {
         setCurrentUser(null);
         setUserData(null);
         setFriendsData([]);
+        setIsDevMode(false);
       }
     });
 
@@ -196,41 +318,78 @@ export default function HomePage() {
       unsubscribeAuth();
       unsubscribeAreas();
     };
-  }, [redrawCanvas]);
+  }, []);
   
-  // Effect for listening to user and friend data changes
+  // User and friends data listener
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser?.uid) {
+      setUserData(null);
+      setFriendsData([]);
+      return;
+    }
 
     const unsubUser = onSnapshot(getUserDocRef(currentUser.uid), (doc) => {
-      setUserData(doc.data() as FriendData);
+      setUserData(doc.data() as UserData);
     });
-
-    let friendUnsubs: (() => void)[] = [];
-    if (userData?.friends && userData.friends.length > 0) {
-      friendUnsubs = userData.friends.map((friendId: string) =>
-        onSnapshot(getUserDocRef(friendId), (doc) => {
-          setFriendsData(prev => {
-            const otherFriends = prev.filter(f => f.uid !== friendId);
-            return [...otherFriends, { uid: doc.id, ...doc.data() }];
-          });
-        })
-      );
-    }
     
+    // This effect will re-run when userData or userData.friends changes
+    const friendIds = userData?.friends || [];
+    const unsubscribes = friendIds.map(friendId => 
+      onSnapshot(getUserDocRef(friendId), (doc) => {
+        const friendData = { uid: doc.id, ...doc.data() } as UserData;
+        setFriendsData(prevFriends => {
+          // Replace or add the updated friend data
+          const existingFriendIndex = prevFriends.findIndex(f => f.uid === friendId);
+          if (existingFriendIndex > -1) {
+            const newFriends = [...prevFriends];
+            newFriends[existingFriendIndex] = friendData;
+            return newFriends;
+          } else {
+            return [...prevFriends, friendData];
+          }
+        });
+      })
+    );
+    
+    // Cleanup friends that were removed
+    setFriendsData(prevFriends => prevFriends.filter(f => friendIds.includes(f.uid)));
+
     return () => {
       unsubUser();
-      friendUnsubs.forEach(unsub => unsub());
+      unsubscribes.forEach(unsub => unsub());
     };
-  }, [currentUser, userData?.friends]);
-  
-  // Redraw canvas whenever areas data changes
+  }, [currentUser?.uid, userData?.friends?.join(',')]); // Depend on joined string of friend UIDs
+
+  // --- MOCK LOCATION UPDATER ---
   useEffect(() => {
-    redrawCanvas();
-  }, [areas, redrawCanvas]);
+    // Always update location for the current user for testing (bouncing around)
+    if (!currentUser) return;
+    const intervalId = setInterval(() => {
+      // Only update if userData exists
+      if (userData) {
+        // Bounce around the map
+        const t = Date.now() / 1000;
+        const x = 0.5 + 0.4 * Math.sin(t / 5);
+        const y = 0.5 + 0.4 * Math.cos(t / 7);
+        let newAreaName = 'The Wilds';
+        for (const area of areas) {
+            if (isPointInPolygon({ x, y }, area.polygon)) {
+                newAreaName = area.name;
+                break;
+            }
+        }
+        updateDoc(getUserDocRef(currentUser.uid), {
+            location: { x, y },
+            currentArea: newAreaName
+        }).catch(err => console.error("Error in mock location update: ", err));
+      }
+    }, 2000); // Update every 2 seconds for more visible movement
+
+    return () => clearInterval(intervalId);
+  }, [currentUser, userData, areas]); // Rerun if user, userData, or areas change
 
 
-  // --- Main Render Logic ---
+  // --- Render Logic ---
   if (!currentUser) {
     return (
       <div className={styles.container}>
@@ -247,7 +406,7 @@ export default function HomePage() {
   }
   
   const allUsersOnMap = [userData, ...friendsData].filter(
-    (u): u is FriendData => !!u && !!u.location
+    (u): u is UserData => !!u && !!u.location
   );
 
   return (
@@ -258,7 +417,7 @@ export default function HomePage() {
           <h1 className={styles.headerTitle}>Beat-Herder Friend Finder</h1>
           <p className={styles.headerSubtitle}>Stay connected with your crew at the festival.</p>
         </div>
-        <button onClick={() => signOut(auth)} className={styles.dangerButton}>Sign Out</button>
+        <button onClick={() => { setIsDevMode(false); signOut(auth); }} className={styles.dangerButton}>Sign Out</button>
       </header>
 
       {/* --- USER/DEV CONTROLS --- */}
@@ -266,7 +425,7 @@ export default function HomePage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {userData?.photoURL && <Image src={userData.photoURL} alt="avatar" width={40} height={40} style={{ borderRadius: '50%' }} />}
           <span style={{ fontWeight: 600 }}>{userData?.displayName}</span>
-          <button onClick={() => setActiveModal('settings')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><FaCog size={20} /></button>
+          <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={() => setActiveModal('passcode')} className={styles.secondaryButton}>Developer Mode</button>
@@ -277,7 +436,8 @@ export default function HomePage() {
       {isDevMode && (
           <div className={styles.devPanel}>
               <h3 style={{fontWeight: 700}}>Developer Mode: Drawing Area</h3>
-              <p>Click on the map to draw. Click the first point again to close and name the shape.</p>
+              <p>Click on the map to draw. Click near the first point to finish and name the shape.</p>
+              <button onClick={cancelDrawing} className={styles.dangerButton} style={{padding: '0.25rem 0.75rem', marginTop: '0.5rem'}}>Cancel Drawing</button>
           </div>
       )}
       
@@ -290,36 +450,49 @@ export default function HomePage() {
           width={1200}
           height={800}
           className={styles.mapImage}
-          style={{ display: 'block' }}
-          onError={e => { (e.target as HTMLImageElement).style.background = '#fdd'; }}
         />
-        <canvas ref={canvasRef} className={styles.mapCanvas} />
-        {allUsersOnMap.map(u => (
+        <canvas 
+            ref={canvasRef} 
+            className={styles.mapCanvas}
+            onClick={handleCanvasClick}
+            style={{ cursor: isDevMode ? 'crosshair' : 'default' }}
+        />
+        {/* Always show your own marker if you have a location */}
+        {userData?.location && (
+          <div
+            key={userData.uid}
+            className={styles.userMarker}
+            style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%`, zIndex: 2 }}
+          >
+            <img src={userData.photoURL || "/default-avatar.png"} alt={userData.displayName || "You"} />
+            <div className={styles.nameLabel}>{(userData.displayName?.split(' ')[0]) || "You"}</div>
+          </div>
+        )}
+        {/* Show friends' markers */}
+        {friendsData.filter(f => !!f.location).map(u => (
           <div
             key={u.uid}
             className={styles.userMarker}
             style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}
           >
-            <img
-              src={u.photoURL || "/default-avatar.png"}
-              alt={u.displayName || "User"}
-            />
-            <div className={styles.nameLabel}>
-              {(u.displayName?.split(' ')[0]) || "User"}
-            </div>
+            <img src={u.photoURL || "/default-avatar.png"} alt={u.displayName || "User"} />
+            <div className={styles.nameLabel}>{(u.displayName?.split(' ')[0]) || "User"}</div>
           </div>
         ))}
       </div>
       
       {/* --- SQUAD LIST --- */}
       <div className={styles.squadList}>
-          {userData && <div className={`${styles.card} ${styles.currentUserCard}`}>
+          {/* Always show yourself in the squad list */}
+          {userData && (
+            <div className={`${styles.card} ${styles.currentUserCard}`}>
               <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
               <div>
                   <p style={{fontWeight: 'bold'}}>{userData.displayName} (You)</p>
                   <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
               </div>
-          </div>}
+            </div>
+          )}
           {friendsData.map(friend => (
               <div key={friend.uid} className={styles.card}>
                   <Image src={friend.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
@@ -332,35 +505,103 @@ export default function HomePage() {
       </div>
 
       {/* --- FLOATING BUTTON --- */}
-      <button className={styles.floatingButton}><FaMapMarkerAlt />Check In</button>
+      {userData?.useGps === false && (
+         <button onClick={() => setActiveModal('checkIn')} className={styles.floatingButton}><FaMapMarkerAlt />Check In</button>
+      )}
 
       {/* --- MODALS --- */}
       {activeModal && (
         <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
           <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+
             {activeModal === 'passcode' && (<>
               <h3 className={styles.modalHeader}>Enter Developer Passcode</h3>
-              <input type="password" value={passcode} onChange={e => setPasscode(e.target.value)} className={styles.textInput} />
+              <input type="password" value={passcode} onChange={e => setPasscode(e.target.value)} className={styles.textInput} autoFocus/>
               <div className={styles.modalActions}>
                 <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
                 <button onClick={handlePasscodeSubmit} className={styles.secondaryButton}>Submit</button>
               </div>
             </>)}
+
             {activeModal === 'addFriend' && (<>
               <h3 className={styles.modalHeader}>Add a Friend</h3>
-              <input type="email" placeholder="friend@example.com" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className={styles.textInput} />
+              <input type="email" placeholder="friend@example.com" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className={styles.textInput} autoFocus/>
               <div className={styles.modalActions}>
                 <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
                 <button onClick={handleAddFriend} className={styles.primaryButton}>Add</button>
               </div>
             </>)}
+
             {activeModal === 'alert' && (<>
-                <p>{alertMessage}</p>
-                <div className={styles.modalActions}>
+                <p style={{marginBottom: '1rem'}}>{alertMessage}</p>
+                <div className={styles.modalActions} style={{justifyContent: 'center'}}>
                     <button onClick={() => setActiveModal(null)} className={styles.primaryButton}>OK</button>
                 </div>
             </>)}
-            {/* You can add more modals here like 'settings', 'areaName', etc. following the same pattern */}
+
+            {activeModal === 'confirm' && confirmAction && (<>
+                <h3 className={styles.modalHeader}>Are you sure?</h3>
+                <p>{confirmAction.message}</p>
+                <div className={styles.modalActions}>
+                    <button onClick={() => { setActiveModal(null); setConfirmAction(null); }} className={styles.neutralButton}>Cancel</button>
+                    <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); setConfirmAction(null); }} className={styles.dangerButton}>Confirm</button>
+                </div>
+            </>)}
+
+            {activeModal === 'areaName' && (<>
+              <h3 className={styles.modalHeader}>Name This Area</h3>
+              <input type="text" placeholder="e.g., Main Stage" value={areaName} onChange={e => setAreaName(e.target.value)} className={styles.textInput} autoFocus/>
+              <div className={styles.modalActions}>
+                  <button onClick={() => { setActiveModal(null); currentPolygonPoints.current = []; redrawCanvas(); }} className={styles.neutralButton}>Cancel</button>
+                  <button onClick={handleSaveArea} className={styles.primaryButton}>Save</button>
+              </div>
+            </>)}
+
+            {activeModal === 'settings' && (<>
+                <h3 className={styles.modalHeader}>Settings</h3>
+                <div className={styles.settingItem}>
+                    <span>Use GPS Location</span>
+                    <label className={styles.switch}>
+                        <input type="checkbox" checked={userData?.useGps ?? true} onChange={e => handleGpsToggle(e.target.checked)} />
+                        <span className={styles.slider}></span>
+                    </label>
+                </div>
+                <p className={styles.settingHint}>Turn this off to enable manual check-ins.</p>
+                <div className={styles.modalActions}>
+                    <button onClick={() => setActiveModal(null)} className={styles.primaryButton}>Done</button>
+                </div>
+            </>)}
+
+            {activeModal === 'checkIn' && (<>
+              <h3 className={styles.modalHeader}>Check In To a Location</h3>
+              <div className={styles.locationsList}>
+                {areas.length > 0 ? areas.map(area => (
+                  <div key={area.id} className={styles.locationItem} onClick={() => handleManualCheckIn(area)}>
+                    {area.name}
+                  </div>
+                )) : <p>No locations defined.</p>}
+              </div>
+              <div className={styles.modalActions}>
+                <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
+              </div>
+            </>)}
+
+            {activeModal === 'locations' && (<>
+              <h3 className={styles.modalHeader}>Manage Locations</h3>
+              <div className={styles.locationsList}>
+                {areas.length > 0 ? areas.map(area => (
+                  <div key={area.id} className={styles.locationItemManager}>
+                    <span>{area.name}</span>
+                    <button onClick={() => handleDeleteArea(area.id)} className={styles.dangerButton}><FaTrash /></button>
+                  </div>
+                )) : <p>No locations created yet.</p>}
+              </div>
+              <div className={styles.modalActions}>
+                <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Close</button>
+                <button onClick={() => { setActiveModal(null); setIsDevMode(true); }} className={styles.primaryButton}>Add New Location</button>
+              </div>
+            </>)}
+
           </div>
         </div>
       )}
