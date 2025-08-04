@@ -7,7 +7,7 @@ import {
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection, 
   query, where, getDocs, addDoc, deleteDoc, DocumentData 
 } from "firebase/firestore";
-import { auth, db } from './lib/firebase';
+import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
 import { FaMapMarkerAlt, FaCog } from 'react-icons/fa';
 
