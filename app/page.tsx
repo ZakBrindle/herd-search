@@ -360,27 +360,33 @@ export default function HomePage() {
     };
   }, [currentUser?.uid, userData?.friends?.join(',')]); // Depend on joined string of friend UIDs
 
-  // Mock location update interval
+  // --- MOCK LOCATION UPDATER ---
   useEffect(() => {
+    // Always update location for the current user for testing (bouncing around)
+    if (!currentUser) return;
     const intervalId = setInterval(() => {
-      if (currentUser && userData?.useGps) {
-        const newLocation = { x: Math.random(), y: Math.random() };
+      // Only update if userData exists
+      if (userData) {
+        // Bounce around the map
+        const t = Date.now() / 1000;
+        const x = 0.5 + 0.4 * Math.sin(t / 5);
+        const y = 0.5 + 0.4 * Math.cos(t / 7);
         let newAreaName = 'The Wilds';
         for (const area of areas) {
-            if (isPointInPolygon(newLocation, area.polygon)) {
+            if (isPointInPolygon({ x, y }, area.polygon)) {
                 newAreaName = area.name;
                 break;
             }
         }
         updateDoc(getUserDocRef(currentUser.uid), {
-            location: newLocation,
+            location: { x, y },
             currentArea: newAreaName
         }).catch(err => console.error("Error in mock location update: ", err));
       }
-    }, 5000); // Update every 5 seconds
+    }, 2000); // Update every 2 seconds for more visible movement
 
     return () => clearInterval(intervalId);
-  }, [currentUser, userData?.useGps, areas]); // Rerun if user, GPS setting, or areas change
+  }, [currentUser, userData, areas]); // Rerun if user, userData, or areas change
 
 
   // --- Render Logic ---
@@ -451,7 +457,19 @@ export default function HomePage() {
             onClick={handleCanvasClick}
             style={{ cursor: isDevMode ? 'crosshair' : 'default' }}
         />
-        {allUsersOnMap.map(u => (
+        {/* Always show your own marker if you have a location */}
+        {userData?.location && (
+          <div
+            key={userData.uid}
+            className={styles.userMarker}
+            style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%`, zIndex: 2 }}
+          >
+            <img src={userData.photoURL || "/default-avatar.png"} alt={userData.displayName || "You"} />
+            <div className={styles.nameLabel}>{(userData.displayName?.split(' ')[0]) || "You"}</div>
+          </div>
+        )}
+        {/* Show friends' markers */}
+        {friendsData.filter(f => !!f.location).map(u => (
           <div
             key={u.uid}
             className={styles.userMarker}
@@ -465,13 +483,16 @@ export default function HomePage() {
       
       {/* --- SQUAD LIST --- */}
       <div className={styles.squadList}>
-          {userData && <div className={`${styles.card} ${styles.currentUserCard}`}>
+          {/* Always show yourself in the squad list */}
+          {userData && (
+            <div className={`${styles.card} ${styles.currentUserCard}`}>
               <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
               <div>
                   <p style={{fontWeight: 'bold'}}>{userData.displayName} (You)</p>
                   <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
               </div>
-          </div>}
+            </div>
+          )}
           {friendsData.map(friend => (
               <div key={friend.uid} className={styles.card}>
                   <Image src={friend.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
