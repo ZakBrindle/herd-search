@@ -283,14 +283,15 @@ export default function HomePage() {
       
       {/* --- MAP --- */}
       <div className={styles.mapContainer}>
-        <Image
+        <img
           ref={mapImageRef}
-          src="/Beatherder-Map.png"
+          src="/Beatherder Map.png"
           alt="Beat-Herder Festival Map"
           width={1200}
           height={800}
           className={styles.mapImage}
-          priority
+          style={{ display: 'block' }}
+          onError={e => { (e.target as HTMLImageElement).style.background = '#fdd'; }}
         />
         <canvas ref={canvasRef} className={styles.mapCanvas} />
         {allUsersOnMap.map(u => (
