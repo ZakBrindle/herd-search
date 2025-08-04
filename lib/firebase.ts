@@ -15,7 +15,7 @@ if (typeof window === "undefined") {
   });
 }
 
-// Check for missing env vars and throw a clear error
+// Check for missing env vars and throw a clear error -- fixed mapping
 const requiredEnv = [
   "NEXT_PUBLIC_FIREBASE_API_KEY",
   "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
