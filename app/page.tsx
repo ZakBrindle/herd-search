@@ -620,7 +620,8 @@ export default function HomePage() {
 
             {/* --- ADDED --- Modal for renaming an existing area */}
             {activeModal === 'renameArea' && renamingArea && (<>
-              <h3 className={styles.modalHeader}>Rename "{renamingArea.name}"</h3>
+              {/* --- FIXED --- Replaced " with &quot; to avoid unescaped entities error */}
+              <h3 className={styles.modalHeader}>Rename &quot;{renamingArea.name}&quot;</h3>
               <input 
                 type="text" 
                 value={newAreaName} 
