@@ -20,6 +20,7 @@ type UserData = DocumentData & {
     photoURL?: string; 
     displayName?: string; 
     currentArea?: string; 
+    lastKnownArea?: string;
     friends?: string[];
     useGps?: boolean;
 };
@@ -258,7 +259,8 @@ export default function HomePage() {
     try {
         await updateDoc(getUserDocRef(currentUser.uid), {
             location: centroid,
-            currentArea: area.name
+            currentArea: area.name,
+            lastKnownArea: area.name
         });
         setActiveModal(null);
     } catch (error) {
@@ -304,7 +306,7 @@ export default function HomePage() {
             email: user.email?.toLowerCase(),
             photoURL: user.photoURL
           };
-          await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true });
+          await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
           await setDoc(publicProfileRef, profileData);
         }
       } else {
@@ -393,10 +395,18 @@ export default function HomePage() {
                 break;
             }
         }
-        updateDoc(getUserDocRef(currentUser.uid), {
-            location: { x, y },
-            currentArea: newAreaName
-        }).catch(err => console.error("Error in mock location update: ", err));
+        
+        const updatePayload: any = {
+          location: { x, y },
+          currentArea: newAreaName
+        };
+
+        if (newAreaName !== 'The Wilds') {
+          updatePayload.lastKnownArea = newAreaName;
+        }
+
+        updateDoc(getUserDocRef(currentUser.uid), updatePayload)
+        .catch(err => console.error("Error in mock location update: ", err));
       }
     }, 2000); // Update every 2 seconds for more visible movement
 
@@ -506,7 +516,11 @@ export default function HomePage() {
               <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
               <div>
                   <p style={{fontWeight: 'bold'}}>{userData.displayName}</p>
-                  <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
+                   {userData.currentArea === 'The Wilds' ? (
+                    <p style={{fontSize: '0.9rem'}}>Last Seen: <span style={{fontWeight: 600}}>{userData.lastKnownArea || 'Unknown'}</span></p>
+                  ) : (
+                    <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
+                  )}
               </div>
             </div>
           )}
@@ -515,7 +529,11 @@ export default function HomePage() {
                   <Image src={friend.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
                   <div>
                       <p style={{fontWeight: 'bold'}}>{friend.displayName}</p>
-                      <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{friend.currentArea || 'Unknown'}</span></p>
+                      {friend.currentArea === 'The Wilds' ? (
+                        <p style={{fontSize: '0.9rem'}}>Last Seen: <span style={{fontWeight: 600}}>{friend.lastKnownArea || 'Unknown'}</span></p>
+                      ) : (
+                        <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{friend.currentArea || 'Unknown'}</span></p>
+                      )}
                   </div>
               </div>
           ))}
@@ -605,7 +623,11 @@ export default function HomePage() {
             <span>Developer Mode</span>
             <button
                 onClick={() => {
-                    setActiveModal('passcode');
+                    if (isDevMode) {
+                      setActiveModal('locations');
+                    } else {
+                      setActiveModal('passcode');
+                    }
                 }}
                 className={styles.secondaryButton}
             >
