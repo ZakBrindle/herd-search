@@ -441,9 +441,8 @@ export default function HomePage() {
     <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
   </div>
 
-  {/* Action Buttons - Only "Add Friend" remains here */}
+  {/* Action Buttons Container */}
   <div style={{ display: 'flex', gap: '0.5rem' }}>
-    <button onClick={() => setActiveModal('addFriend')} className={styles.primaryButton}>Add Friend</button>
   </div>
 </div>
       
@@ -520,6 +519,15 @@ export default function HomePage() {
                   </div>
               </div>
           ))}
+          {/* Invite Friends Card */}
+          <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
+              <div className={styles.inviteIconContainer}>
+                  <span className={styles.invitePlus}>+</span>
+              </div>
+              <div>
+                  <p style={{fontWeight: 'bold'}}>Invite Friends</p>
+              </div>
+          </div>
       </div>
 
       {/* --- FLOATING BUTTON --- */}

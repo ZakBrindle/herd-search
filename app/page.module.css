@@ -275,6 +275,7 @@
   width: 120px; /* Fixed width for cards */
   flex-shrink: 0; /* Prevent cards from shrinking */
   border: 2px solid transparent;
+  gap: 0.5rem; /* Add gap between card items */
 }
 
 .currentUserCard {
@@ -370,4 +371,36 @@ input:checked + .slider:before {
     border-radius: 0.5rem;
     background-color: #242436;
     margin-bottom: 0.5rem;
+}
+
+/* Styles for the new invite card */
+.inviteCard {
+  cursor: pointer;
+  border: 2px dashed #6c757d;
+  background-color: transparent;
+  justify-content: center;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.inviteCard:hover {
+  background-color: #35354d;
+  border-color: #7c5dfa;
+}
+
+.inviteIconContainer {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #494e61;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.invitePlus {
+    font-size: 28px;
+    color: #fff;
+    font-weight: 300;
+    line-height: 1;
+    transform: translateY(-1px); /* Optical centering */
 }
