@@ -376,49 +376,54 @@ export default function HomePage() {
   }, []);
   
   // User and friends data listener
+// Listener for current user's data
   useEffect(() => {
     if (!currentUser?.uid) {
       setUserData(null);
-      setFriendsData([]);
       setIsDeveloper(false);
       return;
     }
 
     const unsubUser = onSnapshot(getUserDocRef(currentUser.uid), (doc) => {
-      const data = doc.data() as UserData;
-      setUserData(data);
-      setIsDeveloper(data?.displayName === 'Zak Brindle');
+      if (doc.exists()) {
+        const data = doc.data() as UserData;
+        setUserData(data);
+        setIsDeveloper(data?.displayName === 'Zak Brindle');
+      }
     });
 
-    const friendIds = userData?.friends;
-    if (!friendIds) {
-      setFriendsData([]); // Clear friends if list is empty or doesn't exist
-      return;
-    }
+    return () => unsubUser();
+  }, [currentUser?.uid]);
 
-    const unsubscribes = friendIds.map(friendId => 
+  // Listener for friends' data - This now runs only when the friends list changes.
+  useEffect(() => {
+    const friendIds = userData?.friends || [];
+    
+    // Create listeners for each friend in the user's list
+    const unsubscribes = friendIds.map(friendId =>
       onSnapshot(getUserDocRef(friendId), (doc) => {
-        const friendData = { uid: doc.id, ...doc.data() } as UserData;
-        setFriendsData(prevFriends => {
-          const newFriends = [...prevFriends];
-          const existingFriendIndex = newFriends.findIndex(f => f.uid === friendId);
-          if (existingFriendIndex > -1) {
-            newFriends[existingFriendIndex] = friendData;
-          } else {
-            newFriends.push(friendData);
-          }
-          return newFriends;
-        });
+        // If a friend's document exists, add or update them in the local state
+        if (doc.exists()) {
+          const friendData = { uid: doc.id, ...doc.data() } as UserData;
+          setFriendsData(prevFriends => {
+            const otherFriends = prevFriends.filter(f => f.uid !== friendId);
+            return [...otherFriends, friendData];
+          });
+        } else {
+          // If a friend's document has been deleted, remove them from the local state
+          setFriendsData(prevFriends => prevFriends.filter(f => f.uid !== friendId));
+        }
       })
     );
-    
+
+    // When the friend list changes, remove any users from the UI who are no longer friends.
     setFriendsData(prevFriends => prevFriends.filter(f => friendIds.includes(f.uid)));
 
+    // Cleanup function to detach all listeners when the component unmounts or the friends list changes
     return () => {
-      unsubUser();
       unsubscribes.forEach(unsub => unsub());
     };
-  }, [currentUser?.uid, userData?.friends]); // Dependency on the array itself
+  }, [userData?.friends]); // T
 
   // --- MOCK LOCATION UPDATER ---
   useEffect(() => {
