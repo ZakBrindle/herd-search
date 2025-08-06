@@ -42,6 +42,7 @@ export default function HomePage() {
   const [areaName, setAreaName] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+   const [isDeveloper, setIsDeveloper] = useState(false);
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -331,11 +332,19 @@ export default function HomePage() {
     if (!currentUser?.uid) {
       setUserData(null);
       setFriendsData([]);
+      setIsDeveloper(false); // Reset on logout
       return;
     }
 
     const unsubUser = onSnapshot(getUserDocRef(currentUser.uid), (doc) => {
-      setUserData(doc.data() as UserData);
+     const data = doc.data() as UserData;
+      setUserData(data);
+      // Check if the user is the developer
+      if (data?.displayName === 'Zak Brindle') {
+        setIsDeveloper(true);
+      } else {
+        setIsDeveloper(false);
+      }
     });
     
     // This effect will re-run when userData or userData.friends changes
@@ -400,7 +409,7 @@ export default function HomePage() {
     return (
       <div className={styles.container}>
         <header className={styles.header}>
-            <h1 className={styles.headerTitle}>Beat-Herder Friend Finder</h1>
+            <h1 className={styles.headerTitle}>Herd Search</h1>
             <button onClick={() => signInWithPopup(auth, new GoogleAuthProvider())} className={styles.primaryButton}>Sign in with Google</button>
         </header>
         <div className={styles.card} style={{textAlign: 'center', padding: '2rem'}}>
@@ -424,17 +433,28 @@ export default function HomePage() {
 </header>
 
       {/* --- USER/DEV CONTROLS --- */}
-    <div className={styles.userControls}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {userData?.photoURL && <Image src={userData.photoURL} alt="avatar" width={40} height={40} style={{ borderRadius: '50%' }} />}
-          <span style={{ fontWeight: 600 }}>{userData?.displayName}</span>
-          <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={() => setActiveModal('passcode')} className={styles.secondaryButton}>Developer Mode</button>
-          <button onClick={() => setActiveModal('addFriend')} className={styles.primaryButton}>Add Friend</button>
-        </div>
-      </div>
+   <div className={styles.userControls}>
+  {/* User Info */}
+  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+    {userData?.photoURL && <Image src={userData.photoURL} alt="avatar" width={40} height={40} style={{ borderRadius: '50%' }} />}
+    <span style={{ fontWeight: 600 }}>{userData?.displayName}</span>
+    <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
+  </div>
+
+  {/* Action Buttons */}
+  <div style={{ display: 'flex', gap: '0.5rem' }}>
+    <button onClick={() => setActiveModal('addFriend')} className={styles.primaryButton}>Add Friend</button>
+    {/* This button will only render if isDeveloper is true */}
+    {isDeveloper && (
+      <button onClick={() => setActiveModal('passcode')} className={styles.secondaryButton}>
+        Developer Mode
+      </button>
+    )}
+    <button onClick={() => { setIsDevMode(false); signOut(auth); }} className={styles.dangerButton}>
+      Sign Out
+    </button>
+  </div>
+</div>
       
       {isDevMode && (
           <div className={styles.devPanel}>
@@ -566,7 +586,7 @@ export default function HomePage() {
 
             {activeModal === 'settings' && (<>
                 <h3 className={styles.modalHeader}>Settings</h3>
-                  <button onClick={() => { setIsDevMode(false); signOut(auth); }} className={styles.dangerButton}>Sign Out</button>
+                 
                 <div className={styles.settingItem}>
                     <span>Use GPS Location</span>
                     <label className={styles.switch}>
