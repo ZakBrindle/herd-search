@@ -485,6 +485,9 @@ export default function HomePage() {
       </div>
       
       {/* --- SQUAD LIST --- */}
+      <div style={{marginTop: '2rem', marginBottom: '0.5rem'}}>
+        <h2 className={styles.headerTitle} style={{fontSize: '1.5rem'}}>Your Squad</h2>
+      </div>
       <div className={styles.squadList}>
           {/* Always show yourself in the squad list */}
           {userData && (
@@ -565,7 +568,11 @@ export default function HomePage() {
                 <div className={styles.settingItem}>
                     <span>Use GPS Location</span>
                     <label className={styles.switch}>
-                        <input type="checkbox" checked={userData?.useGps ?? true} onChange={e => handleGpsToggle(e.target.checked)} />
+                        <input
+                          type="checkbox"
+                          checked={userData?.useGps ?? true}
+                          onChange={e => handleGpsToggle(e.target.checked)}
+                        />
                         <span className={styles.slider}></span>
                     </label>
                 </div>
