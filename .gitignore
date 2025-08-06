@@ -44,3 +44,6 @@ next-env.d.ts
 /lib/firebase.ts
 
 /.env.local
+
+serviceAccountKey.json
+set-developer-claim.js

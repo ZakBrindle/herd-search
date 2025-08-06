@@ -384,7 +384,7 @@ export default function HomePage() {
       const t = Date.now() / 1000;
       const x = 0.5 + 0.4 * Math.sin(t / 5);
       const y = 0.5 + 0.4 * Math.cos(t / 7);
-      let newAreaName = 'The Wilds';
+      let newAreaName = 'Out of Bounds';
       for (const area of areas) {
           if (isPointInPolygon({ x, y }, area.polygon)) {
               newAreaName = area.name;
@@ -397,7 +397,7 @@ export default function HomePage() {
         currentArea: newAreaName
       };
 
-      if (newAreaName !== 'The Wilds') {
+      if (newAreaName !== 'Out of Bounds') {
         updatePayload.lastKnownArea = newAreaName;
       }
 
