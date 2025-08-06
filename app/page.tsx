@@ -419,12 +419,9 @@ export default function HomePage() {
     <div className={styles.container}>
       {/* --- HEADER --- */}
       <header className={styles.header}>
-        <div>
-          <h1 className={styles.headerTitle}>Beat-Herder Friend Finder</h1>
-          <p className={styles.headerSubtitle}>Stay connected with your crew at the festival.</p>
-        </div>
-        <button onClick={() => { setIsDevMode(false); signOut(auth); }} className={styles.dangerButton}>Sign Out</button>
-      </header>
+  <div className={styles.logo}>Herd Search</div>
+
+</header>
 
       {/* --- USER/DEV CONTROLS --- */}
     <div className={styles.userControls}>
@@ -569,6 +566,7 @@ export default function HomePage() {
 
             {activeModal === 'settings' && (<>
                 <h3 className={styles.modalHeader}>Settings</h3>
+                  <button onClick={() => { setIsDevMode(false); signOut(auth); }} className={styles.dangerButton}>Sign Out</button>
                 <div className={styles.settingItem}>
                     <span>Use GPS Location</span>
                     <label className={styles.switch}>
