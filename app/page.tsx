@@ -43,7 +43,8 @@ export default function HomePage() {
   const [areaName, setAreaName] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
-   const [isDeveloper, setIsDeveloper] = useState(false);
+  const [isDeveloper, setIsDeveloper] = useState(false);
+  const [showZones, setShowZones] = useState(false); // --- ADD THIS --- New state for zone visibility
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -77,6 +78,7 @@ export default function HomePage() {
   };
 
   // --- Canvas Drawing & Map Logic ---
+  // --- UPDATE THIS --- Modified redrawCanvas to respect the showZones state
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -84,14 +86,17 @@ export default function HomePage() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    areas.forEach(area => {
-      drawPolygon(ctx, area.polygon, 'rgba(29, 78, 216, 0.3)', 'rgba(29, 78, 216, 0.7)');
-    });
+    // Only draw areas if the toggle is on
+    if (showZones) {
+      areas.forEach(area => {
+        drawPolygon(ctx, area.polygon, 'rgba(29, 78, 216, 0.3)', 'rgba(29, 78, 216, 0.7)');
+      });
+    }
 
     if (isDevMode && currentPolygonPoints.current.length > 0) {
       drawPolygon(ctx, currentPolygonPoints.current, 'rgba(255, 255, 0, 0.3)', 'rgba(255, 255, 0, 0.7)', true);
     }
-  }, [areas, isDevMode]);
+  }, [areas, isDevMode, showZones]); // --- UPDATE THIS --- Add showZones to dependency array
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -131,12 +136,10 @@ export default function HomePage() {
     }
   };
 
-  // Remove ResizeObserver effect
-
-  // Redraw canvas whenever areas data changes
+  // Redraw canvas whenever areas or showZones data changes
   useEffect(() => {
     redrawCanvas();
-  }, [areas, redrawCanvas]);
+  }, [areas, redrawCanvas, showZones]); // --- UPDATE THIS --- Add showZones dependency
 
   // Add window resize listener
   useEffect(() => {
@@ -600,55 +603,71 @@ export default function HomePage() {
                   <button onClick={handleSaveArea} className={styles.primaryButton}>Save</button>
               </div>
             </>)}
-
+            
+            {/* --- UPDATE THIS --- Updated settings modal with the new toggle */}
             {activeModal === 'settings' && (<>
-    <h3 className={styles.modalHeader}>Settings</h3>
+                <h3 className={styles.modalHeader}>Settings</h3>
 
-    <div className={styles.settingItem}>
-        <span>Use GPS Location</span>
-        <label className={styles.switch}>
-            <input
-                type="checkbox"
-                checked={userData?.useGps ?? true}
-                onChange={e => handleGpsToggle(e.target.checked)}
-            />
-            <span className={styles.slider}></span>
-        </label>
-    </div>
-    <p className={styles.settingHint}>Turn this off to enable manual check-ins.</p>
+                <div className={styles.settingItem}>
+                    <span>Use GPS Location</span>
+                    <label className={styles.switch}>
+                        <input
+                            type="checkbox"
+                            checked={userData?.useGps ?? true}
+                            onChange={e => handleGpsToggle(e.target.checked)}
+                        />
+                        <span className={styles.slider}></span>
+                    </label>
+                </div>
+                <p className={styles.settingHint}>Turn this off to enable manual check-ins.</p>
 
-    {/* Developer Mode button only shows for the authorized user */}
-    {isDeveloper && (
-        <div className={styles.settingItem}>
-            <span>Developer Mode</span>
-            <button
-                onClick={() => {
-                    if (isDevMode) {
-                      setActiveModal('locations');
-                    } else {
-                      setActiveModal('passcode');
-                    }
-                }}
-                className={styles.secondaryButton}
-            >
-                Manage Locations
-            </button>
-        </div>
-    )}
+                {/* --- ADD THIS --- New toggle for showing/hiding zones */}
+                <div className={styles.settingItem} style={{borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '1rem'}}>
+                    <span>Show Location Zones</span>
+                    <label className={styles.switch}>
+                        <input
+                            type="checkbox"
+                            checked={showZones}
+                            onChange={e => setShowZones(e.target.checked)}
+                        />
+                        <span className={styles.slider}></span>
+                    </label>
+                </div>
+                <p className={styles.settingHint}>Show or hide the defined areas on the map.</p>
 
-    <div className={styles.modalActions} style={{ marginTop: '2rem' }}>
-        <button
-            onClick={() => {
-                setIsDevMode(false);
-                signOut(auth);
-            }}
-            className={styles.dangerButton}
-        >
-            Sign Out
-        </button>
-        <button onClick={() => setActiveModal(null)} className={styles.primaryButton}>Done</button>
-    </div>
-</>)}
+
+                {/* Developer Mode button only shows for the authorized user */}
+                {isDeveloper && (
+                    <div className={styles.settingItem} style={{borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '1rem'}}>
+                        <span>Developer Mode</span>
+                        <button
+                            onClick={() => {
+                                if (isDevMode) {
+                                  setActiveModal('locations');
+                                } else {
+                                  setActiveModal('passcode');
+                                }
+                            }}
+                            className={styles.secondaryButton}
+                        >
+                            Manage Locations
+                        </button>
+                    </div>
+                )}
+
+                <div className={styles.modalActions} style={{ marginTop: '2rem' }}>
+                    <button
+                        onClick={() => {
+                            setIsDevMode(false);
+                            signOut(auth);
+                        }}
+                        className={styles.dangerButton}
+                    >
+                        Sign Out
+                    </button>
+                    <button onClick={() => setActiveModal(null)} className={styles.primaryButton}>Done</button>
+                </div>
+            </>)}
 
             {activeModal === 'checkIn' && (<>
               <h3 className={styles.modalHeader}>Check In To a Location</h3>
