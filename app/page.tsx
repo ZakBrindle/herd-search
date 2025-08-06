@@ -54,6 +54,8 @@ export default function HomePage() {
   // --- ADDED --- State to manage the area being renamed
   const [renamingArea, setRenamingArea] = useState<Area | null>(null);
   const [newAreaName, setNewAreaName] = useState('');
+  // --- ADDED --- State to manage the area selected for quick check-in
+  const [selectedAreaForCheckIn, setSelectedAreaForCheckIn] = useState<Area | null>(null);
 
 
   // --- Refs ---
@@ -249,8 +251,9 @@ export default function HomePage() {
     }
   };
 
+  // --- MODIFIED --- This function now handles both developer drawing and user-based area selection for check-in.
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDevMode || !canvasRef.current) return;
+    if (!canvasRef.current) return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const pos = {
@@ -258,19 +261,33 @@ export default function HomePage() {
         y: (event.clientY - rect.top) / rect.height
     };
 
-    if (currentPolygonPoints.current.length > 2) {
-        const firstPoint = currentPolygonPoints.current[0];
-        const clickRadius = 15 / canvas.width; 
-        if (Math.hypot(pos.x - firstPoint.x, pos.y - firstPoint.y) < clickRadius) {
-            setActiveModal('areaName');
-            return;
+    // Handle developer drawing mode
+    if (isDevMode) {
+        if (currentPolygonPoints.current.length > 2) {
+            const firstPoint = currentPolygonPoints.current[0];
+            const clickRadius = 15 / canvas.width; 
+            if (Math.hypot(pos.x - firstPoint.x, pos.y - firstPoint.y) < clickRadius) {
+                setActiveModal('areaName');
+                return;
+            }
         }
+        currentPolygonPoints.current.push(pos);
+        redrawCanvas();
+    } 
+    // Handle user check-in selection mode (only if GPS is off)
+    else if (userData?.useGps === false) {
+        let foundArea: Area | null = null;
+        for (const area of areas) {
+            if (isPointInPolygon(pos, area.polygon)) {
+                foundArea = area;
+                break;
+            }
+        }
+        setSelectedAreaForCheckIn(foundArea); // Sets the selected area, or null if click was outside all areas
     }
-
-    currentPolygonPoints.current.push(pos);
-    redrawCanvas();
   };
 
+  // --- MODIFIED --- Added logic to clear the selected area after check-in.
   const handleManualCheckIn = async (area: Area) => {
     if (!currentUser || !area.polygon) return;
     let cx = 0, cy = 0;
@@ -290,6 +307,8 @@ export default function HomePage() {
             lastKnownArea: area.name
         });
         setActiveModal(null);
+        // --- ADDED --- Clear the selected area after a successful check-in
+        setSelectedAreaForCheckIn(null);
     } catch (error) {
         console.error("Error checking in manually:", error);
         showAlert("Could not perform check-in.");
@@ -298,6 +317,10 @@ export default function HomePage() {
 
   const handleGpsToggle = async (useGps: boolean) => {
     if (!currentUser) return;
+    // --- ADDED --- When toggling GPS, clear any selected check-in area.
+    if (useGps) {
+      setSelectedAreaForCheckIn(null);
+    }
     setUserData(prev => prev ? { ...prev, useGps } : prev);
     try {
         await updateDoc(getUserDocRef(currentUser.uid), { useGps });
@@ -488,7 +511,8 @@ export default function HomePage() {
             ref={canvasRef} 
             className={styles.mapCanvas}
             onClick={handleCanvasClick}
-            style={{ cursor: isDevMode ? 'crosshair' : 'default' }}
+            // --- MODIFIED --- Cursor changes to a pointer if manual check-in is enabled, indicating a clickable map.
+            style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }}
         />
         {userData?.location && (
           <div
@@ -566,8 +590,27 @@ export default function HomePage() {
       </div>
 
       {/* --- FLOATING BUTTON --- */}
+      {/* --- MODIFIED --- This block now conditionally renders the correct check-in button. */}
       {userData?.useGps === false && (
-         <button onClick={() => setActiveModal('checkIn')} className={styles.floatingButton}><FaMapMarkerAlt />Check In</button>
+        <>
+          {/* Show the specific check-in button if an area is selected by clicking the map */}
+          {selectedAreaForCheckIn ? (
+            <button 
+              onClick={() => handleManualCheckIn(selectedAreaForCheckIn)} 
+              className={styles.floatingButton}
+            >
+              <FaMapMarkerAlt /> Check into {selectedAreaForCheckIn.name}
+            </button>
+          ) : (
+            // Otherwise, show the generic button to open the list modal
+            <button 
+              onClick={() => setActiveModal('checkIn')} 
+              className={styles.floatingButton}
+            >
+              <FaMapMarkerAlt />Check In
+            </button>
+          )}
+        </>
       )}
 
       {/* --- MODALS --- */}
