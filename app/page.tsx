@@ -506,7 +506,7 @@ export default function HomePage() {
             <div className={`${styles.card} ${styles.currentUserCard}`}>
               <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
               <div>
-                  <p style={{fontWeight: 'bold'}}>{userData.displayName} (You)</p>
+                  <p style={{fontWeight: 'bold'}}>{userData.displayName} 👑</p>
                   <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
               </div>
             </div>
