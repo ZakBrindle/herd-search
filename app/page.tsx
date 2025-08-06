@@ -362,11 +362,10 @@ export default function HomePage() {
 
   // --- MOCK LOCATION UPDATER ---
   useEffect(() => {
-    // Always update location for the current user for testing (bouncing around)
-    if (!currentUser) return;
+    // Only update location for the current user for testing (bouncing around)
+    if (!currentUser || userData?.useGps === false) return;
     const intervalId = setInterval(() => {
-      // Only update if userData exists
-      if (userData) {
+      if (userData && userData.useGps !== false) {
         // Bounce around the map
         const t = Date.now() / 1000;
         const x = 0.5 + 0.4 * Math.sin(t / 5);
@@ -383,7 +382,7 @@ export default function HomePage() {
             currentArea: newAreaName
         }).catch(err => console.error("Error in mock location update: ", err));
       }
-    }, 2000); // Update every 2 seconds for more visible movement
+    }, 2000);
 
     return () => clearInterval(intervalId);
   }, [currentUser, userData, areas]); // Rerun if user, userData, or areas change
@@ -432,56 +431,11 @@ export default function HomePage() {
           <button onClick={() => setActiveModal('addFriend')} className={styles.primaryButton}>Add Friend</button>
         </div>
       </div>
-      
-      {isDevMode && (
-          <div className={styles.devPanel}>
-              <h3 style={{fontWeight: 700}}>Developer Mode: Drawing Area</h3>
-              <p>Click on the map to draw. Click near the first point to finish and name the shape ✏️ </p>
-              <button onClick={cancelDrawing} className={styles.dangerButton} style={{padding: '0.25rem 0.75rem', marginTop: '0.5rem'}}>Cancel Drawing</button>
-          </div>
-      )}
-      
-      {/* --- MAP --- */}
-      <div className={styles.mapContainer}>
-        <img
-          ref={mapImageRef}
-          src="/Beatherder Map.png"
-          alt="Beat-Herder Festival Map"
-          width={1200}
-          height={800}
-          className={styles.mapImage}
-        />
-        <canvas 
-            ref={canvasRef} 
-            className={styles.mapCanvas}
-            onClick={handleCanvasClick}
-            style={{ cursor: isDevMode ? 'crosshair' : 'default' }}
-        />
-        {/* Always show your own marker if you have a location */}
-        {userData?.location && (
-          <div
-            key={userData.uid}
-            className={styles.userMarker}
-            style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%`, zIndex: 2 }}
-          >
-            <img src={userData.photoURL || "/default-avatar.png"} alt={userData.displayName || "You"} />
-            <div className={styles.nameLabel}>{(userData.displayName?.split(' ')[0]) || "You"}</div>
-          </div>
-        )}
-        {/* Show friends' markers */}
-        {friendsData.filter(f => !!f.location).map(u => (
-          <div
-            key={u.uid}
-            className={styles.userMarker}
-            style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}
-          >
-            <img src={u.photoURL || "/default-avatar.png"} alt={u.displayName || "User"} />
-            <div className={styles.nameLabel}>{(u.displayName?.split(' ')[0]) || "User"}</div>
-          </div>
-        ))}
-      </div>
-      
+
       {/* --- SQUAD LIST --- */}
+      <div style={{marginTop: '2rem', marginBottom: '0.5rem'}}>
+        <h2 className={styles.headerTitle} style={{fontSize: '1.5rem'}}>Your Squad</h2>
+      </div>
       <div className={styles.squadList}>
           {/* Always show yourself in the squad list */}
           {userData && (
@@ -562,7 +516,11 @@ export default function HomePage() {
                 <div className={styles.settingItem}>
                     <span>Use GPS Location</span>
                     <label className={styles.switch}>
-                        <input type="checkbox" checked={userData?.useGps ?? true} onChange={e => handleGpsToggle(e.target.checked)} />
+                        <input
+                          type="checkbox"
+                          checked={userData?.useGps ?? true}
+                          onChange={e => handleGpsToggle(e.target.checked)}
+                        />
                         <span className={styles.slider}></span>
                     </label>
                 </div>
