@@ -432,8 +432,8 @@ export default function HomePage() {
 
 </header>
 
-      {/* --- USER/DEV CONTROLS --- */}
-   <div className={styles.userControls}>
+ {/* --- USER/DEV CONTROLS --- */}
+<div className={styles.userControls}>
   {/* User Info */}
   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
     {userData?.photoURL && <Image src={userData.photoURL} alt="avatar" width={40} height={40} style={{ borderRadius: '50%' }} />}
@@ -441,18 +441,9 @@ export default function HomePage() {
     <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
   </div>
 
-  {/* Action Buttons */}
+  {/* Action Buttons - Only "Add Friend" remains here */}
   <div style={{ display: 'flex', gap: '0.5rem' }}>
     <button onClick={() => setActiveModal('addFriend')} className={styles.primaryButton}>Add Friend</button>
-    {/* This button will only render if isDeveloper is true */}
-    {isDeveloper && (
-      <button onClick={() => setActiveModal('passcode')} className={styles.secondaryButton}>
-        Developer Mode
-      </button>
-    )}
-    <button onClick={() => { setIsDevMode(false); signOut(auth); }} className={styles.dangerButton}>
-      Sign Out
-    </button>
   </div>
 </div>
       
@@ -585,24 +576,49 @@ export default function HomePage() {
             </>)}
 
             {activeModal === 'settings' && (<>
-                <h3 className={styles.modalHeader}>Settings</h3>
-                 
-                <div className={styles.settingItem}>
-                    <span>Use GPS Location</span>
-                    <label className={styles.switch}>
-                        <input
-                          type="checkbox"
-                          checked={userData?.useGps ?? true}
-                          onChange={e => handleGpsToggle(e.target.checked)}
-                        />
-                        <span className={styles.slider}></span>
-                    </label>
-                </div>
-                <p className={styles.settingHint}>Turn this off to enable manual check-ins.</p>
-                <div className={styles.modalActions}>
-                    <button onClick={() => setActiveModal(null)} className={styles.primaryButton}>Done</button>
-                </div>
-            </>)}
+    <h3 className={styles.modalHeader}>Settings</h3>
+
+    <div className={styles.settingItem}>
+        <span>Use GPS Location</span>
+        <label className={styles.switch}>
+            <input
+                type="checkbox"
+                checked={userData?.useGps ?? true}
+                onChange={e => handleGpsToggle(e.target.checked)}
+            />
+            <span className={styles.slider}></span>
+        </label>
+    </div>
+    <p className={styles.settingHint}>Turn this off to enable manual check-ins.</p>
+
+    {/* Developer Mode button only shows for the authorized user */}
+    {isDeveloper && (
+        <div className={styles.settingItem}>
+            <span>Developer Mode</span>
+            <button
+                onClick={() => {
+                    setActiveModal('passcode');
+                }}
+                className={styles.secondaryButton}
+            >
+                Manage Locations
+            </button>
+        </div>
+    )}
+
+    <div className={styles.modalActions} style={{ marginTop: '2rem' }}>
+        <button
+            onClick={() => {
+                setIsDevMode(false);
+                signOut(auth);
+            }}
+            className={styles.dangerButton}
+        >
+            Sign Out
+        </button>
+        <button onClick={() => setActiveModal(null)} className={styles.primaryButton}>Done</button>
+    </div>
+</>)}
 
             {activeModal === 'checkIn' && (<>
               <h3 className={styles.modalHeader}>Check In To a Location</h3>
