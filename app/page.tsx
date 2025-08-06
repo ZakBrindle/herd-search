@@ -9,7 +9,8 @@ import {
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
-import { FaMapMarkerAlt, FaCog, FaTrash } from 'react-icons/fa';
+// --- MODIFIED --- Added FaPencilAlt icon for renaming
+import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt } from 'react-icons/fa';
 
 // --- Type Definitions ---
 type Point = { x: number; y: number };
@@ -28,7 +29,6 @@ type ConfirmAction = {
     message: string;
     onConfirm: () => void;
 };
-// --- ADDED THIS TYPE --- to fix the 'any' type error
 type LocationUpdatePayload = {
   location: Point;
   currentArea: string;
@@ -51,6 +51,10 @@ export default function HomePage() {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [isDeveloper, setIsDeveloper] = useState(false);
   const [showZones, setShowZones] = useState(false);
+  // --- ADDED --- State to manage the area being renamed
+  const [renamingArea, setRenamingArea] = useState<Area | null>(null);
+  const [newAreaName, setNewAreaName] = useState('');
+
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -193,6 +197,24 @@ export default function HomePage() {
         }
     });
   };
+
+  // --- ADDED --- Function to handle the submission of a renamed area
+  const handleRenameArea = async () => {
+    if (!newAreaName || !renamingArea) {
+      return showAlert("Please provide a valid new name.");
+    }
+    try {
+      const areaRef = doc(db, 'areas', renamingArea.id);
+      await updateDoc(areaRef, { name: newAreaName });
+      showAlert("Area renamed successfully!");
+      setActiveModal('locations'); // Go back to the locations list
+      setRenamingArea(null);
+      setNewAreaName('');
+    } catch (error) {
+      console.error("Error renaming area:", error);
+      showAlert("Could not rename the area.");
+    }
+  };
   
   const handleAddFriend = async () => {
     if (!friendEmail || !currentUser) return;
@@ -330,7 +352,6 @@ export default function HomePage() {
     };
   }, []);
   
-  // --- FIXED THIS HOOK ---
   // User and friends data listener
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -469,7 +490,6 @@ export default function HomePage() {
             onClick={handleCanvasClick}
             style={{ cursor: isDevMode ? 'crosshair' : 'default' }}
         />
-        {/* --- FIXED IMAGE WARNINGS --- */}
         {userData?.location && (
           <div
             key={userData.uid}
@@ -597,6 +617,22 @@ export default function HomePage() {
                   <button onClick={handleSaveArea} className={styles.primaryButton}>Save</button>
               </div>
             </>)}
+
+            {/* --- ADDED --- Modal for renaming an existing area */}
+            {activeModal === 'renameArea' && renamingArea && (<>
+              <h3 className={styles.modalHeader}>Rename "{renamingArea.name}"</h3>
+              <input 
+                type="text" 
+                value={newAreaName} 
+                onChange={e => setNewAreaName(e.target.value)} 
+                className={styles.textInput} 
+                autoFocus
+              />
+              <div className={styles.modalActions}>
+                  <button onClick={() => { setActiveModal('locations'); setRenamingArea(null); }} className={styles.neutralButton}>Cancel</button>
+                  <button onClick={handleRenameArea} className={styles.primaryButton}>Save</button>
+              </div>
+            </>)}
             
             {activeModal === 'settings' && (<>
                 <h3 className={styles.modalHeader}>Settings</h3>
@@ -680,7 +716,27 @@ export default function HomePage() {
                 {areas.length > 0 ? areas.map(area => (
                   <div key={area.id} className={styles.locationItemManager}>
                     <span>{area.name}</span>
-                    <button onClick={() => handleDeleteArea(area.id)} className={styles.dangerButton}><FaTrash /></button>
+                    {/* --- MODIFIED --- Added a container for the action buttons */}
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        onClick={() => {
+                          setRenamingArea(area);
+                          setNewAreaName(area.name);
+                          setActiveModal('renameArea');
+                        }} 
+                        className={styles.secondaryButton}
+                        aria-label={`Rename ${area.name}`}
+                      >
+                        <FaPencilAlt />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteArea(area.id)} 
+                        className={styles.dangerButton}
+                        aria-label={`Delete ${area.name}`}
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
                   </div>
                 )) : <p>No locations created yet.</p>}
               </div>
