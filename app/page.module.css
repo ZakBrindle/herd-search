@@ -154,6 +154,39 @@
   white-space: nowrap;
 }
 
+/* Add this to your page.module.css file */
+.userControls {
+  background-color: #35354d;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Add this to your page.module.css file */
+.iconButton {
+  background: none;
+  border: none;
+  color: #a8b2c1; /* Lighter icon color */
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+.iconButton:hover {
+  background-color: #494e61;
+  color: #fff;
+}
+
 /* === Modals === */
 .modalOverlay {
   position: fixed;

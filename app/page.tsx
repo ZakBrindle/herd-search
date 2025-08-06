@@ -427,7 +427,7 @@ export default function HomePage() {
       </header>
 
       {/* --- USER/DEV CONTROLS --- */}
-      <div className={styles.card} style={{ justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+    <div className={styles.userControls}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {userData?.photoURL && <Image src={userData.photoURL} alt="avatar" width={40} height={40} style={{ borderRadius: '50%' }} />}
           <span style={{ fontWeight: 600 }}>{userData?.displayName}</span>
