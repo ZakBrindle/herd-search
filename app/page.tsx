@@ -28,6 +28,12 @@ type ConfirmAction = {
     message: string;
     onConfirm: () => void;
 };
+// --- ADDED THIS TYPE --- to fix the 'any' type error
+type LocationUpdatePayload = {
+  location: Point;
+  currentArea: string;
+  lastKnownArea?: string;
+};
 
 // --- Main Page Component ---
 export default function HomePage() {
@@ -44,7 +50,7 @@ export default function HomePage() {
   const [alertMessage, setAlertMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [isDeveloper, setIsDeveloper] = useState(false);
-  const [showZones, setShowZones] = useState(false); // --- ADD THIS --- New state for zone visibility
+  const [showZones, setShowZones] = useState(false);
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -78,7 +84,6 @@ export default function HomePage() {
   };
 
   // --- Canvas Drawing & Map Logic ---
-  // --- UPDATE THIS --- Modified redrawCanvas to respect the showZones state
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -86,7 +91,6 @@ export default function HomePage() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Only draw areas if the toggle is on
     if (showZones) {
       areas.forEach(area => {
         drawPolygon(ctx, area.polygon, 'rgba(29, 78, 216, 0.3)', 'rgba(29, 78, 216, 0.7)');
@@ -96,7 +100,7 @@ export default function HomePage() {
     if (isDevMode && currentPolygonPoints.current.length > 0) {
       drawPolygon(ctx, currentPolygonPoints.current, 'rgba(255, 255, 0, 0.3)', 'rgba(255, 255, 0, 0.7)', true);
     }
-  }, [areas, isDevMode, showZones]); // --- UPDATE THIS --- Add showZones to dependency array
+  }, [areas, isDevMode, showZones]);
 
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -136,12 +140,10 @@ export default function HomePage() {
     }
   };
 
-  // Redraw canvas whenever areas or showZones data changes
   useEffect(() => {
     redrawCanvas();
-  }, [areas, redrawCanvas, showZones]); // --- UPDATE THIS --- Add showZones dependency
+  }, [areas, redrawCanvas, showZones]);
 
-  // Add window resize listener
   useEffect(() => {
     window.addEventListener('resize', resizeCanvas);
     return () => window.removeEventListener('resize', resizeCanvas);
@@ -274,12 +276,10 @@ export default function HomePage() {
 
   const handleGpsToggle = async (useGps: boolean) => {
     if (!currentUser) return;
-    // Optimistically update UI
     setUserData(prev => prev ? { ...prev, useGps } : prev);
     try {
         await updateDoc(getUserDocRef(currentUser.uid), { useGps });
     } catch (error) {
-        // Revert if error
         setUserData(prev => prev ? { ...prev, useGps: !useGps } : prev);
         console.error("Error updating GPS preference:", error);
         showAlert("Could not save setting.");
@@ -294,7 +294,6 @@ export default function HomePage() {
 
   // --- Data Subscription Hooks ---
   useEffect(() => {
-    // Auth state listener
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user);
@@ -320,7 +319,6 @@ export default function HomePage() {
       }
     });
 
-    // Areas listener
     const unsubscribeAreas = onSnapshot(collection(db, "areas"), (snapshot) => {
         const areasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Area[];
         setAreas(areasData);
@@ -332,89 +330,84 @@ export default function HomePage() {
     };
   }, []);
   
+  // --- FIXED THIS HOOK ---
   // User and friends data listener
   useEffect(() => {
     if (!currentUser?.uid) {
       setUserData(null);
       setFriendsData([]);
-      setIsDeveloper(false); // Reset on logout
+      setIsDeveloper(false);
       return;
     }
 
     const unsubUser = onSnapshot(getUserDocRef(currentUser.uid), (doc) => {
-     const data = doc.data() as UserData;
+      const data = doc.data() as UserData;
       setUserData(data);
-      // Check if the user is the developer
-      if (data?.displayName === 'Zak Brindle') {
-        setIsDeveloper(true);
-      } else {
-        setIsDeveloper(false);
-      }
+      setIsDeveloper(data?.displayName === 'Zak Brindle');
     });
-    
-    // This effect will re-run when userData or userData.friends changes
-    const friendIds = userData?.friends || [];
+
+    const friendIds = userData?.friends;
+    if (!friendIds) {
+      setFriendsData([]); // Clear friends if list is empty or doesn't exist
+      return;
+    }
+
     const unsubscribes = friendIds.map(friendId => 
       onSnapshot(getUserDocRef(friendId), (doc) => {
         const friendData = { uid: doc.id, ...doc.data() } as UserData;
         setFriendsData(prevFriends => {
-          // Replace or add the updated friend data
-          const existingFriendIndex = prevFriends.findIndex(f => f.uid === friendId);
+          const newFriends = [...prevFriends];
+          const existingFriendIndex = newFriends.findIndex(f => f.uid === friendId);
           if (existingFriendIndex > -1) {
-            const newFriends = [...prevFriends];
             newFriends[existingFriendIndex] = friendData;
-            return newFriends;
           } else {
-            return [...prevFriends, friendData];
+            newFriends.push(friendData);
           }
+          return newFriends;
         });
       })
     );
     
-    // Cleanup friends that were removed
     setFriendsData(prevFriends => prevFriends.filter(f => friendIds.includes(f.uid)));
 
     return () => {
       unsubUser();
       unsubscribes.forEach(unsub => unsub());
     };
-  }, [currentUser?.uid, userData?.friends?.join(',')]); // Depend on joined string of friend UIDs
+  }, [currentUser?.uid, userData?.friends]); // Dependency on the array itself
 
   // --- MOCK LOCATION UPDATER ---
   useEffect(() => {
-    // Always update location for the current user for testing (bouncing around)
-    if (!currentUser) return;
+    if (!currentUser || !userData) return;
+    
     const intervalId = setInterval(() => {
-      // Only update if userData exists
-      if (userData) {
-        // Bounce around the map
-        const t = Date.now() / 1000;
-        const x = 0.5 + 0.4 * Math.sin(t / 5);
-        const y = 0.5 + 0.4 * Math.cos(t / 7);
-        let newAreaName = 'The Wilds';
-        for (const area of areas) {
-            if (isPointInPolygon({ x, y }, area.polygon)) {
-                newAreaName = area.name;
-                break;
-            }
-        }
-        
-        const updatePayload: any = {
-          location: { x, y },
-          currentArea: newAreaName
-        };
-
-        if (newAreaName !== 'The Wilds') {
-          updatePayload.lastKnownArea = newAreaName;
-        }
-
-        updateDoc(getUserDocRef(currentUser.uid), updatePayload)
-        .catch(err => console.error("Error in mock location update: ", err));
+      const t = Date.now() / 1000;
+      const x = 0.5 + 0.4 * Math.sin(t / 5);
+      const y = 0.5 + 0.4 * Math.cos(t / 7);
+      let newAreaName = 'The Wilds';
+      for (const area of areas) {
+          if (isPointInPolygon({ x, y }, area.polygon)) {
+              newAreaName = area.name;
+              break;
+          }
       }
-    }, 2000); // Update every 2 seconds for more visible movement
+      
+      const updatePayload: LocationUpdatePayload = {
+        location: { x, y },
+        currentArea: newAreaName
+      };
+
+      if (newAreaName !== 'The Wilds') {
+        updatePayload.lastKnownArea = newAreaName;
+      }
+
+      updateDoc(getUserDocRef(currentUser.uid), updatePayload)
+        .catch(err => console.error("Error in mock location update: ", err));
+        
+    }, 2000);
 
     return () => clearInterval(intervalId);
-  }, [currentUser, userData, areas]); // Rerun if user, userData, or areas change
+  }, [currentUser, userData, areas]);
 
 
   // --- Render Logic ---
@@ -433,31 +426,22 @@ export default function HomePage() {
     );
   }
   
-  const allUsersOnMap = [userData, ...friendsData].filter(
-    (u): u is UserData => !!u && !!u.location
-  );
-
   return (
     <div className={styles.container}>
       {/* --- HEADER --- */}
       <header className={styles.header}>
-  <div className={styles.logo}>Herd Search</div>
+        <div className={styles.logo}>Herd Search</div>
+      </header>
 
-</header>
-
- {/* --- USER/DEV CONTROLS --- */}
-<div className={styles.userControls}>
-  {/* User Info */}
-  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-    {userData?.photoURL && <Image src={userData.photoURL} alt="avatar" width={40} height={40} style={{ borderRadius: '50%' }} />}
-    <span style={{ fontWeight: 600 }}>{userData?.displayName}</span>
-    <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
-  </div>
-
-  {/* Action Buttons Container */}
-  <div style={{ display: 'flex', gap: '0.5rem' }}>
-  </div>
-</div>
+      {/* --- USER/DEV CONTROLS --- */}
+      <div className={styles.userControls}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {userData?.photoURL && <Image src={userData.photoURL} alt="avatar" width={40} height={40} style={{ borderRadius: '50%' }} />}
+          <span style={{ fontWeight: 600 }}>{userData?.displayName}</span>
+          <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}></div>
+      </div>
       
       {isDevMode && (
           <div className={styles.devPanel}>
@@ -469,7 +453,7 @@ export default function HomePage() {
       
       {/* --- MAP --- */}
       <div className={styles.mapContainer}>
-        <img
+        <Image
           ref={mapImageRef}
           src="/Beatherder Map.png"
           alt="Beat-Herder Festival Map"
@@ -477,6 +461,7 @@ export default function HomePage() {
           height={800}
           className={styles.mapImage}
           onLoad={resizeCanvas}
+          priority // Prioritize loading the main map image
         />
         <canvas 
             ref={canvasRef} 
@@ -484,25 +469,36 @@ export default function HomePage() {
             onClick={handleCanvasClick}
             style={{ cursor: isDevMode ? 'crosshair' : 'default' }}
         />
-        {/* Always show your own marker if you have a location */}
+        {/* --- FIXED IMAGE WARNINGS --- */}
         {userData?.location && (
           <div
             key={userData.uid}
             className={styles.userMarker}
             style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%`, zIndex: 2 }}
           >
-            <img src={userData.photoURL || "/default-avatar.png"} alt={userData.displayName || "You"} />
+            <Image 
+              src={userData.photoURL || "/default-avatar.png"} 
+              alt={userData.displayName || "You"}
+              width={32}
+              height={32}
+              style={{ borderRadius: '50%' }}
+            />
             <div className={styles.nameLabel}>{(userData.displayName?.split(' ')[0]) || "You"}</div>
           </div>
         )}
-        {/* Show friends' markers */}
         {friendsData.filter(f => !!f.location).map(u => (
           <div
             key={u.uid}
             className={styles.userMarker}
             style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}
           >
-            <img src={u.photoURL || "/default-avatar.png"} alt={u.displayName || "User"} />
+            <Image 
+              src={u.photoURL || "/default-avatar.png"} 
+              alt={u.displayName || "User"}
+              width={32}
+              height={32}
+              style={{ borderRadius: '50%' }}
+            />
             <div className={styles.nameLabel}>{(u.displayName?.split(' ')[0]) || "User"}</div>
           </div>
         ))}
@@ -513,7 +509,6 @@ export default function HomePage() {
         <h2 className={styles.headerTitle} style={{fontSize: '1.5rem'}}>Your Squad</h2>
       </div>
       <div className={styles.squadList}>
-          {/* Always show yourself in the squad list */}
           {userData && (
             <div className={`${styles.card} ${styles.currentUserCard}`}>
               <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
@@ -540,7 +535,6 @@ export default function HomePage() {
                   </div>
               </div>
           ))}
-          {/* Invite Friends Card */}
           <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
               <div className={styles.inviteIconContainer}>
                   <span className={styles.invitePlus}>+</span>
@@ -604,7 +598,6 @@ export default function HomePage() {
               </div>
             </>)}
             
-            {/* --- UPDATE THIS --- Updated settings modal with the new toggle */}
             {activeModal === 'settings' && (<>
                 <h3 className={styles.modalHeader}>Settings</h3>
 
@@ -621,7 +614,6 @@ export default function HomePage() {
                 </div>
                 <p className={styles.settingHint}>Turn this off to enable manual check-ins.</p>
 
-                {/* --- ADD THIS --- New toggle for showing/hiding zones */}
                 <div className={styles.settingItem} style={{borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '1rem'}}>
                     <span>Show Location Zones</span>
                     <label className={styles.switch}>
@@ -636,7 +628,6 @@ export default function HomePage() {
                 <p className={styles.settingHint}>Show or hide the defined areas on the map.</p>
 
 
-                {/* Developer Mode button only shows for the authorized user */}
                 {isDeveloper && (
                     <div className={styles.settingItem} style={{borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '1rem'}}>
                         <span>Developer Mode</span>
