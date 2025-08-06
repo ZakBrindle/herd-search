@@ -75,17 +75,6 @@ export default function HomePage() {
   };
 
   // --- Canvas Drawing & Map Logic ---
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const mapImage = mapImageRef.current;
-    if (!canvas || !mapImage) return;
-    if (mapImage.clientWidth > 0) {
-      canvas.width = mapImage.clientWidth;
-      canvas.height = mapImage.clientHeight;
-      redrawCanvas();
-    }
-  }, [redrawCanvas]);
-
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -101,6 +90,17 @@ export default function HomePage() {
       drawPolygon(ctx, currentPolygonPoints.current, 'rgba(255, 255, 0, 0.3)', 'rgba(255, 255, 0, 0.7)', true);
     }
   }, [areas, isDevMode]);
+
+  const resizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const mapImage = mapImageRef.current;
+    if (!canvas || !mapImage) return;
+    if (mapImage.clientWidth > 0) {
+      canvas.width = mapImage.clientWidth;
+      canvas.height = mapImage.clientHeight;
+      redrawCanvas();
+    }
+  }, [redrawCanvas]);
 
   const drawPolygon = (ctx: CanvasRenderingContext2D, points: Point[], fill: string, stroke: string, drawVertices = false) => {
     if (points.length < 1) return;
