@@ -268,9 +268,13 @@ export default function HomePage() {
 
   const handleGpsToggle = async (useGps: boolean) => {
     if (!currentUser) return;
+    // Optimistically update UI
+    setUserData(prev => prev ? { ...prev, useGps } : prev);
     try {
         await updateDoc(getUserDocRef(currentUser.uid), { useGps });
     } catch (error) {
+        // Revert if error
+        setUserData(prev => prev ? { ...prev, useGps: !useGps } : prev);
         console.error("Error updating GPS preference:", error);
         showAlert("Could not save setting.");
     }
