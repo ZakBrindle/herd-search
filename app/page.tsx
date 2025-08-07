@@ -9,14 +9,14 @@ import {
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
-import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaUserPlus, FaCheck, FaTimes, FaSignOutAlt } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaUserPlus, FaCheck, FaTimes, FaSignOutAlt, FaCrown } from 'react-icons/fa';
 
 // --- Type Definitions ---
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
 type UserData = DocumentData & { 
     uid: string; 
-    ownerId: string; // --- ADDED --- ID of the squad owner
+    ownerId: string;
     location?: Point; 
     photoURL?: string; 
     displayName?: string; 
@@ -65,14 +65,12 @@ export default function HomePage() {
   const [selectedAreaForCheckIn, setSelectedAreaForCheckIn] = useState<Area | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
-  // --- ADDED --- State for remove mode
   const [userToRemove, setUserToRemove] = useState<UserData | null>(null);
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentPolygonPoints = useRef<Point[]>([]);
-  // --- ADDED --- Ref for long press timer
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
 
 
@@ -242,13 +240,12 @@ export default function HomePage() {
     }
   };
 
-  // --- MODIFIED --- When accepting, user joins the inviter's squad
   const handleAcceptRequest = async (request: FriendRequest) => {
     if (!currentUser) return;
     const batch = writeBatch(db);
 
     const currentUserRef = getUserDocRef(currentUser.uid);
-    batch.update(currentUserRef, { friends: arrayUnion(request.from), ownerId: request.from }); // Join the squad
+    batch.update(currentUserRef, { friends: arrayUnion(request.from), ownerId: request.from });
 
     const friendUserRef = getUserDocRef(request.from);
     batch.update(friendUserRef, { friends: arrayUnion(request.to) });
@@ -272,18 +269,15 @@ export default function HomePage() {
     }
   };
 
-  // --- ADDED --- Logic to remove a friend from the squad
   const handleRemoveFriend = async () => {
     if (!userToRemove || !currentUser) return;
     const batch = writeBatch(db);
 
-    // Remove friend from current user's list
     batch.update(getUserDocRef(currentUser.uid), { friends: arrayRemove(userToRemove.uid) });
     
-    // Remove current user from friend's list and reset their ownerId
     batch.update(getUserDocRef(userToRemove.uid), { 
       friends: arrayRemove(currentUser.uid),
-      ownerId: userToRemove.uid // Reset friend to be their own squad owner
+      ownerId: userToRemove.uid
     });
 
     try {
@@ -296,16 +290,13 @@ export default function HomePage() {
     }
   };
 
-  // --- ADDED --- Logic for a user to leave a squad
   const handleLeaveSquad = async () => {
     if (!currentUser || !userData || userData.uid === userData.ownerId) return;
     const batch = writeBatch(db);
     const ownerId = userData.ownerId;
 
-    // Remove user from owner's friend list
     batch.update(getUserDocRef(ownerId), { friends: arrayRemove(currentUser.uid) });
 
-    // Reset user's ownerId and remove owner from their friend list
     batch.update(getUserDocRef(currentUser.uid), {
       ownerId: currentUser.uid,
       friends: arrayRemove(ownerId)
@@ -321,13 +312,50 @@ export default function HomePage() {
     }
   };
 
+  // --- ADDED --- Function to become squad leader
+  const handleBecomeSquadLeader = async () => {
+    if (!currentUser || !userData || !isDeveloper) return;
+    if (userData.uid === userData.ownerId) {
+        return showAlert("You are already the squad leader.");
+    }
 
-  // --- ADDED --- Long press handlers for friend cards
+    const oldOwnerId = userData.ownerId;
+    const newOwnerId = currentUser.uid;
+
+    showConfirm("This will make you the leader of your current squad. Proceed?", async () => {
+        try {
+            const batch = writeBatch(db);
+            const usersRef = collection(db, 'users');
+            
+            // Find all users in the old squad
+            const q = query(usersRef, where("ownerId", "==", oldOwnerId));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                 // This case is unlikely if you are in the squad, but as a fallback, make yourself the owner
+                 batch.update(getUserDocRef(newOwnerId), { ownerId: newOwnerId });
+            } else {
+                // Update ownerId for all members of the old squad to the new owner
+                querySnapshot.forEach((doc) => {
+                    batch.update(doc.ref, { ownerId: newOwnerId });
+                });
+            }
+
+            await batch.commit();
+            setActiveModal(null);
+            showToast("You are now the squad leader!");
+        } catch (error) {
+            console.error("Error becoming squad leader:", error);
+            showAlert("An error occurred while taking over the squad.");
+        }
+    });
+  };
+
   const handleTouchStart = (friend: UserData) => {
-    if (userData?.uid !== userData?.ownerId) return; // Only owner can remove
+    if (userData?.uid !== userData?.ownerId) return;
     pressTimer.current = setTimeout(() => {
       setUserToRemove(friend);
-    }, 800); // 800ms for long press
+    }, 800);
   };
 
   const handleTouchEnd = () => {
@@ -338,10 +366,9 @@ export default function HomePage() {
 
   const handleCardClick = (friend: UserData) => {
     if (userToRemove && userToRemove.uid === friend.uid) {
-      setUserToRemove(null); // Click again to cancel remove mode
+      setUserToRemove(null);
     }
   };
-
 
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
@@ -419,7 +446,6 @@ export default function HomePage() {
 
         if (!userDoc.exists()) {
           const profileData = { uid: user.uid, displayName: user.displayName, email: user.email?.toLowerCase(), photoURL: user.photoURL };
-          // --- MODIFIED --- New users are their own squad owner by default
           await setDoc(userRef, { ...profileData, ownerId: user.uid, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
           await setDoc(publicProfileRef, profileData);
         }
@@ -479,20 +505,38 @@ export default function HomePage() {
     return () => unsubscribe();
   }, [currentUser?.uid]);
 
+  // --- MOCK LOCATION UPDATER ---
   useEffect(() => {
-    if (!currentUser || !userData) return;
+    if (!currentUser || !userData || !userData.useGps) {
+        return;
+    }
+    
     const intervalId = setInterval(() => {
       const t = Date.now() / 1000;
       const x = 0.5 + 0.4 * Math.sin(t / 5);
       const y = 0.5 + 0.4 * Math.cos(t / 7);
       let newAreaName = 'Out of Bounds';
       for (const area of areas) {
-          if (isPointInPolygon({ x, y }, area.polygon)) { newAreaName = area.name; break; }
+          if (isPointInPolygon({ x, y }, area.polygon)) {
+              newAreaName = area.name;
+              break;
+          }
       }
-      const updatePayload: LocationUpdatePayload = { location: { x, y }, currentArea: newAreaName };
-      if (newAreaName !== 'Out of Bounds') updatePayload.lastKnownArea = newAreaName;
-      updateDoc(getUserDocRef(currentUser.uid), updatePayload).catch(err => console.error("Error in mock location update: ", err));
+      
+      const updatePayload: LocationUpdatePayload = {
+        location: { x, y },
+        currentArea: newAreaName
+      };
+
+      if (newAreaName !== 'Out of Bounds') {
+        updatePayload.lastKnownArea = newAreaName;
+      }
+
+      updateDoc(getUserDocRef(currentUser.uid), updatePayload)
+        .catch(err => console.error("Error in mock location update: ", err));
+        
     }, 2000);
+
     return () => clearInterval(intervalId);
   }, [currentUser, userData, areas]);
 
@@ -581,7 +625,6 @@ export default function HomePage() {
             </div>
           )}
           {friendsData.map(friend => (
-              // --- MODIFIED --- Card now has long press and click handlers for remove mode
               <div 
                 key={friend.uid} 
                 className={`${styles.card} ${userToRemove?.uid === friend.uid ? styles.highlightedCard : ''}`}
@@ -598,7 +641,6 @@ export default function HomePage() {
                   </div>
               </div>
           ))}
-          {/* --- MODIFIED --- Invite card only shows for the squad owner */}
           {userData && userData.uid === userData.ownerId && (
             <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
                 <div className={styles.inviteIconContainer}><FaUserPlus /></div>
@@ -607,8 +649,6 @@ export default function HomePage() {
           )}
       </div>
 
-      {/* --- FLOATING BUTTON --- */}
-      {/* --- MODIFIED --- Floating button changes based on remove mode or GPS settings */}
       {userToRemove ? (
         <button onClick={handleRemoveFriend} className={`${styles.floatingButton} ${styles.dangerButton}`}>
           <FaTrash /> Remove {userToRemove.displayName?.split(' ')[0]}
@@ -627,7 +667,6 @@ export default function HomePage() {
         </>
       )}
 
-      {/* --- MODALS --- */}
       {activeModal && (
         <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
           <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
@@ -710,7 +749,15 @@ export default function HomePage() {
                     </div>
                 )}
                 
-                {/* --- ADDED --- Leave Squad button for non-owners */}
+                {/* --- ADDED --- Button to become squad leader */}
+                {isDeveloper && userData && userData.uid !== userData.ownerId && (
+                  <div style={{borderTop: '1px solid #ffc107', marginTop: '1rem', paddingTop: '1rem'}}>
+                     <button onClick={handleBecomeSquadLeader} className={styles.warningButton} style={{width: '100%'}}>
+                        <FaCrown /> Become Squad Leader
+                    </button>
+                  </div>
+                )}
+
                 {userData && userData.uid !== userData.ownerId && (
                   <div style={{borderTop: '1px solid #e74c3c', marginTop: '2rem', paddingTop: '1rem'}}>
                     <button onClick={() => showConfirm("Are you sure you want to leave this squad?", handleLeaveSquad)} className={styles.dangerButton} style={{width: '100%'}}>
