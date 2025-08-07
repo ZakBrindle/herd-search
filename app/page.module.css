@@ -41,7 +41,7 @@
   border-radius: 1.5rem; /* Rounded buttons */
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -228,7 +228,7 @@
 
 .modalActions {
   display: flex;
-  justify-content: space-between; /* This property is changed */
+  justify-content: space-between; 
   gap: 0.75rem;
   margin-top: 1.5rem;
 }
@@ -273,11 +273,21 @@
   flex-shrink: 0; /* Prevent cards from shrinking */
   border: 2px solid transparent;
   gap: 0.5rem; /* Add gap between card items */
+  transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .currentUserCard {
   border-color: #7c5dfa; /* Purple border */
 }
+
+/* --- ADDED --- Style for highlighted card in remove mode */
+.highlightedCard {
+  border-color: #e74c3c; /* Red border */
+  box-shadow: 0 0 15px rgba(231, 76, 60, 0.5); /* Red glow */
+  transform: scale(1.05);
+}
+
 
 .settingItem {
     display: flex;
@@ -392,7 +402,7 @@ input:checked + .slider:before {
     color: #fff;
 }
 
-/* --- ADDED --- Styles for Toast and Notification Bar */
+/* --- Styles for Toast and Notification Bar --- */
 .toast {
   position: fixed;
   bottom: 6rem; /* Position above floating button */

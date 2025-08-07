@@ -4,19 +4,19 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { 
-  doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection, 
+  doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, collection, 
   query, where, getDocs, addDoc, deleteDoc, DocumentData, writeBatch
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
-// --- MODIFIED --- Added more icons for the new UI elements
-import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaUserPlus, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaUserPlus, FaCheck, FaTimes, FaSignOutAlt } from 'react-icons/fa';
 
 // --- Type Definitions ---
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
 type UserData = DocumentData & { 
     uid: string; 
+    ownerId: string; // --- ADDED --- ID of the squad owner
     location?: Point; 
     photoURL?: string; 
     displayName?: string; 
@@ -34,7 +34,6 @@ type LocationUpdatePayload = {
   currentArea: string;
   lastKnownArea?: string;
 };
-// --- ADDED --- Type for friend requests
 type FriendRequest = {
   id: string;
   from: string;
@@ -64,20 +63,23 @@ export default function HomePage() {
   const [renamingArea, setRenamingArea] = useState<Area | null>(null);
   const [newAreaName, setNewAreaName] = useState('');
   const [selectedAreaForCheckIn, setSelectedAreaForCheckIn] = useState<Area | null>(null);
-  // --- ADDED --- State for toast messages and incoming friend requests
   const [toastMessage, setToastMessage] = useState('');
   const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
-
+  // --- ADDED --- State for remove mode
+  const [userToRemove, setUserToRemove] = useState<UserData | null>(null);
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentPolygonPoints = useRef<Point[]>([]);
+  // --- ADDED --- Ref for long press timer
+  const pressTimer = useRef<NodeJS.Timeout | null>(null);
+
 
   // --- Utility & Helper Functions ---
   const showToast = (message: string) => {
     setToastMessage(message);
-    setTimeout(() => setToastMessage(''), 3000); // Hide after 3 seconds
+    setTimeout(() => setToastMessage(''), 3000);
   };
 
   const showAlert = (message: string) => {
@@ -110,15 +112,10 @@ export default function HomePage() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     if (showZones) {
-      areas.forEach(area => {
-        drawPolygon(ctx, area.polygon, 'rgba(29, 78, 216, 0.3)', 'rgba(29, 78, 216, 0.7)');
-      });
+      areas.forEach(area => drawPolygon(ctx, area.polygon, 'rgba(29, 78, 216, 0.3)', 'rgba(29, 78, 216, 0.7)'));
     }
-
     if (isDevMode && currentPolygonPoints.current.length > 0) {
       drawPolygon(ctx, currentPolygonPoints.current, 'rgba(255, 255, 0, 0.3)', 'rgba(255, 255, 0, 0.7)', true);
     }
@@ -127,12 +124,10 @@ export default function HomePage() {
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const mapImage = mapImageRef.current;
-    if (!canvas || !mapImage) return;
-    if (mapImage.clientWidth > 0) {
-      canvas.width = mapImage.clientWidth;
-      canvas.height = mapImage.clientHeight;
-      redrawCanvas();
-    }
+    if (!canvas || !mapImage || !mapImage.clientWidth) return;
+    canvas.width = mapImage.clientWidth;
+    canvas.height = mapImage.clientHeight;
+    redrawCanvas();
   }, [redrawCanvas]);
 
   const drawPolygon = (ctx: CanvasRenderingContext2D, points: Point[], fill: string, stroke: string, drawVertices = false) => {
@@ -162,10 +157,7 @@ export default function HomePage() {
     }
   };
 
-  useEffect(() => {
-    redrawCanvas();
-  }, [areas, redrawCanvas, showZones]);
-
+  useEffect(() => { redrawCanvas(); }, [areas, redrawCanvas, showZones]);
   useEffect(() => {
     window.addEventListener('resize', resizeCanvas);
     return () => window.removeEventListener('resize', resizeCanvas);
@@ -184,14 +176,9 @@ export default function HomePage() {
   };
 
   const handleSaveArea = async () => {
-    if (!areaName || currentPolygonPoints.current.length < 3) {
-      return showAlert("Please provide a name and draw a valid shape (at least 3 points).");
-    }
+    if (!areaName || currentPolygonPoints.current.length < 3) return showAlert("Please provide a name and draw a valid shape (at least 3 points).");
     try {
-      await addDoc(collection(db, 'areas'), {
-        name: areaName,
-        polygon: currentPolygonPoints.current,
-      });
+      await addDoc(collection(db, 'areas'), { name: areaName, polygon: currentPolygonPoints.current });
       currentPolygonPoints.current = [];
       setAreaName('');
       setIsDevMode(false);
@@ -217,12 +204,9 @@ export default function HomePage() {
   };
 
   const handleRenameArea = async () => {
-    if (!newAreaName || !renamingArea) {
-      return showAlert("Please provide a valid new name.");
-    }
+    if (!newAreaName || !renamingArea) return showAlert("Please provide a valid new name.");
     try {
-      const areaRef = doc(db, 'areas', renamingArea.id);
-      await updateDoc(areaRef, { name: newAreaName });
+      await updateDoc(doc(db, 'areas', renamingArea.id), { name: newAreaName });
       showAlert("Area renamed successfully!");
       setActiveModal('locations');
       setRenamingArea(null);
@@ -233,48 +217,22 @@ export default function HomePage() {
     }
   };
   
-  // --- MODIFIED --- This function now sends a friend request instead of directly adding a friend.
   const handleSendFriendRequest = async () => {
     if (!friendEmail || !currentUser || !userData) return;
     try {
       const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
       const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-        return showAlert("User not found. Ensure they have signed in at least once.");
-      }
+      if (querySnapshot.empty) return showAlert("User not found. Ensure they have signed in at least once.");
       
       const friendUid = querySnapshot.docs[0].id;
-      if (friendUid === currentUser.uid) {
-        return showAlert("You can't add yourself as a friend!");
-      }
-
-      const userFriends = userData?.friends || [];
-      if (userFriends.includes(friendUid)) {
-        return showAlert("This user is already your friend.");
-      }
+      if (friendUid === currentUser.uid) return showAlert("You can't add yourself as a friend!");
+      if ((userData?.friends || []).includes(friendUid)) return showAlert("This user is already your friend.");
       
-      // Check if a request already exists
       const requestsRef = collection(db, 'friendRequests');
-      const requestQuery = query(requestsRef, 
-        where('from', '==', currentUser.uid), 
-        where('to', '==', friendUid),
-        where('status', '==', 'pending')
-      );
-      const existingRequest = await getDocs(requestQuery);
-      if (!existingRequest.empty) {
-          return showAlert("You have already sent a request to this user.");
-      }
+      const requestQuery = query(requestsRef, where('from', '==', currentUser.uid), where('to', '==', friendUid), where('status', '==', 'pending'));
+      if (!(await getDocs(requestQuery)).empty) return showAlert("You have already sent a request to this user.");
 
-      // Create a new friend request document
-      await addDoc(requestsRef, {
-        from: currentUser.uid,
-        to: friendUid,
-        fromName: userData.displayName,
-        fromPhotoURL: userData.photoURL,
-        status: 'pending'
-      });
-      
+      await addDoc(requestsRef, { from: currentUser.uid, to: friendUid, fromName: userData.displayName, fromPhotoURL: userData.photoURL, status: 'pending' });
       showToast("Invite Sent");
       setFriendEmail('');
       setActiveModal(null);
@@ -284,21 +242,18 @@ export default function HomePage() {
     }
   };
 
-  // --- ADDED --- Functions to handle accepting or declining requests
+  // --- MODIFIED --- When accepting, user joins the inviter's squad
   const handleAcceptRequest = async (request: FriendRequest) => {
     if (!currentUser) return;
     const batch = writeBatch(db);
 
-    // 1. Add each user to the other's friends list
     const currentUserRef = getUserDocRef(currentUser.uid);
-    batch.update(currentUserRef, { friends: arrayUnion(request.from) });
+    batch.update(currentUserRef, { friends: arrayUnion(request.from), ownerId: request.from }); // Join the squad
 
     const friendUserRef = getUserDocRef(request.from);
     batch.update(friendUserRef, { friends: arrayUnion(request.to) });
 
-    // 2. Delete the friend request document
-    const requestRef = doc(db, 'friendRequests', request.id);
-    batch.delete(requestRef);
+    batch.delete(doc(db, 'friendRequests', request.id));
 
     try {
       await batch.commit();
@@ -317,14 +272,82 @@ export default function HomePage() {
     }
   };
 
+  // --- ADDED --- Logic to remove a friend from the squad
+  const handleRemoveFriend = async () => {
+    if (!userToRemove || !currentUser) return;
+    const batch = writeBatch(db);
+
+    // Remove friend from current user's list
+    batch.update(getUserDocRef(currentUser.uid), { friends: arrayRemove(userToRemove.uid) });
+    
+    // Remove current user from friend's list and reset their ownerId
+    batch.update(getUserDocRef(userToRemove.uid), { 
+      friends: arrayRemove(currentUser.uid),
+      ownerId: userToRemove.uid // Reset friend to be their own squad owner
+    });
+
+    try {
+      await batch.commit();
+      showToast(`${userToRemove.displayName} has been removed from the squad.`);
+      setUserToRemove(null);
+    } catch (error) {
+      console.error("Error removing friend:", error);
+      showAlert("Could not remove friend.");
+    }
+  };
+
+  // --- ADDED --- Logic for a user to leave a squad
+  const handleLeaveSquad = async () => {
+    if (!currentUser || !userData || userData.uid === userData.ownerId) return;
+    const batch = writeBatch(db);
+    const ownerId = userData.ownerId;
+
+    // Remove user from owner's friend list
+    batch.update(getUserDocRef(ownerId), { friends: arrayRemove(currentUser.uid) });
+
+    // Reset user's ownerId and remove owner from their friend list
+    batch.update(getUserDocRef(currentUser.uid), {
+      ownerId: currentUser.uid,
+      friends: arrayRemove(ownerId)
+    });
+
+    try {
+      await batch.commit();
+      setActiveModal(null);
+      showToast("You have left the squad.");
+    } catch (error) {
+      console.error("Error leaving squad:", error);
+      showAlert("Could not leave the squad.");
+    }
+  };
+
+
+  // --- ADDED --- Long press handlers for friend cards
+  const handleTouchStart = (friend: UserData) => {
+    if (userData?.uid !== userData?.ownerId) return; // Only owner can remove
+    pressTimer.current = setTimeout(() => {
+      setUserToRemove(friend);
+    }, 800); // 800ms for long press
+  };
+
+  const handleTouchEnd = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+    }
+  };
+
+  const handleCardClick = (friend: UserData) => {
+    if (userToRemove && userToRemove.uid === friend.uid) {
+      setUserToRemove(null); // Click again to cancel remove mode
+    }
+  };
+
+
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const pos = {
-        x: (event.clientX - rect.left) / rect.width,
-        y: (event.clientY - rect.top) / rect.height
-    };
+    const pos = { x: (event.clientX - rect.left) / rect.width, y: (event.clientY - rect.top) / rect.height };
 
     if (isDevMode) {
         if (currentPolygonPoints.current.length > 2) {
@@ -353,21 +376,11 @@ export default function HomePage() {
   const handleManualCheckIn = async (area: Area) => {
     if (!currentUser || !area.polygon) return;
     let cx = 0, cy = 0;
-    area.polygon.forEach(p => {
-        cx += p.x;
-        cy += p.y;
-    });
-    const centroid = {
-        x: cx / area.polygon.length,
-        y: cy / area.polygon.length,
-    };
+    area.polygon.forEach(p => { cx += p.x; cy += p.y; });
+    const centroid = { x: cx / area.polygon.length, y: cy / area.polygon.length };
 
     try {
-        await updateDoc(getUserDocRef(currentUser.uid), {
-            location: centroid,
-            currentArea: area.name,
-            lastKnownArea: area.name
-        });
+        await updateDoc(getUserDocRef(currentUser.uid), { location: centroid, currentArea: area.name, lastKnownArea: area.name });
         setActiveModal(null);
         setSelectedAreaForCheckIn(null);
     } catch (error) {
@@ -378,9 +391,7 @@ export default function HomePage() {
 
   const handleGpsToggle = async (useGps: boolean) => {
     if (!currentUser) return;
-    if (useGps) {
-      setSelectedAreaForCheckIn(null);
-    }
+    if (useGps) setSelectedAreaForCheckIn(null);
     setUserData(prev => prev ? { ...prev, useGps } : prev);
     try {
         await updateDoc(getUserDocRef(currentUser.uid), { useGps });
@@ -407,41 +418,25 @@ export default function HomePage() {
         const userDoc = await getDoc(userRef);
 
         if (!userDoc.exists()) {
-          const profileData = {
-            uid: user.uid,
-            displayName: user.displayName,
-            email: user.email?.toLowerCase(),
-            photoURL: user.photoURL
-          };
-          await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
+          const profileData = { uid: user.uid, displayName: user.displayName, email: user.email?.toLowerCase(), photoURL: user.photoURL };
+          // --- MODIFIED --- New users are their own squad owner by default
+          await setDoc(userRef, { ...profileData, ownerId: user.uid, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
           await setDoc(publicProfileRef, profileData);
         }
       } else {
-        setCurrentUser(null);
-        setUserData(null);
-        setFriendsData([]);
-        setIsDevMode(false);
+        setCurrentUser(null); setUserData(null); setFriendsData([]); setIsDevMode(false);
       }
     });
 
     const unsubscribeAreas = onSnapshot(collection(db, "areas"), (snapshot) => {
-        const areasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Area[];
-        setAreas(areasData);
+        setAreas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Area[]);
     });
 
-    return () => {
-      unsubscribeAuth();
-      unsubscribeAreas();
-    };
+    return () => { unsubscribeAuth(); unsubscribeAreas(); };
   }, []);
   
   useEffect(() => {
-    if (!currentUser?.uid) {
-      setUserData(null);
-      setIsDeveloper(false);
-      return;
-    }
-
+    if (!currentUser?.uid) { setUserData(null); setIsDeveloper(false); return; }
     const unsubUser = onSnapshot(getUserDocRef(currentUser.uid), (doc) => {
       if (doc.exists()) {
         const data = doc.data() as UserData;
@@ -449,13 +444,15 @@ export default function HomePage() {
         setIsDeveloper(data?.displayName === 'Zak Brindle');
       }
     });
-
     return () => unsubUser();
   }, [currentUser?.uid]);
 
   useEffect(() => {
     const friendIds = userData?.friends || [];
-    
+    if (friendIds.length === 0) {
+      setFriendsData([]);
+      return;
+    }
     const unsubscribes = friendIds.map(friendId =>
       onSnapshot(getUserDocRef(friendId), (doc) => {
         if (doc.exists()) {
@@ -469,62 +466,33 @@ export default function HomePage() {
         }
       })
     );
-
     setFriendsData(prevFriends => prevFriends.filter(f => friendIds.includes(f.uid)));
-
-    return () => {
-      unsubscribes.forEach(unsub => unsub());
-    };
+    return () => { unsubscribes.forEach(unsub => unsub()); };
   }, [userData?.friends]);
 
-  // --- ADDED --- Listener for incoming friend requests
   useEffect(() => {
-    if (!currentUser?.uid) {
-        setIncomingRequests([]);
-        return;
-    }
-
-    const requestsRef = collection(db, 'friendRequests');
-    const q = query(requestsRef, where('to', '==', currentUser.uid), where('status', '==', 'pending'));
-
+    if (!currentUser?.uid) { setIncomingRequests([]); return; }
+    const q = query(collection(db, 'friendRequests'), where('to', '==', currentUser.uid), where('status', '==', 'pending'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as FriendRequest[];
-        setIncomingRequests(requests);
+        setIncomingRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as FriendRequest[]);
     });
-
     return () => unsubscribe();
   }, [currentUser?.uid]);
 
-  // --- MOCK LOCATION UPDATER ---
   useEffect(() => {
     if (!currentUser || !userData) return;
-    
     const intervalId = setInterval(() => {
       const t = Date.now() / 1000;
       const x = 0.5 + 0.4 * Math.sin(t / 5);
       const y = 0.5 + 0.4 * Math.cos(t / 7);
       let newAreaName = 'Out of Bounds';
       for (const area of areas) {
-          if (isPointInPolygon({ x, y }, area.polygon)) {
-              newAreaName = area.name;
-              break;
-          }
+          if (isPointInPolygon({ x, y }, area.polygon)) { newAreaName = area.name; break; }
       }
-      
-      const updatePayload: LocationUpdatePayload = {
-        location: { x, y },
-        currentArea: newAreaName
-      };
-
-      if (newAreaName !== 'Out of Bounds') {
-        updatePayload.lastKnownArea = newAreaName;
-      }
-
-      updateDoc(getUserDocRef(currentUser.uid), updatePayload)
-        .catch(err => console.error("Error in mock location update: ", err));
-        
+      const updatePayload: LocationUpdatePayload = { location: { x, y }, currentArea: newAreaName };
+      if (newAreaName !== 'Out of Bounds') updatePayload.lastKnownArea = newAreaName;
+      updateDoc(getUserDocRef(currentUser.uid), updatePayload).catch(err => console.error("Error in mock location update: ", err));
     }, 2000);
-
     return () => clearInterval(intervalId);
   }, [currentUser, userData, areas]);
 
@@ -547,15 +515,8 @@ export default function HomePage() {
   
   return (
     <div className={styles.container}>
-      {/* --- ADDED --- Toast Notification */}
-      {toastMessage && (
-        <div className={styles.toast}>
-          {toastMessage}
-        </div>
-      )}
+      {toastMessage && (<div className={styles.toast}>{toastMessage}</div>)}
 
-      {/* --- HEADER --- */}
-      {/* --- MODIFIED --- Header now conditionally shows a friend request or the title */}
       <header className={styles.header}>
         {incomingRequests.length > 0 ? (
           <div className={styles.notificationBar}>
@@ -573,7 +534,6 @@ export default function HomePage() {
         )}
       </header>
 
-      {/* --- USER/DEV CONTROLS --- */}
       <div className={styles.userControls}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {userData?.photoURL && <Image src={userData.photoURL} alt="avatar" width={40} height={40} style={{ borderRadius: '50%' }} />}
@@ -590,59 +550,23 @@ export default function HomePage() {
           </div>
       )}
       
-      {/* --- MAP --- */}
       <div className={styles.mapContainer}>
-        <Image
-          ref={mapImageRef}
-          src="/Beatherder Map.png"
-          alt="Beat-Herder Festival Map"
-          width={1200}
-          height={800}
-          className={styles.mapImage}
-          onLoad={resizeCanvas}
-          priority
-        />
-        <canvas 
-            ref={canvasRef} 
-            className={styles.mapCanvas}
-            onClick={handleCanvasClick}
-            style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }}
-        />
+        <Image ref={mapImageRef} src="/Beatherder Map.png" alt="Beat-Herder Festival Map" width={1200} height={800} className={styles.mapImage} onLoad={resizeCanvas} priority />
+        <canvas ref={canvasRef} className={styles.mapCanvas} onClick={handleCanvasClick} style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }} />
         {userData?.location && (
-          <div
-            key={userData.uid}
-            className={styles.userMarker}
-            style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%`, zIndex: 2 }}
-          >
-            <Image 
-              src={userData.photoURL || "/default-avatar.png"} 
-              alt={userData.displayName || "You"}
-              width={32}
-              height={32}
-              style={{ borderRadius: '50%' }}
-            />
+          <div key={userData.uid} className={styles.userMarker} style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%`, zIndex: 2 }}>
+            <Image src={userData.photoURL || "/default-avatar.png"} alt={userData.displayName || "You"} width={32} height={32} style={{ borderRadius: '50%' }} />
             <div className={styles.nameLabel}>{(userData.displayName?.split(' ')[0]) || "You"}</div>
           </div>
         )}
         {friendsData.filter(f => !!f.location).map(u => (
-          <div
-            key={u.uid}
-            className={styles.userMarker}
-            style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}
-          >
-            <Image 
-              src={u.photoURL || "/default-avatar.png"} 
-              alt={u.displayName || "User"}
-              width={32}
-              height={32}
-              style={{ borderRadius: '50%' }}
-            />
+          <div key={u.uid} className={styles.userMarker} style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}>
+            <Image src={u.photoURL || "/default-avatar.png"} alt={u.displayName || "User"} width={32} height={32} style={{ borderRadius: '50%' }} />
             <div className={styles.nameLabel}>{(u.displayName?.split(' ')[0]) || "User"}</div>
           </div>
         ))}
       </div>
       
-      {/* --- SQUAD LIST --- */}
       <div style={{marginTop: '2rem', marginBottom: '0.5rem'}}>
         <h2 className={styles.headerTitle} style={{fontSize: '1.5rem'}}>Your Squad</h2>
       </div>
@@ -652,52 +576,51 @@ export default function HomePage() {
               <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
               <div>
                   <p style={{fontWeight: 'bold'}}>{userData.displayName}</p>
-                   {userData.currentArea === 'The Wilds' ? (
-                    <p style={{fontSize: '0.9rem'}}>Last Seen: <span style={{fontWeight: 600}}>{userData.lastKnownArea || 'Unknown'}</span></p>
-                  ) : (
-                    <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
-                  )}
+                  <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea === 'The Wilds' ? userData.lastKnownArea : userData.currentArea || 'Unknown'}</span></p>
               </div>
             </div>
           )}
           {friendsData.map(friend => (
-              <div key={friend.uid} className={styles.card}>
+              // --- MODIFIED --- Card now has long press and click handlers for remove mode
+              <div 
+                key={friend.uid} 
+                className={`${styles.card} ${userToRemove?.uid === friend.uid ? styles.highlightedCard : ''}`}
+                onMouseDown={() => handleTouchStart(friend)}
+                onMouseUp={handleTouchEnd}
+                onTouchStart={() => handleTouchStart(friend)}
+                onTouchEnd={handleTouchEnd}
+                onClick={() => handleCardClick(friend)}
+              >
                   <Image src={friend.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
                   <div>
                       <p style={{fontWeight: 'bold'}}>{friend.displayName}</p>
-                      {friend.currentArea === 'The Wilds' ? (
-                        <p style={{fontSize: '0.9rem'}}>Last Seen: <span style={{fontWeight: 600}}>{friend.lastKnownArea || 'Unknown'}</span></p>
-                      ) : (
-                        <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{friend.currentArea || 'Unknown'}</span></p>
-                      )}
+                      <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{friend.currentArea === 'The Wilds' ? friend.lastKnownArea : friend.currentArea || 'Unknown'}</span></p>
                   </div>
               </div>
           ))}
-          <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
-              <div className={styles.inviteIconContainer}>
-                  <FaUserPlus />
-              </div>
-              <div>
-                  <p style={{fontWeight: 'bold'}}>Invite Friends</p>
-              </div>
-          </div>
+          {/* --- MODIFIED --- Invite card only shows for the squad owner */}
+          {userData && userData.uid === userData.ownerId && (
+            <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
+                <div className={styles.inviteIconContainer}><FaUserPlus /></div>
+                <div><p style={{fontWeight: 'bold'}}>Invite Friends</p></div>
+            </div>
+          )}
       </div>
 
       {/* --- FLOATING BUTTON --- */}
-      {userData?.useGps === false && (
+      {/* --- MODIFIED --- Floating button changes based on remove mode or GPS settings */}
+      {userToRemove ? (
+        <button onClick={handleRemoveFriend} className={`${styles.floatingButton} ${styles.dangerButton}`}>
+          <FaTrash /> Remove {userToRemove.displayName?.split(' ')[0]}
+        </button>
+      ) : userData?.useGps === false && (
         <>
           {selectedAreaForCheckIn ? (
-            <button 
-              onClick={() => handleManualCheckIn(selectedAreaForCheckIn)} 
-              className={styles.floatingButton}
-            >
+            <button onClick={() => handleManualCheckIn(selectedAreaForCheckIn)} className={styles.floatingButton}>
               <FaMapMarkerAlt /> Check into {selectedAreaForCheckIn.name}
             </button>
           ) : (
-            <button 
-              onClick={() => setActiveModal('checkIn')} 
-              className={styles.floatingButton}
-            >
+            <button onClick={() => setActiveModal('checkIn')} className={styles.floatingButton}>
               <FaMapMarkerAlt />Check In
             </button>
           )}
@@ -754,13 +677,7 @@ export default function HomePage() {
 
             {activeModal === 'renameArea' && renamingArea && (<>
               <h3 className={styles.modalHeader}>Rename &quot;{renamingArea.name}&quot;</h3>
-              <input 
-                type="text" 
-                value={newAreaName} 
-                onChange={e => setNewAreaName(e.target.value)} 
-                className={styles.textInput} 
-                autoFocus
-              />
+              <input type="text" value={newAreaName} onChange={e => setNewAreaName(e.target.value)} className={styles.textInput} autoFocus />
               <div className={styles.modalActions}>
                   <button onClick={() => { setActiveModal('locations'); setRenamingArea(null); }} className={styles.neutralButton}>Cancel</button>
                   <button onClick={handleRenameArea} className={styles.primaryButton}>Save</button>
@@ -769,62 +686,41 @@ export default function HomePage() {
             
             {activeModal === 'settings' && (<>
                 <h3 className={styles.modalHeader}>Settings</h3>
-
                 <div className={styles.settingItem}>
                     <span>Use GPS Location</span>
                     <label className={styles.switch}>
-                        <input
-                            type="checkbox"
-                            checked={userData?.useGps ?? true}
-                            onChange={e => handleGpsToggle(e.target.checked)}
-                        />
+                        <input type="checkbox" checked={userData?.useGps ?? true} onChange={e => handleGpsToggle(e.target.checked)} />
                         <span className={styles.slider}></span>
                     </label>
                 </div>
                 <p className={styles.settingHint}>Turn this off to enable manual check-ins.</p>
-
                 <div className={styles.settingItem} style={{borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '1rem'}}>
                     <span>Show Location Zones</span>
                     <label className={styles.switch}>
-                        <input
-                            type="checkbox"
-                            checked={showZones}
-                            onChange={e => setShowZones(e.target.checked)}
-                        />
+                        <input type="checkbox" checked={showZones} onChange={e => setShowZones(e.target.checked)} />
                         <span className={styles.slider}></span>
                     </label>
                 </div>
                 <p className={styles.settingHint}>Show or hide the defined areas on the map.</p>
 
-
                 {isDeveloper && (
                     <div className={styles.settingItem} style={{borderTop: '1px solid #eee', paddingTop: '1rem', marginTop: '1rem'}}>
                         <span>Developer Mode</span>
-                        <button
-                            onClick={() => {
-                                if (isDevMode) {
-                                  setActiveModal('locations');
-                                } else {
-                                  setActiveModal('passcode');
-                                }
-                            }}
-                            className={styles.secondaryButton}
-                        >
-                            Manage Locations
-                        </button>
+                        <button onClick={() => { if (isDevMode) setActiveModal('locations'); else setActiveModal('passcode'); }} className={styles.secondaryButton}>Manage Locations</button>
                     </div>
+                )}
+                
+                {/* --- ADDED --- Leave Squad button for non-owners */}
+                {userData && userData.uid !== userData.ownerId && (
+                  <div style={{borderTop: '1px solid #e74c3c', marginTop: '2rem', paddingTop: '1rem'}}>
+                    <button onClick={() => showConfirm("Are you sure you want to leave this squad?", handleLeaveSquad)} className={styles.dangerButton} style={{width: '100%'}}>
+                      <FaSignOutAlt /> Leave Squad
+                    </button>
+                  </div>
                 )}
 
                 <div className={styles.modalActions} style={{ marginTop: '2rem' }}>
-                    <button
-                        onClick={() => {
-                            setIsDevMode(false);
-                            signOut(auth);
-                        }}
-                        className={styles.dangerButton}
-                    >
-                        Sign Out
-                    </button>
+                    <button onClick={() => { setIsDevMode(false); signOut(auth); }} className={styles.dangerButton}>Sign Out</button>
                     <button onClick={() => setActiveModal(null)} className={styles.primaryButton}>Done</button>
                 </div>
             </>)}
@@ -850,24 +746,8 @@ export default function HomePage() {
                   <div key={area.id} className={styles.locationItemManager}>
                     <span>{area.name}</span>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button 
-                        onClick={() => {
-                          setRenamingArea(area);
-                          setNewAreaName(area.name);
-                          setActiveModal('renameArea');
-                        }} 
-                        className={styles.secondaryButton}
-                        aria-label={`Rename ${area.name}`}
-                      >
-                        <FaPencilAlt />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteArea(area.id)} 
-                        className={styles.dangerButton}
-                        aria-label={`Delete ${area.name}`}
-                      >
-                        <FaTrash />
-                      </button>
+                      <button onClick={() => { setRenamingArea(area); setNewAreaName(area.name); setActiveModal('renameArea'); }} className={styles.secondaryButton} aria-label={`Rename ${area.name}`}><FaPencilAlt /></button>
+                      <button onClick={() => handleDeleteArea(area.id)} className={styles.dangerButton} aria-label={`Delete ${area.name}`}><FaTrash /></button>
                     </div>
                   </div>
                 )) : <p>No locations created yet.</p>}
