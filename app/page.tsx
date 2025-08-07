@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import {
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, collection,
-  query, where, getDocs, addDoc, deleteDoc, DocumentData, writeBatch
+  query, where, getDocs, addDoc, deleteDoc, DocumentData, writeBatch, serverTimestamp
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
@@ -14,15 +14,22 @@ import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaUserPlus, FaCheck, FaTim
 // --- Type Definitions ---
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
+
+// NEW: Squad definition
+type Squad = {
+    id: string;
+    ownerId: string;
+    members: string[];
+};
+
 type UserData = DocumentData & {
     uid: string;
-    ownerId: string; // The original ownerId model
+    squadId?: string; // REPLACES ownerId and friends
     location?: Point;
     photoURL?: string;
     displayName?: string;
     currentArea?: string;
     lastKnownArea?: string;
-    friends?: string[]; // The original friends array
     useGps?: boolean;
 };
 type ConfirmAction = {
@@ -41,6 +48,7 @@ type FriendRequest = {
   fromName: string;
   fromPhotoURL: string;
   status: 'pending' | 'accepted' | 'declined';
+  squadId: string; // Add squadId to the request
 };
 
 
@@ -49,7 +57,8 @@ export default function HomePage() {
   // --- State Management ---
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [friendsData, setFriendsData] = useState<UserData[]>([]);
+  const [squad, setSquad] = useState<Squad | null>(null); // NEW: squad state
+  const [squadMembersData, setSquadMembersData] = useState<UserData[]>([]); // REPLACES friendsData
   const [areas, setAreas] = useState<Area[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isDevMode, setIsDevMode] = useState(false);
@@ -92,6 +101,7 @@ export default function HomePage() {
 
   const getPublicProfileCollection = () => collection(db, `public/user_profiles/users`);
   const getUserDocRef = (uid: string) => doc(db, 'users', uid);
+  const getSquadDocRef = (squadId: string) => doc(db, 'squads', squadId); // NEW: squad ref helper
 
   const isPointInPolygon = (point: Point, polygon: Point[]): boolean => {
     if (!polygon) return false;
@@ -215,50 +225,88 @@ export default function HomePage() {
     }
   };
 
-  const handleSendFriendRequest = async () => {
-    if (!friendEmail || !currentUser || !userData) return;
-    try {
-      const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
-      const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) return showAlert("User not found. Ensure they have signed in at least once.");
+    const handleSendFriendRequest = async () => {
+        if (!friendEmail || !currentUser || !userData) return;
 
-      const friendUid = querySnapshot.docs[0].id;
-      if (friendUid === currentUser.uid) return showAlert("You can't add yourself as a friend!");
-      if ((userData?.friends || []).includes(friendUid)) return showAlert("This user is already your friend.");
+        try {
+            const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
+            const querySnapshot = await getDocs(q);
 
-      const requestsRef = collection(db, 'friendRequests');
-      const requestQuery = query(requestsRef, where('from', '==', currentUser.uid), where('to', '==', friendUid), where('status', '==', 'pending'));
-      if (!(await getDocs(requestQuery)).empty) return showAlert("You have already sent a request to this user.");
+            if (querySnapshot.empty) {
+                return showAlert("User not found. Ensure they have signed in at least once.");
+            }
 
-      await addDoc(requestsRef, { from: currentUser.uid, to: friendUid, fromName: userData.displayName, fromPhotoURL: userData.photoURL, status: 'pending' });
-      showToast("Invite Sent");
-      setFriendEmail('');
-      setActiveModal(null);
-    } catch (error) {
-       console.error("Error sending friend request:", error);
-       showAlert("An error occurred while sending the request.");
-    }
-  };
+            const friendDoc = querySnapshot.docs[0];
+            const friendUid = friendDoc.id;
+            const friendData = friendDoc.data() as UserData;
 
-  const handleAcceptRequest = async (request: FriendRequest) => {
-    if (!currentUser) return;
-    const batch = writeBatch(db);
+            if (friendUid === currentUser.uid) return showAlert("You can't invite yourself!");
+            if (friendData.squadId === userData.squadId && userData.squadId) return showAlert("This user is already in your squad.");
 
-    const currentUserRef = getUserDocRef(currentUser.uid);
-    batch.update(currentUserRef, { friends: arrayUnion(request.from), ownerId: request.from });
+            const requestsRef = collection(db, 'friendRequests');
+            const requestQuery = query(requestsRef, where('from', '==', currentUser.uid), where('to', '==', friendUid), where('status', '==', 'pending'));
+            if (!(await getDocs(requestQuery)).empty) return showAlert("You have already sent an invite to this user.");
 
-    const friendUserRef = getUserDocRef(request.from);
-    batch.update(friendUserRef, { friends: arrayUnion(request.to) });
+            let squadIdToJoin = userData.squadId;
 
-    batch.delete(doc(db, 'friendRequests', request.id));
+            // If the sender has no squad, create one.
+            if (!squadIdToJoin) {
+                const newSquadRef = doc(collection(db, 'squads'));
+                await setDoc(newSquadRef, {
+                    ownerId: currentUser.uid,
+                    members: [currentUser.uid],
+                    createdAt: serverTimestamp(),
+                });
+                squadIdToJoin = newSquadRef.id;
+                await updateDoc(getUserDocRef(currentUser.uid), { squadId: squadIdToJoin });
+            }
 
-    try {
-      await batch.commit();
-    } catch (error) {
-      console.error("Error accepting friend request:", error);
-      showAlert("Failed to accept request.");
-    }
-  };
+            if (!squadIdToJoin) {
+              return showAlert("Could not create or find a squad to join.");
+            }
+
+            // Send invite with squadId
+            await addDoc(requestsRef, {
+                from: currentUser.uid,
+                to: friendUid,
+                fromName: userData.displayName,
+                fromPhotoURL: userData.photoURL,
+                status: 'pending',
+                squadId: squadIdToJoin,
+            });
+
+            showToast("Invite Sent");
+            setFriendEmail('');
+            setActiveModal(null);
+        } catch (error) {
+            console.error("Error sending friend request:", error);
+            showAlert("An error occurred while sending the invite.");
+        }
+    };
+
+    const handleAcceptRequest = async (request: FriendRequest) => {
+        if (!currentUser) return;
+        const batch = writeBatch(db);
+
+        // 1. Add user to the squad's member list
+        const squadRef = getSquadDocRef(request.squadId);
+        batch.update(squadRef, { members: arrayUnion(request.to) });
+
+        // 2. Set the squadId on the accepting user's profile
+        const userRef = getUserDocRef(request.to);
+        batch.update(userRef, { squadId: request.squadId });
+
+        // 3. Delete the friend request
+        batch.delete(doc(db, 'friendRequests', request.id));
+
+        try {
+            await batch.commit();
+            showToast("Welcome to the squad!");
+        } catch (error) {
+            console.error("Error accepting friend request:", error);
+            showAlert("Failed to accept invite.");
+        }
+    };
 
   const handleDeclineRequest = async (requestId: string) => {
     try {
@@ -269,108 +317,77 @@ export default function HomePage() {
     }
   };
 
-  const handleRemoveFriend = async () => {
-    if (!userToRemove || !currentUser) return;
-    
-    showConfirm(`Are you sure you want to remove ${userToRemove.displayName} from your squad?`, async () => {
-        const batch = writeBatch(db);
-
-        // Remove friend from current user's friend list
-        batch.update(getUserDocRef(currentUser.uid), { friends: arrayRemove(userToRemove.uid) });
-
-        // Remove current user from friend's list and reset their ownership
-        batch.update(getUserDocRef(userToRemove.uid), {
-          friends: arrayRemove(currentUser.uid),
-          ownerId: userToRemove.uid // Reset friend to be their own owner
-        });
-
-        try {
-          await batch.commit();
-          showToast(`${userToRemove.displayName} has been removed from the squad.`);
-          setUserToRemove(null); // Clear selection
-        } catch (error) {
-          console.error("Error removing friend:", error);
-          showAlert("Could not remove friend.");
-        }
-    });
-  };
-
-  const handleLeaveSquad = async () => {
-    if (!currentUser || !userData || userData.uid === userData.ownerId) return;
-    
-    showConfirm("Are you sure you want to leave this squad? You will need a new invite to rejoin.", async () => {
-        const batch = writeBatch(db);
-        const ownerId = userData.ownerId;
-
-        // Remove self from the owner's friend list
-        batch.update(getUserDocRef(ownerId), { friends: arrayRemove(currentUser.uid) });
-
-        // Reset own user document
-        batch.update(getUserDocRef(currentUser.uid), {
-          ownerId: currentUser.uid,
-          friends: [] // Clear friend list upon leaving
-        });
-
-        try {
-          await batch.commit();
-          setActiveModal(null);
-          showToast("You have left the squad.");
-        } catch (error) {
-          console.error("Error leaving squad:", error);
-          showAlert("Could not leave the squad.");
-        }
-    });
-  };
-
-  // --- FIXED --- Function to become squad leader
-  const handleBecomeSquadLeader = async () => {
-    if (!currentUser || !userData || !isDeveloper) return;
-    if (userData.uid === userData.ownerId) {
-        return showAlert("You are already the squad leader.");
-    }
-
-    const oldOwnerId = userData.ownerId;
-    
-    // FIX: Add a guard to ensure oldOwnerId is a valid string before querying
-    if (!oldOwnerId || typeof oldOwnerId !== 'string') {
-        return showAlert("Could not identify the squad to take over. The current owner is invalid.");
-    }
-
-    const newOwnerId = currentUser.uid;
-
-    showConfirm("This will make you the leader of your current squad. Proceed?", async () => {
-        try {
+    const handleRemoveFriend = async () => {
+        if (!userToRemove || !currentUser || !squad || squad.ownerId !== currentUser.uid) return;
+        
+        showConfirm(`Are you sure you want to remove ${userToRemove.displayName} from your squad?`, async () => {
             const batch = writeBatch(db);
-            const usersRef = collection(db, 'users');
 
-            // Find all users who belong to the old squad.
-            const q = query(usersRef, where("ownerId", "==", oldOwnerId));
-            const querySnapshot = await getDocs(q);
+            // 1. Remove user from the squad's member list
+            batch.update(getSquadDocRef(squad.id), { members: arrayRemove(userToRemove.uid) });
 
-            // Update all members of the old squad, including the old owner
-            querySnapshot.forEach((userDoc) => {
-                batch.update(userDoc.ref, { ownerId: newOwnerId });
-            });
-            
-            // Also update the current user (the new leader) to be their own owner
-            batch.update(getUserDocRef(newOwnerId), { ownerId: newOwnerId });
+            // 2. Remove squadId from the user's profile
+            batch.update(getUserDocRef(userToRemove.uid), { squadId: null });
 
+            try {
+                await batch.commit();
+                showToast(`${userToRemove.displayName} has been removed from the squad.`);
+                setUserToRemove(null); // Clear selection
+            } catch (error) {
+                console.error("Error removing friend:", error);
+                showAlert("Could not remove friend.");
+            }
+        });
+    };
 
-            await batch.commit();
-            setActiveModal(null);
-            showToast("You are now the squad leader!");
-        } catch (error) {
-            console.error("Error becoming squad leader:", error);
-            showAlert("An error occurred while taking over the squad.");
+    const handleLeaveSquad = async () => {
+        if (!currentUser || !userData || !squad || squad.ownerId === currentUser.uid) {
+            return showAlert("Squad owners cannot leave. You must transfer ownership first.");
         }
-    });
-  };
+        
+        showConfirm("Are you sure you want to leave this squad? You will need a new invite to rejoin.", async () => {
+            const batch = writeBatch(db);
+            
+            // 1. Remove user from the squad's member list
+            batch.update(getSquadDocRef(squad.id), { members: arrayRemove(currentUser.uid) });
+
+            // 2. Reset own user document's squadId
+            batch.update(getUserDocRef(currentUser.uid), { squadId: null });
+
+            try {
+                await batch.commit();
+                setActiveModal(null);
+                showToast("You have left the squad.");
+            } catch (error) {
+                console.error("Error leaving squad:", error);
+                showAlert("Could not leave the squad.");
+            }
+        });
+    };
+
+    const handleBecomeSquadLeader = async () => {
+        if (!currentUser || !userData || !isDeveloper || !squad) return;
+        if (squad.ownerId === currentUser.uid) {
+            return showAlert("You are already the squad leader.");
+        }
+
+        showConfirm("This will make you the leader of your current squad. Proceed?", async () => {
+            try {
+                await updateDoc(getSquadDocRef(squad.id), { ownerId: currentUser.uid });
+                setActiveModal(null);
+                showToast("You are now the squad leader!");
+            } catch (error) {
+                console.error("Error becoming squad leader:", error);
+                showAlert("An error occurred while taking over the squad.");
+            }
+        });
+    };
 
   const handleTouchStart = (friend: UserData) => {
-    if (userData?.uid !== userData?.ownerId) return;
+    if (squad?.ownerId !== currentUser?.uid || friend.uid === currentUser?.uid) return; // Only owner can initiate removal, and not of themselves
     pressTimer.current = setTimeout(() => {
       setUserToRemove(friend);
-    }, 500); // Increased duration to prevent accidental triggers
+    }, 500);
   };
 
   const handleTouchEnd = () => {
@@ -461,12 +478,12 @@ export default function HomePage() {
 
         if (!userDoc.exists()) {
           const profileData = { uid: user.uid, displayName: user.displayName, email: user.email?.toLowerCase(), photoURL: user.photoURL };
-          // New users are their own owner and have no friends initially
-          await setDoc(userRef, { ...profileData, ownerId: user.uid, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
+          // New users have no squadId initially
+          await setDoc(userRef, { ...profileData, squadId: null, location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
           await setDoc(publicProfileRef, profileData);
         }
       } else {
-        setCurrentUser(null); setUserData(null); setFriendsData([]); setIsDevMode(false);
+        setCurrentUser(null); setUserData(null); setSquad(null); setSquadMembersData([]); setIsDevMode(false);
       }
     });
 
@@ -489,30 +506,49 @@ export default function HomePage() {
     return () => unsubUser();
   }, [currentUser?.uid]);
 
+  // NEW: Effect to listen to squad changes based on user's squadId
   useEffect(() => {
-    const friendIds = userData?.friends || [];
-    if (friendIds.length === 0) {
-      setFriendsData([]);
-      return;
+    if (!userData?.squadId) {
+        setSquad(null);
+        setSquadMembersData([]);
+        return;
     }
-    const unsubscribes = friendIds.map(friendId =>
-      onSnapshot(getUserDocRef(friendId), (doc) => {
+
+    const unsubSquad = onSnapshot(getSquadDocRef(userData.squadId), (doc) => {
         if (doc.exists()) {
-          const friendData = { uid: doc.id, ...doc.data() } as UserData;
-          setFriendsData(prevFriends => {
-            const otherFriends = prevFriends.filter(f => f.uid !== friendId);
-            return [...otherFriends, friendData];
-          });
+            setSquad({ id: doc.id, ...doc.data() } as Squad);
         } else {
-          // If a friend doc is deleted or inaccessible, remove them locally
-          setFriendsData(prevFriends => prevFriends.filter(f => f.uid !== friendId));
+            // Squad was deleted, clear local state
+            setSquad(null);
+            // Optionally clear the user's squadId in Firestore
+            updateDoc(getUserDocRef(userData.uid), { squadId: null });
         }
-      })
-    );
-    // Clean up friends who are no longer in the user's friend list
-    setFriendsData(prevFriends => prevFriends.filter(f => friendIds.includes(f.uid)));
-    return () => { unsubscribes.forEach(unsub => unsub()); };
-  }, [userData?.friends]);
+    });
+    
+    return () => unsubSquad();
+  }, [userData?.squadId, userData?.uid]);
+
+
+  // NEW: Effect to fetch squad member data when the squad member list changes
+  useEffect(() => {
+    const memberIds = squad?.members || [];
+    if (memberIds.length === 0) {
+        setSquadMembersData([]);
+        return;
+    }
+
+    // Fetch all member docs at once
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('uid', 'in', memberIds));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const members = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserData));
+      // Exclude the current user from the list of "other" members
+      setSquadMembersData(members.filter(m => m.uid !== currentUser?.uid));
+    });
+
+    return () => unsubscribe();
+  }, [squad?.members, currentUser?.uid]);
 
   useEffect(() => {
     if (!currentUser?.uid) { setIncomingRequests([]); return; }
@@ -560,7 +596,7 @@ export default function HomePage() {
 
 
   // --- Render Logic ---
-  const allUsersOnMap = friendsData.concat(userData ? [userData] : []);
+  const allUsersOnMap = squadMembersData.concat(userData ? [userData] : []);
 
   if (!currentUser) {
     return (
@@ -629,20 +665,18 @@ export default function HomePage() {
         <h2 className={styles.headerTitle} style={{fontSize: '1.5rem'}}>Your Squad</h2>
       </div>
       <div className={styles.squadList}>
-          {/* RENDER RESTORED: Always show the current user's card first */}
           {userData && (
             <div className={`${styles.card} ${styles.currentUserCard}`}>
               <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
               <div>
                   <p style={{fontWeight: 'bold'}}>
-                    {userData.uid === userData.ownerId && '👑 '}{userData.displayName}
+                    {squad?.ownerId === userData.uid && '👑 '}{userData.displayName}
                   </p>
                   <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea === 'unknown' ? userData.lastKnownArea : userData.currentArea || 'Unknown'}</span></p>
               </div>
             </div>
           )}
-          {/* RENDER RESTORED: Map over friendsData for the rest of the squad */}
-          {friendsData.map(friend => (
+          {squadMembersData.map(friend => (
               <div
                 key={friend.uid}
                 className={`${styles.card} ${userToRemove?.uid === friend.uid ? styles.highlightedCard : ''}`}
@@ -655,14 +689,14 @@ export default function HomePage() {
                   <Image src={friend.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
                   <div>
                       <p style={{fontWeight: 'bold'}}>
-                        {friend.uid === userData?.ownerId && '👑 '}{friend.displayName}
+                        {squad?.ownerId === friend.uid && '👑 '}{friend.displayName}
                       </p>
                       <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{friend.currentArea === 'unknown' ? friend.lastKnownArea : friend.currentArea || 'Unknown'}</span></p>
                   </div>
               </div>
           ))}
-          {/* RENDER RESTORED: Show invite card only if the user is their own owner */}
-          {userData && (userData.uid === userData.ownerId || (userData.friends || []).length === 0) && (
+          {/* Show invite card only if the user is the squad owner, or if they have no squad yet. */}
+          {userData && (!userData.squadId || userData.uid === squad?.ownerId) && (
             <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
                 <div className={styles.inviteIconContainer}><FaUserPlus /></div>
                 <div><p style={{fontWeight: 'bold'}}>Invite Friends</p></div>
@@ -702,7 +736,7 @@ export default function HomePage() {
             </>)}
 
             {activeModal === 'addFriend' && (<>
-              <h3 className={styles.modalHeader}>Send Friend Invite</h3>
+              <h3 className={styles.modalHeader}>Send Squad Invite</h3>
               <input type="email" placeholder="friend@example.com" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className={styles.textInput} autoFocus/>
               <div className={styles.modalActions}>
                 <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
@@ -770,7 +804,7 @@ export default function HomePage() {
                     </div>
                 )}
 
-                {isDeveloper && userData && userData.uid !== userData.ownerId && (
+                {isDeveloper && userData?.squadId && squad && squad.ownerId !== userData.uid && (
                   <div style={{marginTop: '1rem', paddingTop: '1rem'}}>
                      <button onClick={handleBecomeSquadLeader} className={styles.secondaryButton} style={{width: '100%'}}>
                         <FaCrown /> Become Squad Leader
@@ -778,7 +812,7 @@ export default function HomePage() {
                   </div>
                 )}
 
-                {userData && userData.uid !== userData.ownerId && (
+                {userData?.squadId && squad && squad.ownerId !== userData.uid && (
                   <div style={{borderTop: '1px solid #e74c3c', marginTop: '2rem', paddingTop: '1rem'}}>
                     <button onClick={handleLeaveSquad} className={styles.dangerButton} style={{width: '100%'}}>
                       <FaSignOutAlt /> Leave Squad
