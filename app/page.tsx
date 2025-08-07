@@ -635,7 +635,7 @@ export default function HomePage() {
               <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
               <div>
                   <p style={{fontWeight: 'bold'}}>
-                    {userData.uid === userData.ownerId && '👑 '}{userData.displayName} (You)
+                    {userData.uid === userData.ownerId && '👑 '}{userData.displayName}
                   </p>
                   <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea === 'unknown' ? userData.lastKnownArea : userData.currentArea || 'Unknown'}</span></p>
               </div>
@@ -662,7 +662,7 @@ export default function HomePage() {
               </div>
           ))}
           {/* RENDER RESTORED: Show invite card only if the user is their own owner */}
-          {userData && userData.uid === userData.ownerId && (
+          {userData && (userData.uid === userData.ownerId || (userData.friends || []).length === 0) && (
             <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
                 <div className={styles.inviteIconContainer}><FaUserPlus /></div>
                 <div><p style={{fontWeight: 'bold'}}>Invite Friends</p></div>
