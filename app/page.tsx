@@ -9,7 +9,8 @@ import {
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
-import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaUserPlus, FaCheck, FaTimes, FaSignOutAlt, FaCrown, FaUserShield } from 'react-icons/fa';
+// FIX: Removed 'FaCrown' as it was unused.
+import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaUserPlus, FaCheck, FaTimes, FaSignOutAlt, FaUserShield } from 'react-icons/fa';
 
 // --- Type Definitions ---
 type Point = { x: number; y: number };
@@ -286,9 +287,14 @@ export default function HomePage() {
            setActiveModal(null);
         }
 
-    } catch (error: any) {
+    // FIX: Changed 'error: any' to a safer type check to satisfy ESLint rules.
+    } catch (error) {
+        let errorMessage = "An error occurred while sending the invite.";
+        if (error instanceof Error) {
+            errorMessage = error.message;
+        }
         console.error("Error sending squad invite:", error);
-        showAlert(error.message || "An error occurred while sending the invite.");
+        showAlert(errorMessage);
     }
   };
 
