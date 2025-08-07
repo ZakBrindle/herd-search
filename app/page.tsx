@@ -543,8 +543,8 @@ export default function HomePage() {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const members = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserData));
-      // Exclude the current user from the list of "other" members
-      setSquadMembersData(members.filter(m => m.uid !== currentUser?.uid));
+      // CHANGED: We will now set all members here and filter in the render logic.
+      setSquadMembersData(members);
     });
 
     return () => unsubscribe();
@@ -596,7 +596,16 @@ export default function HomePage() {
 
 
   // --- Render Logic ---
-  const allUsersOnMap = squadMembersData.concat(userData ? [userData] : []);
+  const allSquadUsers = squadMembersData.sort((a, b) => {
+    if (a.uid === squad?.ownerId) return -1; // Owner first
+    if (b.uid === squad?.ownerId) return 1;
+    if (a.uid === currentUser?.uid) return -1; // Then current user
+    if (b.uid === currentUser?.uid) return 1;
+    return 0;
+  });
+
+  // ADD THIS LINE BACK
+  const allUsersOnMap = allSquadUsers;
 
   if (!currentUser) {
     return (
