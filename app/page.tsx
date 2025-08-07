@@ -311,10 +311,15 @@ export default function HomePage() {
       showAlert("Could not leave the squad.");
     }
   };
-
+  
   // --- UPDATED --- Function to become squad leader
   const handleBecomeSquadLeader = async () => {
-    if (!currentUser || !userData || !isDeveloper) return;
+    // This guard clause fixes the crash. It ensures user data and the owner's ID are loaded before running.
+    if (!currentUser || !userData || !userData.ownerId || !isDeveloper) {
+        showAlert("Your user data is still loading. Please close this and try again in a moment.");
+        console.error("handleBecomeSquadLeader aborted: userData.ownerId is missing.", { userData });
+        return;
+    }
     if (userData.uid === userData.ownerId) {
         return showAlert("You are already the squad leader.");
     }
@@ -332,12 +337,10 @@ export default function HomePage() {
             const querySnapshot = await getDocs(q);
 
             // First, explicitly update the new leader to be their own owner.
-            // This ensures you become the leader even if the query below has issues.
             batch.update(getUserDocRef(newOwnerId), { ownerId: newOwnerId });
 
             // Now, update all other members of the old squad.
             querySnapshot.forEach((userDoc) => {
-                // Skip updating the new leader again if they were in the query results.
                 if (userDoc.id !== newOwnerId) {
                     batch.update(userDoc.ref, { ownerId: newOwnerId });
                 }
@@ -353,11 +356,12 @@ export default function HomePage() {
     });
   };
 
+
   const handleTouchStart = (friend: UserData) => {
     if (userData?.uid !== userData?.ownerId) return;
     pressTimer.current = setTimeout(() => {
       setUserToRemove(friend);
-    }, 200);
+    }, 800);
   };
 
   const handleTouchEnd = () => {
@@ -481,6 +485,10 @@ export default function HomePage() {
       setFriendsData([]);
       return;
     }
+    // The "permission-denied" error originates here. Your Firestore Security Rules
+    // likely prevent reading from other users' documents in the main 'users' collection.
+    // Fixing this requires changing your security rules in the Firebase console to
+    // allow users to read data from users on their friends list.
     const unsubscribes = friendIds.map(friendId =>
       onSnapshot(getUserDocRef(friendId), (doc) => {
         if (doc.exists()) {
@@ -492,6 +500,11 @@ export default function HomePage() {
         } else {
           setFriendsData(prevFriends => prevFriends.filter(f => f.uid !== friendId));
         }
+      }, (error) => {
+          // Log the permission error but don't crash the app
+          console.error(`Error listening to friend ${friendId}:`, error);
+          // You might want to remove the friend from the list if you can't access their data
+          setFriendsData(prevFriends => prevFriends.filter(f => f.uid !== friendId));
       })
     );
     setFriendsData(prevFriends => prevFriends.filter(f => friendIds.includes(f.uid)));
@@ -767,7 +780,7 @@ export default function HomePage() {
 
                 {userData && userData.uid !== userData.ownerId && (
                   <div style={{borderTop: '1px solid #e74c3c', marginTop: '2rem', paddingTop: '1rem'}}>
-                    <button onClick={() => showConfirm("Are you sure you want to leave this squad?", handleLeaveSquad)} className={styles.dangerButton} style={{width: '100%'}}>
+                    <button onClick={() => showConfirm("Are you sure you want to leave this squad?", handleLeave Squad)} className={styles.dangerButton} style={{width: '100%'}}>
                       <FaSignOutAlt /> Leave Squad
                     </button>
                   </div>
