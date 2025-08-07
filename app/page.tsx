@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
-import { 
-  doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, collection, 
+import {
+  doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, collection,
   query, where, getDocs, addDoc, deleteDoc, DocumentData, writeBatch
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
@@ -14,13 +14,13 @@ import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaUserPlus, FaCheck, FaTim
 // --- Type Definitions ---
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
-type UserData = DocumentData & { 
-    uid: string; 
+type UserData = DocumentData & {
+    uid: string;
     ownerId: string;
-    location?: Point; 
-    photoURL?: string; 
-    displayName?: string; 
-    currentArea?: string; 
+    location?: Point;
+    photoURL?: string;
+    displayName?: string;
+    currentArea?: string;
     lastKnownArea?: string;
     friends?: string[];
     useGps?: boolean;
@@ -214,18 +214,18 @@ export default function HomePage() {
       showAlert("Could not rename the area.");
     }
   };
-  
+
   const handleSendFriendRequest = async () => {
     if (!friendEmail || !currentUser || !userData) return;
     try {
       const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
       const querySnapshot = await getDocs(q);
       if (querySnapshot.empty) return showAlert("User not found. Ensure they have signed in at least once.");
-      
+
       const friendUid = querySnapshot.docs[0].id;
       if (friendUid === currentUser.uid) return showAlert("You can't add yourself as a friend!");
       if ((userData?.friends || []).includes(friendUid)) return showAlert("This user is already your friend.");
-      
+
       const requestsRef = collection(db, 'friendRequests');
       const requestQuery = query(requestsRef, where('from', '==', currentUser.uid), where('to', '==', friendUid), where('status', '==', 'pending'));
       if (!(await getDocs(requestQuery)).empty) return showAlert("You have already sent a request to this user.");
@@ -274,8 +274,8 @@ export default function HomePage() {
     const batch = writeBatch(db);
 
     batch.update(getUserDocRef(currentUser.uid), { friends: arrayRemove(userToRemove.uid) });
-    
-    batch.update(getUserDocRef(userToRemove.uid), { 
+
+    batch.update(getUserDocRef(userToRemove.uid), {
       friends: arrayRemove(currentUser.uid),
       ownerId: userToRemove.uid
     });
@@ -326,7 +326,7 @@ export default function HomePage() {
         try {
             const batch = writeBatch(db);
             const usersRef = collection(db, 'users');
-            
+
             // Find all users in the old squad
             const q = query(usersRef, where("ownerId", "==", oldOwnerId));
             const querySnapshot = await getDocs(q);
@@ -379,7 +379,7 @@ export default function HomePage() {
     if (isDevMode) {
         if (currentPolygonPoints.current.length > 2) {
             const firstPoint = currentPolygonPoints.current[0];
-            const clickRadius = 15 / canvas.width; 
+            const clickRadius = 15 / canvas.width;
             if (Math.hypot(pos.x - firstPoint.x, pos.y - firstPoint.y) < clickRadius) {
                 setActiveModal('areaName');
                 return;
@@ -387,7 +387,7 @@ export default function HomePage() {
         }
         currentPolygonPoints.current.push(pos);
         redrawCanvas();
-    } 
+    }
     else if (userData?.useGps === false) {
         let foundArea: Area | null = null;
         for (const area of areas) {
@@ -460,7 +460,7 @@ export default function HomePage() {
 
     return () => { unsubscribeAuth(); unsubscribeAreas(); };
   }, []);
-  
+
   useEffect(() => {
     if (!currentUser?.uid) { setUserData(null); setIsDeveloper(false); return; }
     const unsubUser = onSnapshot(getUserDocRef(currentUser.uid), (doc) => {
@@ -510,7 +510,7 @@ export default function HomePage() {
     if (!currentUser || !userData || !userData.useGps) {
         return;
     }
-    
+
     const intervalId = setInterval(() => {
       const t = Date.now() / 1000;
       const x = 0.5 + 0.4 * Math.sin(t / 5);
@@ -522,7 +522,7 @@ export default function HomePage() {
               break;
           }
       }
-      
+
       const updatePayload: LocationUpdatePayload = {
         location: { x, y },
         currentArea: newAreaName
@@ -534,7 +534,7 @@ export default function HomePage() {
 
       updateDoc(getUserDocRef(currentUser.uid), updatePayload)
         .catch(err => console.error("Error in mock location update: ", err));
-        
+
     }, 2000);
 
     return () => clearInterval(intervalId);
@@ -556,7 +556,7 @@ export default function HomePage() {
       </div>
     );
   }
-  
+
   return (
     <div className={styles.container}>
       {toastMessage && (<div className={styles.toast}>{toastMessage}</div>)}
@@ -585,7 +585,16 @@ export default function HomePage() {
           <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
         </div>
       </div>
-      
+
+       {/* --- ADDED --- Button to become squad leader */}
+                {isDeveloper && userData && userData.uid !== userData.ownerId && (
+                  <div style={{borderTop: '1px solid #ffc107', marginTop: '1rem', paddingTop: '1rem'}}>
+                     <button onClick={handleBecomeSquadLeader} className={styles.warningButton} style={{width: '100%'}}>
+                        <FaCrown /> Become Squad Leader
+                    </button>
+                  </div>
+                )}
+
       {isDevMode && (
           <div className={styles.devPanel}>
               <h3 style={{fontWeight: 700}}>Developer Mode: Drawing Area</h3>
@@ -593,7 +602,7 @@ export default function HomePage() {
               <button onClick={cancelDrawing} className={styles.dangerButton} style={{padding: '0.25rem 0.75rem', marginTop: '0.5rem'}}>Cancel Drawing</button>
           </div>
       )}
-      
+
       <div className={styles.mapContainer}>
         <Image ref={mapImageRef} src="/Beatherder Map.png" alt="Beat-Herder Festival Map" width={1200} height={800} className={styles.mapImage} onLoad={resizeCanvas} priority />
         <canvas ref={canvasRef} className={styles.mapCanvas} onClick={handleCanvasClick} style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }} />
@@ -610,7 +619,7 @@ export default function HomePage() {
           </div>
         ))}
       </div>
-      
+
       <div style={{marginTop: '2rem', marginBottom: '0.5rem'}}>
         <h2 className={styles.headerTitle} style={{fontSize: '1.5rem'}}>Your Squad</h2>
       </div>
@@ -619,14 +628,16 @@ export default function HomePage() {
             <div className={`${styles.card} ${styles.currentUserCard}`}>
               <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
               <div>
-                  <p style={{fontWeight: 'bold'}}>{userData.displayName}</p>
-                  <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea === 'The Wilds' ? userData.lastKnownArea : userData.currentArea || 'Unknown'}</span></p>
+                  <p style={{fontWeight: 'bold'}}>
+                    {userData.uid === userData.ownerId && '👑 '}{userData.displayName}
+                  </p>
+                  <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea === 'unknown' ? userData.lastKnownArea : userData.currentArea || 'Unknown'}</span></p>
               </div>
             </div>
           )}
           {friendsData.map(friend => (
-              <div 
-                key={friend.uid} 
+              <div
+                key={friend.uid}
                 className={`${styles.card} ${userToRemove?.uid === friend.uid ? styles.highlightedCard : ''}`}
                 onMouseDown={() => handleTouchStart(friend)}
                 onMouseUp={handleTouchEnd}
@@ -636,8 +647,10 @@ export default function HomePage() {
               >
                   <Image src={friend.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
                   <div>
-                      <p style={{fontWeight: 'bold'}}>{friend.displayName}</p>
-                      <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{friend.currentArea === 'The Wilds' ? friend.lastKnownArea : friend.currentArea || 'Unknown'}</span></p>
+                      <p style={{fontWeight: 'bold'}}>
+                        {userData && friend.uid === userData.ownerId && '👑 '}{friend.displayName}
+                      </p>
+                      <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{friend.currentArea === 'unknown' ? friend.lastKnownArea : friend.currentArea || 'Unknown'}</span></p>
                   </div>
               </div>
           ))}
@@ -722,7 +735,7 @@ export default function HomePage() {
                   <button onClick={handleRenameArea} className={styles.primaryButton}>Save</button>
               </div>
             </>)}
-            
+
             {activeModal === 'settings' && (<>
                 <h3 className={styles.modalHeader}>Settings</h3>
                 <div className={styles.settingItem}>
@@ -748,15 +761,8 @@ export default function HomePage() {
                         <button onClick={() => { if (isDevMode) setActiveModal('locations'); else setActiveModal('passcode'); }} className={styles.secondaryButton}>Manage Locations</button>
                     </div>
                 )}
-                
-                {/* --- ADDED --- Button to become squad leader */}
-                {isDeveloper && userData && userData.uid !== userData.ownerId && (
-                  <div style={{borderTop: '1px solid #ffc107', marginTop: '1rem', paddingTop: '1rem'}}>
-                     <button onClick={handleBecomeSquadLeader} className={styles.warningButton} style={{width: '100%'}}>
-                        <FaCrown /> Become Squad Leader
-                    </button>
-                  </div>
-                )}
+
+
 
                 {userData && userData.uid !== userData.ownerId && (
                   <div style={{borderTop: '1px solid #e74c3c', marginTop: '2rem', paddingTop: '1rem'}}>
