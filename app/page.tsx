@@ -225,88 +225,97 @@ export default function HomePage() {
     }
   };
 
-    const handleSendFriendRequest = async () => {
-        if (!friendEmail || !currentUser || !userData) return;
+ const handleSendFriendRequest = async () => {
+    if (!friendEmail || !currentUser || !userData) return;
 
-        try {
-            const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
-            const querySnapshot = await getDocs(q);
+    try {
+        const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
+        const querySnapshot = await getDocs(q);
 
-            if (querySnapshot.empty) {
-                return showAlert("User not found. Ensure they have signed in at least once.");
-            }
-
-            const friendDoc = querySnapshot.docs[0];
-            const friendUid = friendDoc.id;
-            const friendData = friendDoc.data() as UserData;
-
-            if (friendUid === currentUser.uid) return showAlert("You can't invite yourself!");
-            if (friendData.squadId === userData.squadId && userData.squadId) return showAlert("This user is already in your squad.");
-
-            const requestsRef = collection(db, 'friendRequests');
-            const requestQuery = query(requestsRef, where('from', '==', currentUser.uid), where('to', '==', friendUid), where('status', '==', 'pending'));
-            if (!(await getDocs(requestQuery)).empty) return showAlert("You have already sent an invite to this user.");
-
-            let squadIdToJoin = userData.squadId;
-
-            // If the sender has no squad, create one.
-            if (!squadIdToJoin) {
-                const newSquadRef = doc(collection(db, 'squads'));
-                await setDoc(newSquadRef, {
-                    ownerId: currentUser.uid,
-                    members: [currentUser.uid],
-                    createdAt: serverTimestamp(),
-                });
-                squadIdToJoin = newSquadRef.id;
-                await updateDoc(getUserDocRef(currentUser.uid), { squadId: squadIdToJoin });
-            }
-
-            if (!squadIdToJoin) {
-              return showAlert("Could not create or find a squad to join.");
-            }
-
-            // Send invite with squadId
-            await addDoc(requestsRef, {
-                from: currentUser.uid,
-                to: friendUid,
-                fromName: userData.displayName,
-                fromPhotoURL: userData.photoURL,
-                status: 'pending',
-                squadId: squadIdToJoin,
-            });
-
-            showToast("Invite Sent");
-            setFriendEmail('');
-            setActiveModal(null);
-        } catch (error) {
-            console.error("Error sending friend request:", error);
-            showAlert("An error occurred while sending the invite.");
+        if (querySnapshot.empty) {
+            return showAlert("User not found. Ensure they have signed in at least once.");
         }
-    };
+
+        const friendDoc = querySnapshot.docs[0];
+        const friendUid = friendDoc.id;
+        const friendData = friendDoc.data() as UserData;
+
+        if (friendUid === currentUser.uid) return showAlert("You can't invite yourself!");
+        if (friendData.squadId === userData.squadId && userData.squadId) return showAlert("This user is already in your squad.");
+
+        const requestsRef = collection(db, 'friendRequests');
+        const requestQuery = query(requestsRef, where('from', '==', currentUser.uid), where('to', '==', friendUid), where('status', '==', 'pending'));
+        if (!(await getDocs(requestQuery)).empty) return showAlert("You have already sent an invite to this user.");
+
+        let squadIdToJoin = userData.squadId;
+        const batch = writeBatch(db); // Use a batch for atomicity
+
+        if (!squadIdToJoin) {
+            const newSquadRef = doc(collection(db, 'squads'));
+            // ✅ ADD pendingMembers TO THE NEW SQUAD
+            batch.set(newSquadRef, {
+                ownerId: currentUser.uid,
+                members: [currentUser.uid],
+                pendingMembers: [friendUid], // Pre-approve the friend
+                createdAt: serverTimestamp(),
+            });
+            squadIdToJoin = newSquadRef.id;
+            batch.update(getUserDocRef(currentUser.uid), { squadId: squadIdToJoin });
+        } else {
+            // ✅ ADD friend's UID to pendingMembers on an EXISTING squad
+            const squadRef = getSquadDocRef(squadIdToJoin);
+            batch.update(squadRef, { pendingMembers: arrayUnion(friendUid) });
+        }
+
+        if (!squadIdToJoin) {
+          return showAlert("Could not create or find a squad to join.");
+        }
+
+        const newRequestRef = doc(requestsRef);
+        batch.set(newRequestRef, {
+            from: currentUser.uid,
+            to: friendUid,
+            fromName: userData.displayName,
+            fromPhotoURL: userData.photoURL,
+            status: 'pending',
+            squadId: squadIdToJoin,
+        });
+
+        await batch.commit(); // Commit all writes at once
+
+        showToast("Invite Sent");
+        setFriendEmail('');
+        setActiveModal(null);
+    } catch (error) {
+        console.error("Error sending friend request:", error);
+        showAlert("An error occurred while sending the invite.");
+    }
+};
 
     const handleAcceptRequest = async (request: FriendRequest) => {
-        if (!currentUser) return;
-        const batch = writeBatch(db);
+    if (!currentUser) return;
+    const batch = writeBatch(db);
 
-        // 1. Add user to the squad's member list
-        const squadRef = getSquadDocRef(request.squadId);
-        batch.update(squadRef, { members: arrayUnion(request.to) });
+    const squadRef = getSquadDocRef(request.squadId);
+    // ✅ MOVE user from pending to active members list
+    batch.update(squadRef, {
+        members: arrayUnion(request.to),
+        pendingMembers: arrayRemove(request.to) // Clean up the pending list
+    });
 
-        // 2. Set the squadId on the accepting user's profile
-        const userRef = getUserDocRef(request.to);
-        batch.update(userRef, { squadId: request.squadId });
+    const userRef = getUserDocRef(request.to);
+    batch.update(userRef, { squadId: request.squadId });
 
-        // 3. Delete the friend request
-        batch.delete(doc(db, 'friendRequests', request.id));
+    batch.delete(doc(db, 'friendRequests', request.id));
 
-        try {
-            await batch.commit();
-            showToast("Welcome to the squad!");
-        } catch (error) {
-            console.error("Error accepting friend request:", error);
-            showAlert("Failed to accept invite.");
-        }
-    };
+    try {
+        await batch.commit();
+        showToast("Welcome to the squad! 🎉");
+    } catch (error) {
+        console.error("Error accepting friend request:", error);
+        showAlert("Failed to accept invite.");
+    }
+};
 
   const handleDeclineRequest = async (requestId: string) => {
     try {
