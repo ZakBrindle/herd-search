@@ -312,7 +312,7 @@ export default function HomePage() {
     }
   };
 
-  // --- ADDED --- Function to become squad leader
+  // --- UPDATED --- Function to become squad leader
   const handleBecomeSquadLeader = async () => {
     if (!currentUser || !userData || !isDeveloper) return;
     if (userData.uid === userData.ownerId) {
@@ -327,19 +327,21 @@ export default function HomePage() {
             const batch = writeBatch(db);
             const usersRef = collection(db, 'users');
 
-            // Find all users in the old squad
+            // Find all users who belong to the old squad.
             const q = query(usersRef, where("ownerId", "==", oldOwnerId));
             const querySnapshot = await getDocs(q);
 
-            if (querySnapshot.empty) {
-                 // This case is unlikely if you are in the squad, but as a fallback, make yourself the owner
-                 batch.update(getUserDocRef(newOwnerId), { ownerId: newOwnerId });
-            } else {
-                // Update ownerId for all members of the old squad to the new owner
-                querySnapshot.forEach((doc) => {
-                    batch.update(doc.ref, { ownerId: newOwnerId });
-                });
-            }
+            // First, explicitly update the new leader to be their own owner.
+            // This ensures you become the leader even if the query below has issues.
+            batch.update(getUserDocRef(newOwnerId), { ownerId: newOwnerId });
+
+            // Now, update all other members of the old squad.
+            querySnapshot.forEach((userDoc) => {
+                // Skip updating the new leader again if they were in the query results.
+                if (userDoc.id !== newOwnerId) {
+                    batch.update(userDoc.ref, { ownerId: newOwnerId });
+                }
+            });
 
             await batch.commit();
             setActiveModal(null);
@@ -355,7 +357,7 @@ export default function HomePage() {
     if (userData?.uid !== userData?.ownerId) return;
     pressTimer.current = setTimeout(() => {
       setUserToRemove(friend);
-    }, 800);
+    }, 200);
   };
 
   const handleTouchEnd = () => {
@@ -586,19 +588,12 @@ export default function HomePage() {
         </div>
       </div>
 
-       {/* --- ADDED --- Button to become squad leader */}
-                {isDeveloper && userData && userData.uid !== userData.ownerId && (
-                  <div style={{borderTop: '1px solid #ffc107', marginTop: '1rem', paddingTop: '1rem'}}>
-                     <button onClick={handleBecomeSquadLeader} className={styles.warningButton} style={{width: '100%'}}>
-                        <FaCrown /> Become Squad Leader
-                    </button>
-                  </div>
-                )}
+      
 
       {isDevMode && (
           <div className={styles.devPanel}>
               <h3 style={{fontWeight: 700}}>Developer Mode: Drawing Area</h3>
-              <p>Click on the map to draw. Click near the first point to finish and name the shape ✏️ </p>
+              <p>Click on the map to draw. Click near the first point to finish and name the shape.</p>
               <button onClick={cancelDrawing} className={styles.dangerButton} style={{padding: '0.25rem 0.75rem', marginTop: '0.5rem'}}>Cancel Drawing</button>
           </div>
       )}
@@ -762,7 +757,13 @@ export default function HomePage() {
                     </div>
                 )}
 
-
+                {isDeveloper && userData && userData.uid !== userData.ownerId && (
+                  <div style={{marginTop: '1rem', paddingTop: '1rem'}}>
+                     <button onClick={handleBecomeSquadLeader} className={styles.secondaryButton} style={{width: '100%'}}>
+                        <FaCrown /> Become Squad Leader
+                    </button>
+                  </div>
+                )}
 
                 {userData && userData.uid !== userData.ownerId && (
                   <div style={{borderTop: '1px solid #e74c3c', marginTop: '2rem', paddingTop: '1rem'}}>
