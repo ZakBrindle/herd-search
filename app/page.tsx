@@ -5,12 +5,12 @@ import Image from 'next/image';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { 
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection, 
-  query, where, getDocs, addDoc, deleteDoc, DocumentData 
+  query, where, getDocs, addDoc, deleteDoc, DocumentData, writeBatch
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
-// --- MODIFIED --- Added FaPencilAlt icon for renaming
-import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt } from 'react-icons/fa';
+// --- MODIFIED --- Added more icons for the new UI elements
+import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaUserPlus, FaCheck, FaTimes } from 'react-icons/fa';
 
 // --- Type Definitions ---
 type Point = { x: number; y: number };
@@ -34,6 +34,16 @@ type LocationUpdatePayload = {
   currentArea: string;
   lastKnownArea?: string;
 };
+// --- ADDED --- Type for friend requests
+type FriendRequest = {
+  id: string;
+  from: string;
+  to: string;
+  fromName: string;
+  fromPhotoURL: string;
+  status: 'pending' | 'accepted' | 'declined';
+};
+
 
 // --- Main Page Component ---
 export default function HomePage() {
@@ -51,11 +61,12 @@ export default function HomePage() {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [isDeveloper, setIsDeveloper] = useState(false);
   const [showZones, setShowZones] = useState(false);
-  // --- ADDED --- State to manage the area being renamed
   const [renamingArea, setRenamingArea] = useState<Area | null>(null);
   const [newAreaName, setNewAreaName] = useState('');
-  // --- ADDED --- State to manage the area selected for quick check-in
   const [selectedAreaForCheckIn, setSelectedAreaForCheckIn] = useState<Area | null>(null);
+  // --- ADDED --- State for toast messages and incoming friend requests
+  const [toastMessage, setToastMessage] = useState('');
+  const [incomingRequests, setIncomingRequests] = useState<FriendRequest[]>([]);
 
 
   // --- Refs ---
@@ -64,6 +75,11 @@ export default function HomePage() {
   const currentPolygonPoints = useRef<Point[]>([]);
 
   // --- Utility & Helper Functions ---
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(''), 3000); // Hide after 3 seconds
+  };
+
   const showAlert = (message: string) => {
     setAlertMessage(message);
     setActiveModal('alert');
@@ -200,7 +216,6 @@ export default function HomePage() {
     });
   };
 
-  // --- ADDED --- Function to handle the submission of a renamed area
   const handleRenameArea = async () => {
     if (!newAreaName || !renamingArea) {
       return showAlert("Please provide a valid new name.");
@@ -209,7 +224,7 @@ export default function HomePage() {
       const areaRef = doc(db, 'areas', renamingArea.id);
       await updateDoc(areaRef, { name: newAreaName });
       showAlert("Area renamed successfully!");
-      setActiveModal('locations'); // Go back to the locations list
+      setActiveModal('locations');
       setRenamingArea(null);
       setNewAreaName('');
     } catch (error) {
@@ -218,8 +233,9 @@ export default function HomePage() {
     }
   };
   
-  const handleAddFriend = async () => {
-    if (!friendEmail || !currentUser) return;
+  // --- MODIFIED --- This function now sends a friend request instead of directly adding a friend.
+  const handleSendFriendRequest = async () => {
+    if (!friendEmail || !currentUser || !userData) return;
     try {
       const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
       const querySnapshot = await getDocs(q);
@@ -237,21 +253,70 @@ export default function HomePage() {
       if (userFriends.includes(friendUid)) {
         return showAlert("This user is already your friend.");
       }
+      
+      // Check if a request already exists
+      const requestsRef = collection(db, 'friendRequests');
+      const requestQuery = query(requestsRef, 
+        where('from', '==', currentUser.uid), 
+        where('to', '==', friendUid),
+        where('status', '==', 'pending')
+      );
+      const existingRequest = await getDocs(requestQuery);
+      if (!existingRequest.empty) {
+          return showAlert("You have already sent a request to this user.");
+      }
 
-      await updateDoc(getUserDocRef(currentUser.uid), {
-        friends: arrayUnion(friendUid)
+      // Create a new friend request document
+      await addDoc(requestsRef, {
+        from: currentUser.uid,
+        to: friendUid,
+        fromName: userData.displayName,
+        fromPhotoURL: userData.photoURL,
+        status: 'pending'
       });
       
-      showAlert("Friend added successfully!");
+      showToast("Invite Sent");
       setFriendEmail('');
       setActiveModal(null);
     } catch (error) {
-       console.error("Error adding friend:", error);
-       showAlert("An error occurred while adding the friend.");
+       console.error("Error sending friend request:", error);
+       showAlert("An error occurred while sending the request.");
     }
   };
 
-  // --- MODIFIED --- This function now handles both developer drawing and user-based area selection for check-in.
+  // --- ADDED --- Functions to handle accepting or declining requests
+  const handleAcceptRequest = async (request: FriendRequest) => {
+    if (!currentUser) return;
+    const batch = writeBatch(db);
+
+    // 1. Add each user to the other's friends list
+    const currentUserRef = getUserDocRef(currentUser.uid);
+    batch.update(currentUserRef, { friends: arrayUnion(request.from) });
+
+    const friendUserRef = getUserDocRef(request.from);
+    batch.update(friendUserRef, { friends: arrayUnion(request.to) });
+
+    // 2. Delete the friend request document
+    const requestRef = doc(db, 'friendRequests', request.id);
+    batch.delete(requestRef);
+
+    try {
+      await batch.commit();
+    } catch (error) {
+      console.error("Error accepting friend request:", error);
+      showAlert("Failed to accept request.");
+    }
+  };
+
+  const handleDeclineRequest = async (requestId: string) => {
+    try {
+      await deleteDoc(doc(db, 'friendRequests', requestId));
+    } catch (error) {
+      console.error("Error declining friend request:", error);
+      showAlert("Failed to decline request.");
+    }
+  };
+
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -261,7 +326,6 @@ export default function HomePage() {
         y: (event.clientY - rect.top) / rect.height
     };
 
-    // Handle developer drawing mode
     if (isDevMode) {
         if (currentPolygonPoints.current.length > 2) {
             const firstPoint = currentPolygonPoints.current[0];
@@ -274,7 +338,6 @@ export default function HomePage() {
         currentPolygonPoints.current.push(pos);
         redrawCanvas();
     } 
-    // Handle user check-in selection mode (only if GPS is off)
     else if (userData?.useGps === false) {
         let foundArea: Area | null = null;
         for (const area of areas) {
@@ -283,11 +346,10 @@ export default function HomePage() {
                 break;
             }
         }
-        setSelectedAreaForCheckIn(foundArea); // Sets the selected area, or null if click was outside all areas
+        setSelectedAreaForCheckIn(foundArea);
     }
   };
 
-  // --- MODIFIED --- Added logic to clear the selected area after check-in.
   const handleManualCheckIn = async (area: Area) => {
     if (!currentUser || !area.polygon) return;
     let cx = 0, cy = 0;
@@ -307,7 +369,6 @@ export default function HomePage() {
             lastKnownArea: area.name
         });
         setActiveModal(null);
-        // --- ADDED --- Clear the selected area after a successful check-in
         setSelectedAreaForCheckIn(null);
     } catch (error) {
         console.error("Error checking in manually:", error);
@@ -317,7 +378,6 @@ export default function HomePage() {
 
   const handleGpsToggle = async (useGps: boolean) => {
     if (!currentUser) return;
-    // --- ADDED --- When toggling GPS, clear any selected check-in area.
     if (useGps) {
       setSelectedAreaForCheckIn(null);
     }
@@ -375,8 +435,6 @@ export default function HomePage() {
     };
   }, []);
   
-  // User and friends data listener
-// Listener for current user's data
   useEffect(() => {
     if (!currentUser?.uid) {
       setUserData(null);
@@ -395,14 +453,11 @@ export default function HomePage() {
     return () => unsubUser();
   }, [currentUser?.uid]);
 
-  // Listener for friends' data - This now runs only when the friends list changes.
   useEffect(() => {
     const friendIds = userData?.friends || [];
     
-    // Create listeners for each friend in the user's list
     const unsubscribes = friendIds.map(friendId =>
       onSnapshot(getUserDocRef(friendId), (doc) => {
-        // If a friend's document exists, add or update them in the local state
         if (doc.exists()) {
           const friendData = { uid: doc.id, ...doc.data() } as UserData;
           setFriendsData(prevFriends => {
@@ -410,20 +465,35 @@ export default function HomePage() {
             return [...otherFriends, friendData];
           });
         } else {
-          // If a friend's document has been deleted, remove them from the local state
           setFriendsData(prevFriends => prevFriends.filter(f => f.uid !== friendId));
         }
       })
     );
 
-    // When the friend list changes, remove any users from the UI who are no longer friends.
     setFriendsData(prevFriends => prevFriends.filter(f => friendIds.includes(f.uid)));
 
-    // Cleanup function to detach all listeners when the component unmounts or the friends list changes
     return () => {
       unsubscribes.forEach(unsub => unsub());
     };
-  }, [userData?.friends]); // T
+  }, [userData?.friends]);
+
+  // --- ADDED --- Listener for incoming friend requests
+  useEffect(() => {
+    if (!currentUser?.uid) {
+        setIncomingRequests([]);
+        return;
+    }
+
+    const requestsRef = collection(db, 'friendRequests');
+    const q = query(requestsRef, where('to', '==', currentUser.uid), where('status', '==', 'pending'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as FriendRequest[];
+        setIncomingRequests(requests);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser?.uid]);
 
   // --- MOCK LOCATION UPDATER ---
   useEffect(() => {
@@ -477,9 +547,30 @@ export default function HomePage() {
   
   return (
     <div className={styles.container}>
+      {/* --- ADDED --- Toast Notification */}
+      {toastMessage && (
+        <div className={styles.toast}>
+          {toastMessage}
+        </div>
+      )}
+
       {/* --- HEADER --- */}
+      {/* --- MODIFIED --- Header now conditionally shows a friend request or the title */}
       <header className={styles.header}>
-        <div className={styles.logo}>Herd Search</div>
+        {incomingRequests.length > 0 ? (
+          <div className={styles.notificationBar}>
+            <div className={styles.notificationContent}>
+              <Image src={incomingRequests[0].fromPhotoURL} alt={incomingRequests[0].fromName} width={32} height={32} style={{borderRadius: '50%'}} />
+              <span><b>{incomingRequests[0].fromName}</b> wants to be friends!</span>
+            </div>
+            <div className={styles.notificationActions}>
+              <button onClick={() => handleAcceptRequest(incomingRequests[0])} className={styles.acceptButton}><FaCheck /></button>
+              <button onClick={() => handleDeclineRequest(incomingRequests[0].id)} className={styles.declineButton}><FaTimes /></button>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.logo}>Herd Search</div>
+        )}
       </header>
 
       {/* --- USER/DEV CONTROLS --- */}
@@ -489,7 +580,6 @@ export default function HomePage() {
           <span style={{ fontWeight: 600 }}>{userData?.displayName}</span>
           <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}></div>
       </div>
       
       {isDevMode && (
@@ -510,13 +600,12 @@ export default function HomePage() {
           height={800}
           className={styles.mapImage}
           onLoad={resizeCanvas}
-          priority // Prioritize loading the main map image
+          priority
         />
         <canvas 
             ref={canvasRef} 
             className={styles.mapCanvas}
             onClick={handleCanvasClick}
-            // --- MODIFIED --- Cursor changes to a pointer if manual check-in is enabled, indicating a clickable map.
             style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }}
         />
         {userData?.location && (
@@ -586,7 +675,7 @@ export default function HomePage() {
           ))}
           <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
               <div className={styles.inviteIconContainer}>
-                  <span className={styles.invitePlus}>+</span>
+                  <FaUserPlus />
               </div>
               <div>
                   <p style={{fontWeight: 'bold'}}>Invite Friends</p>
@@ -595,10 +684,8 @@ export default function HomePage() {
       </div>
 
       {/* --- FLOATING BUTTON --- */}
-      {/* --- MODIFIED --- This block now conditionally renders the correct check-in button. */}
       {userData?.useGps === false && (
         <>
-          {/* Show the specific check-in button if an area is selected by clicking the map */}
           {selectedAreaForCheckIn ? (
             <button 
               onClick={() => handleManualCheckIn(selectedAreaForCheckIn)} 
@@ -607,7 +694,6 @@ export default function HomePage() {
               <FaMapMarkerAlt /> Check into {selectedAreaForCheckIn.name}
             </button>
           ) : (
-            // Otherwise, show the generic button to open the list modal
             <button 
               onClick={() => setActiveModal('checkIn')} 
               className={styles.floatingButton}
@@ -633,11 +719,11 @@ export default function HomePage() {
             </>)}
 
             {activeModal === 'addFriend' && (<>
-              <h3 className={styles.modalHeader}>Add a Friend</h3>
+              <h3 className={styles.modalHeader}>Send Friend Invite</h3>
               <input type="email" placeholder="friend@example.com" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className={styles.textInput} autoFocus/>
               <div className={styles.modalActions}>
                 <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
-                <button onClick={handleAddFriend} className={styles.primaryButton}>Add</button>
+                <button onClick={handleSendFriendRequest} className={styles.primaryButton}>Send Invite</button>
               </div>
             </>)}
 
@@ -666,9 +752,7 @@ export default function HomePage() {
               </div>
             </>)}
 
-            {/* --- ADDED --- Modal for renaming an existing area */}
             {activeModal === 'renameArea' && renamingArea && (<>
-              {/* --- FIXED --- Replaced " with &quot; to avoid unescaped entities error */}
               <h3 className={styles.modalHeader}>Rename &quot;{renamingArea.name}&quot;</h3>
               <input 
                 type="text" 
@@ -765,7 +849,6 @@ export default function HomePage() {
                 {areas.length > 0 ? areas.map(area => (
                   <div key={area.id} className={styles.locationItemManager}>
                     <span>{area.name}</span>
-                    {/* --- MODIFIED --- Added a container for the action buttons */}
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button 
                         onClick={() => {
