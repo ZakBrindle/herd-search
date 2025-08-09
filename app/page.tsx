@@ -395,7 +395,8 @@ export default function HomePage() {
   };
 
   // --- Handler for leaving squad and creating a new one ---
-  const handleLeaveSquad = async () => {
+  // MODIFIED: Now shows confirmation before leaving squad
+  const handleLeaveSquadConfirmed = async () => {
     if (!userData || !userData.squadId || !currentUser) return;
     try {
       // Remove user from current squad's members array
@@ -415,12 +416,19 @@ export default function HomePage() {
         squadOwnerId: currentUser.uid,
       });
       setSelectedMember(null);
-      showAlert("You have left your squad and created a new one.");
     } catch (error) {
       console.error("Error leaving squad:", error);
       showAlert("Failed to leave squad.");
       setSelectedMember(null);
     }
+  };
+
+  // ADDED: Wrapper to show confirmation dialog
+  const handleLeaveSquad = () => {
+    showConfirm(
+      "Are you sure you want to leave your squad? You will create a new squad and leave your current one.",
+      handleLeaveSquadConfirmed
+    );
   };
 
   // --- Data Subscription Hooks ---
@@ -728,10 +736,15 @@ export default function HomePage() {
         {/* Show squad UI if user has a squadId (even if it's just them) */}
         {userData?.squadId ? (
           <>
-            {/* Show all members in the squad (including self) */}
-            {[userData, ...friendsData]
-              .filter(u => u.squadId === userData.squadId)
-              .map(member => (
+            {/* --- MODIFIED: Sort members so leader is first --- */}
+            {(() => {
+              const squadMembers = [userData, ...friendsData]
+                .filter(u => u.squadId === userData.squadId);
+              const leaderUid = getSquadLeaderUid();
+              const sortedMembers = squadMembers.sort((a, b) =>
+                a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0
+              );
+              return sortedMembers.map(member => (
                 <div
                   key={member.uid}
                   className={`${styles.card} ${getSquadLeaderUid() === member.uid ? styles.currentUserCard : ""}`}
@@ -751,7 +764,8 @@ export default function HomePage() {
                     )}
                   </div>
                 </div>
-              ))}
+              ));
+            })()}
             {/* Always show invite card if you are the squad leader */}
             {getSquadLeaderUid() === userData.uid && (
               <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('inviteToSquad')}>
@@ -788,20 +802,20 @@ export default function HomePage() {
           <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
             <Image src={selectedMember.photoURL!} alt="avatar" width={64} height={64} style={{borderRadius: '50%', marginBottom: 12}} />
             <h3 className={styles.modalHeader}>
-              {getSquadLeaderUid() === selectedMember.uid && <span style={{marginRight: 4}}>👑</span>}
+              {getSquadLeaderUid() === selectedMember.uid && <span style={{marginRight: 4}}></span>}
               {selectedMember.displayName}
             </h3>
             <div style={{marginBottom: 8}}>
               <div><strong>Last Seen:</strong> {selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}</div>
               <div>
-                <strong>Last Update:</strong>{" "}
+                <strong></strong>{" "}
                 {selectedMember.lastUpdate
                   ? new Date(selectedMember.lastUpdate).toLocaleString()
                   : "Unknown"}
               </div>
             </div>
             <div style={{marginBottom: 8}}>
-              <div><strong>Current Location:</strong> {selectedMember.currentArea || "Unknown"}</div>
+              <strong>UID:</strong> {selectedMember.uid}   
             </div>
             {/* Only show kick button if current user is squad leader and not viewing their own card */}
             {getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
@@ -817,6 +831,7 @@ export default function HomePage() {
             {selectedMember.uid === userData?.uid && (
               <button
                 className={styles.dangerButton}
+                // MODIFIED: Now calls confirmation wrapper
                 onClick={handleLeaveSquad}
                 style={{marginTop: 16}}
               >
