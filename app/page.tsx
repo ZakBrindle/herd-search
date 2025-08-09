@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { 
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection, 
-  query, where, getDocs, addDoc, deleteDoc, DocumentData 
+  query, where, getDocs, addDoc, deleteDoc, DocumentData, arrayRemove 
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
@@ -350,10 +350,22 @@ export default function HomePage() {
   // --- Handler for kicking a member ---
   const handleKickMember = async (member: UserData) => {
     if (!userData || !userData.squadId || !member.uid) return;
-    // Implement your logic here to remove member from squad (e.g., update squad doc)
-    // Example: updateDoc(doc(db, 'squads', userData.squadId), { members: arrayRemove(member.uid) })
-    showAlert(`Kick from squad not implemented. (Would remove ${member.displayName})`);
-    setSelectedMember(null);
+    try {
+      // Remove member from squad's members array
+      await updateDoc(doc(db, "squads", userData.squadId), {
+        members: arrayRemove(member.uid)
+      });
+      // Optionally, clear their squadId on their user doc (if you want them to leave the squad)
+      await updateDoc(getUserDocRef(member.uid), {
+        squadId: null
+      });
+      showAlert(`${member.displayName} has been kicked from the squad.`);
+      setSelectedMember(null);
+    } catch (error) {
+      console.error("Error kicking member:", error);
+      showAlert("Failed to kick member from squad.");
+      setSelectedMember(null);
+    }
   };
 
   // --- Data Subscription Hooks ---
@@ -472,7 +484,7 @@ export default function HomePage() {
       updateDoc(getUserDocRef(currentUser.uid), updatePayload)
         .catch(err => console.error("Error in mock location update: ", err));
         
-    }, 2000);
+    }, 20000);
 
     return () => clearInterval(intervalId);
   }, [currentUser, userData, areas]);
@@ -577,10 +589,13 @@ export default function HomePage() {
         <h2 className={styles.headerTitle} style={{fontSize: '1.5rem'}}>Your Squad</h2>
       </div>
       <div className={styles.squadList}>
-          {/* Only show squad cards if user is in a squad */}
-          {userData?.squadId ? (
-            <>
-              {[userData, ...friendsData].filter(u => u.squadId === userData.squadId).map(member => (
+        {/* Show squad UI if user has a squadId (even if it's just them) */}
+        {userData?.squadId ? (
+          <>
+            {/* Show all members in the squad (including self) */}
+            {[userData, ...friendsData]
+              .filter(u => u.squadId === userData.squadId)
+              .map(member => (
                 <div
                   key={member.uid}
                   className={`${styles.card} ${getSquadLeaderUid() === member.uid ? styles.currentUserCard : ""}`}
@@ -601,6 +616,8 @@ export default function HomePage() {
                   </div>
                 </div>
               ))}
+            {/* Always show invite card if you are the squad leader */}
+            {getSquadLeaderUid() === userData.uid && (
               <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
                 <div className={styles.inviteIconContainer}>
                   <span className={styles.invitePlus}>+</span>
@@ -609,23 +626,24 @@ export default function HomePage() {
                   <p style={{fontWeight: 'bold'}}>Invite Friends</p>
                 </div>
               </div>
-            </>
-          ) : (
-            // If not in a squad, show only the original card
-            userData && (
-              <div className={`${styles.card} ${styles.currentUserCard}`}>
-                <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
-                <div>
-                  <p style={{fontWeight: 'bold'}}>{userData.displayName}</p>
-                  {userData.currentArea === 'The Wilds' ? (
-                    <p style={{fontSize: '0.9rem'}}>Last Seen: <span style={{fontWeight: 600}}>{userData.lastKnownArea || 'Unknown'}</span></p>
-                  ) : (
-                    <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
-                  )}
-                </div>
+            )}
+          </>
+        ) : (
+          // If not in a squad, show only the original card
+          userData && (
+            <div className={`${styles.card} ${styles.currentUserCard}`}>
+              <Image src={userData.photoURL!} alt="avatar" width={48} height={48} style={{borderRadius: '50%'}} />
+              <div>
+                <p style={{fontWeight: 'bold'}}>{userData.displayName}</p>
+                {userData.currentArea === 'The Wilds' ? (
+                  <p style={{fontSize: '0.9rem'}}>Last Seen: <span style={{fontWeight: 600}}>{userData.lastKnownArea || 'Unknown'}</span></p>
+                ) : (
+                  <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
+                )}
               </div>
-            )
-          )}
+            </div>
+          )
+        )}
       </div>
 
       {/* --- MEMBER DETAIL POPUP --- */}
