@@ -254,6 +254,24 @@ export default function HomePage() {
     }
   };
 
+  const handleInviteToSquad = async (friendUid: string) => {
+    if (!userData?.squadId || !userData?.uid) return;
+    try {
+      // Create a squad invite notification for the friend
+      await addDoc(collection(db, "squadInvites"), {
+        squadId: userData.squadId,
+        from: userData.uid,
+        to: friendUid,
+        createdAt: Date.now(),
+        status: "pending"
+      });
+      showAlert("Squad invite sent!");
+    } catch (error) {
+      console.error("Error sending squad invite:", error);
+      showAlert("Failed to send squad invite.");
+    }
+  };
+
   // --- MODIFIED --- This function now handles both developer drawing and user-based area selection for check-in.
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
@@ -648,7 +666,7 @@ export default function HomePage() {
               ))}
             {/* Always show invite card if you are the squad leader */}
             {getSquadLeaderUid() === userData.uid && (
-              <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('addFriend')}>
+              <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('inviteToSquad')}>
                 <div className={styles.inviteIconContainer}>
                   <span className={styles.invitePlus}>+</span>
                 </div>
@@ -754,6 +772,26 @@ export default function HomePage() {
 
             {activeModal === 'addFriend' && (<>
               <h3 className={styles.modalHeader}>Add a Friend</h3>
+              {/* --- ADDED: Friends quick invite list above the email input --- */}
+              {friendsData.length > 0 && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Invite your friends to squad:</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {friendsData.map(friend => (
+                      <button
+                        key={friend.uid}
+                        className={styles.secondaryButton}
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                        onClick={() => handleInviteToSquad(friend.uid)}
+                        aria-label={`Invite ${friend.displayName} to squad`}
+                      >
+                        {friend.displayName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* --- END ADDED --- */}
               <input type="email" placeholder="friend@example.com" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className={styles.textInput} autoFocus/>
               <div className={styles.modalActions}>
                 <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
@@ -914,6 +952,25 @@ export default function HomePage() {
                 <button onClick={() => { setActiveModal(null); setIsDevMode(true); }} className={styles.primaryButton}>Add New Location</button>
               </div>
             </>)}
+
+            {/* --- ADDED --- Modal for inviting friends to squad */}
+            {activeModal === 'inviteToSquad' && (
+              <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
+                <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+                  <h3 className={styles.modalHeader}>Invite Friend to Squad</h3>
+                  <div className={styles.locationsList}>
+                    {friendsData.length > 0 ? friendsData.map(friend => (
+                      <div key={friend.uid} className={styles.locationItem} onClick={() => handleInviteToSquad(friend.uid)}>
+                        {friend.displayName}
+                      </div>
+                    )) : <p>No friends to invite.</p>}
+                  </div>
+                  <div className={styles.modalActions}>
+                    <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>
