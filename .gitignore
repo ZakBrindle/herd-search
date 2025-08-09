@@ -47,3 +47,4 @@ next-env.d.ts
 
 serviceAccountKey.json
 set-developer-claim.js
+firestore.rules

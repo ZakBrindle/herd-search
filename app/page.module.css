@@ -41,7 +41,7 @@
   border-radius: 1.5rem; /* Rounded buttons */
   border: none;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
+  transition: background-color 0.2s ease-in-out;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -154,6 +154,7 @@
   white-space: nowrap;
 }
 
+/* Add this to your page.module.css file */
 .userControls {
   background-color: #35354d;
   padding: 1rem;
@@ -176,6 +177,7 @@
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
 }
 
+/* Add this to your page.module.css file */
 .iconButton {
   background: none;
   border: none;
@@ -228,7 +230,7 @@
 
 .modalActions {
   display: flex;
-  justify-content: space-between; 
+  justify-content: space-between; /* This property is changed */
   gap: 0.75rem;
   margin-top: 1.5rem;
 }
@@ -260,6 +262,8 @@
   padding-bottom: 1rem; /* Space for scrollbar */
 }
 
+/* Remove media queries for squadList */
+
 .card {
   background-color: #35354d; /* Dark card background */
   padding: 1rem;
@@ -273,22 +277,14 @@
   flex-shrink: 0; /* Prevent cards from shrinking */
   border: 2px solid transparent;
   gap: 0.5rem; /* Add gap between card items */
-  transition: all 0.3s ease;
-  cursor: pointer;
 }
 
 .currentUserCard {
-  border-color: #7c5dfa; /* Purple border */
+  border-color: #7c5dfa; /* Purple border for squad leader */
+  box-shadow: 0 0 0 2px #7c5dfa;
 }
 
-/* --- ADDED --- Style for highlighted card in remove mode */
-.highlightedCard {
-  border-color: #e74c3c; /* Red border */
-  box-shadow: 0 0 15px rgba(231, 76, 60, 0.5); /* Red glow */
-  transform: scale(1.05);
-}
-
-
+/* New styles for settings modal */
 .settingItem {
     display: flex;
     justify-content: space-between;
@@ -303,6 +299,7 @@
     margin-bottom: 1rem;
 }
 
+/* Toggle Switch CSS */
 .switch {
     position: relative;
     display: inline-block;
@@ -348,6 +345,7 @@ input:checked + .slider:before {
     transform: translateX(16px);
 }
 
+/* Location list in check-in modal */
 .locationsList {
     max-height: 200px;
     overflow-y: auto;
@@ -377,6 +375,7 @@ input:checked + .slider:before {
     margin-bottom: 0.5rem;
 }
 
+/* Styles for the new invite card */
 .inviteCard {
   cursor: pointer;
   border: 2px dashed #6c757d;
@@ -398,83 +397,12 @@ input:checked + .slider:before {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+}
+
+.invitePlus {
+    font-size: 28px;
     color: #fff;
-}
-
-/* --- Styles for Toast and Notification Bar --- */
-.toast {
-  position: fixed;
-  bottom: 6rem; /* Position above floating button */
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #242436;
-  color: #fff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 1.5rem;
-  z-index: 1100;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  border: 1px solid #7c5dfa;
-  font-weight: 600;
-}
-
-.notificationBar {
-  width: 100%;
-  background-color: #7c5dfa;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.9rem;
-  animation: slideDown 0.3s ease-out;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.notificationContent {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.notificationActions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.notificationActions button {
-  border: none;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.notificationActions button:hover {
-  transform: scale(1.1);
-}
-
-.acceptButton {
-  background-color: #2ecc71; /* Green */
-  color: white;
-}
-
-.declineButton {
-  background-color: #e74c3c; /* Red */
-  color: white;
+    font-weight: 300;
+    line-height: 1;
+    transform: translateY(-1px); /* Optical centering */
 }
