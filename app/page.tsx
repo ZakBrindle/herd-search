@@ -490,6 +490,36 @@ export default function HomePage() {
   }, [currentUser, userData, areas]);
 
 
+  // --- Automatically create a squad if not in one ---
+  useEffect(() => {
+    // Only run if user is signed in, userData is loaded, and not in a squad
+    if (
+      currentUser &&
+      userData &&
+      !userData.squadId
+    ) {
+      const createSquad = async () => {
+        try {
+          // Create a new squad document
+          const squadDoc = await addDoc(collection(db, "squads"), {
+            ownerId: currentUser.uid,
+            members: [currentUser.uid],
+            pendingMembers: [],
+            createdAt: Date.now(),
+          });
+          // Update the user's squadId and squadOwnerId
+          await updateDoc(doc(db, "users", currentUser.uid), {
+            squadId: squadDoc.id,
+            squadOwnerId: currentUser.uid,
+          });
+        } catch (err) {
+          console.error("Error creating squad:", err);
+        }
+      };
+      createSquad();
+    }
+  }, [currentUser, userData]);
+
   // --- Render Logic ---
   if (!currentUser) {
     return (
