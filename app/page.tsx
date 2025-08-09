@@ -63,6 +63,8 @@ export default function HomePage() {
   const [selectedAreaForCheckIn, setSelectedAreaForCheckIn] = useState<Area | null>(null);
   const [selectedMember, setSelectedMember] = useState<UserData | null>(null);
   const [incomingSquadInvites, setIncomingSquadInvites] = useState<DocumentData[]>([]);
+  // ADDED: Outgoing invites state
+  const [outgoingSquadInvites, setOutgoingSquadInvites] = useState<DocumentData[]>([]);
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -433,6 +435,43 @@ export default function HomePage() {
     );
   };
 
+  // --- Accept Squad Invite ---
+  const handleAcceptSquadInvite = async (invite: DocumentData) => {
+    try {
+      // Add user to squad members
+      await updateDoc(doc(db, "squads", invite.squadId), {
+        members: arrayUnion(currentUser!.uid)
+      });
+      // Update user's squadId and squadOwnerId
+      await updateDoc(doc(db, "users", currentUser!.uid), {
+        squadId: invite.squadId,
+        squadOwnerId: invite.from
+      });
+      // Mark invite as accepted
+      await updateDoc(doc(db, "squadInvites", invite.id), {
+        status: "accepted"
+      });
+      showAlert("You have joined the squad!");
+    } catch (error) {
+      console.error("Error accepting squad invite:", error);
+      showAlert("Could not accept squad invite.");
+    }
+  };
+
+  // --- Decline Squad Invite ---
+  const handleDeclineSquadInvite = async (invite: DocumentData) => {
+    try {
+      // Mark invite as declined (or delete)
+      await updateDoc(doc(db, "squadInvites", invite.id), {
+        status: "declined"
+      });
+      showAlert("Squad invite declined.");
+    } catch (error) {
+      console.error("Error declining squad invite:", error);
+      showAlert("Could not decline squad invite.");
+    }
+  };
+
   // --- Data Subscription Hooks ---
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -589,50 +628,30 @@ export default function HomePage() {
   useEffect(() => {
     if (!currentUser?.uid) {
       setIncomingSquadInvites([]);
+      setOutgoingSquadInvites([]); // ADDED
       return;
     }
-    // Listen for invites where 'to' is current user and status is 'pending'
-    const q = query(collection(db, "squadInvites"), where("to", "==", currentUser.uid), where("status", "==", "pending"));
-    const unsub = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
+    // Listen for incoming invites
+    const qIn = query(collection(db, "squadInvites"), where("to", "==", currentUser.uid), where("status", "==", "pending"));
+    const unsubIn = onSnapshot(qIn, (snapshot: QuerySnapshot<DocumentData>) => {
       setIncomingSquadInvites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-    return () => unsub();
+    // ADDED: Listen for outgoing invites
+    const qOut = query(collection(db, "squadInvites"), where("from", "==", currentUser.uid), where("status", "==", "pending"));
+    const unsubOut = onSnapshot(qOut, (snapshot: QuerySnapshot<DocumentData>) => {
+      setOutgoingSquadInvites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => { unsubIn(); unsubOut(); };
   }, [currentUser?.uid]);
 
-  // --- Accept Squad Invite ---
-  const handleAcceptSquadInvite = async (invite: DocumentData) => {
+  // ADDED: Withdraw squad invite handler
+  const handleWithdrawSquadInvite = async (invite: DocumentData) => {
     try {
-      // Add user to squad members
-      await updateDoc(doc(db, "squads", invite.squadId), {
-        members: arrayUnion(currentUser!.uid)
-      });
-      // Update user's squadId and squadOwnerId
-      await updateDoc(doc(db, "users", currentUser!.uid), {
-        squadId: invite.squadId,
-        squadOwnerId: invite.from
-      });
-      // Mark invite as accepted
-      await updateDoc(doc(db, "squadInvites", invite.id), {
-        status: "accepted"
-      });
-      showAlert("You have joined the squad!");
+      await deleteDoc(doc(db, "squadInvites", invite.id));
+      showAlert("Squad invite withdrawn.");
     } catch (error) {
-      console.error("Error accepting squad invite:", error);
-      showAlert("Could not accept squad invite.");
-    }
-  };
-
-  // --- Decline Squad Invite ---
-  const handleDeclineSquadInvite = async (invite: DocumentData) => {
-    try {
-      // Mark invite as declined (or delete)
-      await updateDoc(doc(db, "squadInvites", invite.id), {
-        status: "declined"
-      });
-      showAlert("Squad invite declined.");
-    } catch (error) {
-      console.error("Error declining squad invite:", error);
-      showAlert("Could not decline squad invite.");
+      console.error("Error withdrawing squad invite:", error);
+      showAlert("Could not withdraw squad invite.");
     }
   };
 
@@ -768,6 +787,33 @@ export default function HomePage() {
                 </div>
               ));
             })()}
+            {/* ADDED: Outgoing squad invites cards */}
+            {outgoingSquadInvites.map(invite => (
+              <div
+                key={invite.id}
+                className={`${styles.card} ${styles.inviteCard}`}
+                style={{ display: 'flex', alignItems: 'center', background: '#f0f4ff', borderColor: '#3b82f6', marginTop: 8 }}
+              >
+                <div className={styles.inviteIconContainer}>
+                  <FaBell color="#3b82f6" size={24} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{fontWeight: 'bold', color: '#1e40af', marginBottom: 2}}>
+                    Invite sent to <strong>{getDisplayNameByUid(invite.to)}</strong>
+                  </p>
+                  <div style={{fontSize: '0.95rem', color: '#1e3a8a'}}>
+                    Squad: <strong>{invite.squadId}</strong>
+                  </div>
+                </div>
+                <button
+                  className={styles.dangerButton}
+                  style={{marginLeft: 8, fontSize: '0.9rem', padding: '0.3rem 0.8rem'}}
+                  onClick={() => handleWithdrawSquadInvite(invite)}
+                >
+                  Withdraw
+                </button>
+              </div>
+            ))}
             {/* MODIFIED: Show notification card if there are pending invites, otherwise show invite card */}
             {incomingSquadInvites.length > 0 ? (
               <div
@@ -1195,7 +1241,7 @@ export default function HomePage() {
                 {/* --- Friends quick invite list --- */}
                 {friendsData.filter(f => f.squadId !== userData?.squadId).length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Invite your friends to squad:</div>
+     
                     <div>
                       {friendsData
                         .filter(friend => friend.squadId !== userData?.squadId)
@@ -1239,7 +1285,6 @@ export default function HomePage() {
                   value={friendEmail}
                   onChange={e => setFriendEmail(e.target.value)}
                   className={styles.textInput}
-                  autoFocus
                 />
                 <div className={styles.modalActions}>
                   <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
