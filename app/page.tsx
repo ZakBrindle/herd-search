@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { 
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection, 
-  query, where, getDocs, addDoc, deleteDoc, DocumentData, arrayRemove 
+  query, where, getDocs, addDoc, deleteDoc, DocumentData, arrayRemove, QuerySnapshot 
 } from "firebase/firestore";
 import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
@@ -60,6 +60,7 @@ export default function HomePage() {
   // --- ADDED --- State to manage the area selected for quick check-in
   const [selectedAreaForCheckIn, setSelectedAreaForCheckIn] = useState<Area | null>(null);
   const [selectedMember, setSelectedMember] = useState<UserData | null>(null);
+  const [incomingSquadInvites, setIncomingSquadInvites] = useState<DocumentData[]>([]);
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -537,6 +538,57 @@ export default function HomePage() {
       createSquad();
     }
   }, [currentUser, userData]);
+
+  // --- Squad Invites Listener ---
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setIncomingSquadInvites([]);
+      return;
+    }
+    // Listen for invites where 'to' is current user and status is 'pending'
+    const q = query(collection(db, "squadInvites"), where("to", "==", currentUser.uid), where("status", "==", "pending"));
+    const unsub = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
+      setIncomingSquadInvites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, [currentUser?.uid]);
+
+  // --- Accept Squad Invite ---
+  const handleAcceptSquadInvite = async (invite: DocumentData) => {
+    try {
+      // Add user to squad members
+      await updateDoc(doc(db, "squads", invite.squadId), {
+        members: arrayUnion(currentUser!.uid)
+      });
+      // Update user's squadId and squadOwnerId
+      await updateDoc(doc(db, "users", currentUser!.uid), {
+        squadId: invite.squadId,
+        squadOwnerId: invite.from
+      });
+      // Mark invite as accepted
+      await updateDoc(doc(db, "squadInvites", invite.id), {
+        status: "accepted"
+      });
+      showAlert("You have joined the squad!");
+    } catch (error) {
+      console.error("Error accepting squad invite:", error);
+      showAlert("Could not accept squad invite.");
+    }
+  };
+
+  // --- Decline Squad Invite ---
+  const handleDeclineSquadInvite = async (invite: DocumentData) => {
+    try {
+      // Mark invite as declined (or delete)
+      await updateDoc(doc(db, "squadInvites", invite.id), {
+        status: "declined"
+      });
+      showAlert("Squad invite declined.");
+    } catch (error) {
+      console.error("Error declining squad invite:", error);
+      showAlert("Could not decline squad invite.");
+    }
+  };
 
   // --- Render Logic ---
   if (!currentUser) {
@@ -1033,6 +1085,41 @@ export default function HomePage() {
                   </div>
                   <div className={styles.modalActions}>
                     <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- ADDED --- Modal for incoming squad invites */}
+            {incomingSquadInvites.length > 0 && (
+              <div className={styles.modalOverlay} onClick={() => setIncomingSquadInvites([])}>
+                <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+                  <h3 className={styles.modalHeader}>Squad Invites</h3>
+                  <div className={styles.locationsList}>
+                    {incomingSquadInvites.map(invite => (
+                      <div key={invite.id} className={styles.locationItemManager}>
+                        <span>
+                          Squad invite from <strong>{invite.from}</strong>
+                        </span>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            className={styles.primaryButton}
+                            onClick={() => handleAcceptSquadInvite(invite)}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            className={styles.dangerButton}
+                            onClick={() => handleDeclineSquadInvite(invite)}
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={styles.modalActions}>
+                    <button onClick={() => setIncomingSquadInvites([])} className={styles.neutralButton}>Close</button>
                   </div>
                 </div>
               </div>
