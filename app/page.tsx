@@ -792,18 +792,16 @@ export default function HomePage() {
               <div
                 key={invite.id}
                 className={`${styles.card} ${styles.inviteCard}`}
-                style={{ display: 'flex', alignItems: 'center', background: '#f0f4ff', borderColor: '#3b82f6', marginTop: 8 }}
+                style={{ display: 'flex', alignItems: 'center', background: '#35354d', borderColor: '#3b82f6', marginTop: 8 }}
               >
                 <div className={styles.inviteIconContainer}>
                   <FaBell color="#3b82f6" size={24} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <p style={{fontWeight: 'bold', color: '#1e40af', marginBottom: 2}}>
-                    Invite sent to <strong>{getDisplayNameByUid(invite.to)}</strong>
+                    Invite sent to
                   </p>
-                  <div style={{fontSize: '0.95rem', color: '#1e3a8a'}}>
-                    Squad: <strong>{invite.squadId}</strong>
-                  </div>
+                <strong>{getDisplayNameByUid(invite.to)}</strong>
                 </div>
                 <button
                   className={styles.dangerButton}
@@ -1226,13 +1224,13 @@ export default function HomePage() {
                               className={styles.primaryButton}
                               onClick={() => handleAcceptSquadInvite(invite)}
                             >
-                              Accept
+                              ✔️
                             </button>
                             <button
                               className={styles.dangerButton}
                               onClick={() => handleDeclineSquadInvite(invite)}
                             >
-                              Decline
+                              ❌
                             </button>
                           </div>
                         </div>
