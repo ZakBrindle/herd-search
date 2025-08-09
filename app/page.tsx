@@ -648,7 +648,6 @@ export default function HomePage() {
   const handleWithdrawSquadInvite = async (invite: DocumentData) => {
     try {
       await deleteDoc(doc(db, "squadInvites", invite.id));
-      showAlert("Squad invite withdrawn.");
     } catch (error) {
       console.error("Error withdrawing squad invite:", error);
       showAlert("Could not withdraw squad invite.");
@@ -1224,13 +1223,13 @@ export default function HomePage() {
                               className={styles.primaryButton}
                               onClick={() => handleAcceptSquadInvite(invite)}
                             >
-                              ✔️
+                              ✔
                             </button>
                             <button
                               className={styles.dangerButton}
                               onClick={() => handleDeclineSquadInvite(invite)}
                             >
-                              ❌
+                              ✘
                             </button>
                           </div>
                         </div>
