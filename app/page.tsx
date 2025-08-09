@@ -772,30 +772,96 @@ export default function HomePage() {
 
             {activeModal === 'addFriend' && (<>
               <h3 className={styles.modalHeader}>Add a Friend</h3>
-              {/* --- ADDED: Friends quick invite list above the email input --- */}
+              {/* --- IMPROVED: Friends quick invite list above the email input --- */}
               {friendsData.length > 0 && (
                 <div style={{ marginBottom: '1rem' }}>
                   <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Invite your friends to squad:</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
                     {friendsData.map(friend => (
-                      <button
+                      <div
                         key={friend.uid}
-                        className={styles.secondaryButton}
-                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                        onClick={() => handleInviteToSquad(friend.uid)}
-                        aria-label={`Invite ${friend.displayName} to squad`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          padding: '0.5rem 0',
+                          borderBottom: '1px solid #494e61'
+                        }}
                       >
-                        {friend.displayName}
-                      </button>
+                        <Image
+                          src={friend.photoURL || "/default-avatar.png"}
+                          alt={friend.displayName || "Friend"}
+                          width={32}
+                          height={32}
+                          style={{ borderRadius: '50%' }}
+                        />
+                        <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
+                        <button
+                          className={styles.secondaryButton}
+                          style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80 }}
+                          onClick={() => handleInviteToSquad(friend.uid)}
+                          aria-label={`Invite ${friend.displayName} to squad`}
+                        >
+                          Invite
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
-              {/* --- END ADDED --- */}
-              <input type="email" placeholder="friend@example.com" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className={styles.textInput} autoFocus/>
+              {/* --- END IMPROVED --- */}
+              <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Invite by email:</div>
+              <input
+                type="email"
+                placeholder="friend@example.com"
+                value={friendEmail}
+                onChange={e => setFriendEmail(e.target.value)}
+                className={styles.textInput}
+                autoFocus
+              />
               <div className={styles.modalActions}>
                 <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
-                <button onClick={handleAddFriend} className={styles.primaryButton}>Add</button>
+                {/* --- RESTORED: Invite by email button --- */}
+                <button
+                  onClick={async () => {
+                    // Try to add friend by email, then send squad invite if already a friend
+                    if (!friendEmail || !currentUser) return;
+                    try {
+                      const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
+                      const querySnapshot = await getDocs(q);
+
+                      if (querySnapshot.empty) {
+                        showAlert("User not found. Ensure they have signed in at least once.");
+                        return;
+                      }
+
+                      const friendUid = querySnapshot.docs[0].id;
+                      if (friendUid === currentUser.uid) {
+                        showAlert("You can't add yourself as a friend!");
+                        return;
+                      }
+
+                      const userFriends = userData?.friends || [];
+                      if (!userFriends.includes(friendUid)) {
+                        // Add as friend first
+                        await updateDoc(getUserDocRef(currentUser.uid), {
+                          friends: arrayUnion(friendUid)
+                        });
+                        showAlert("Friend added successfully! Now inviting to squad...");
+                      }
+                      // Send squad invite
+                      await handleInviteToSquad(friendUid);
+                      setFriendEmail('');
+                      setActiveModal(null);
+                    } catch (error) {
+                      console.error("Error inviting by email:", error);
+                      showAlert("An error occurred while inviting by email.");
+                    }
+                  }}
+                  className={styles.primaryButton}
+                >
+                  Invite by Email
+                </button>
               </div>
             </>)}
 
