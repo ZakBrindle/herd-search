@@ -11,6 +11,8 @@ import { auth, db } from '../lib/firebase';
 import styles from './page.module.css';
 // --- MODIFIED --- Added FaPencilAlt icon for renaming
 import { FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt } from 'react-icons/fa';
+// ADDED: Notification icon
+import { FaBell } from 'react-icons/fa';
 
 // --- Type Definitions ---
 type Point = { x: number; y: number };
@@ -766,16 +768,40 @@ export default function HomePage() {
                 </div>
               ));
             })()}
-            {/* Always show invite card if you are the squad leader */}
-            {getSquadLeaderUid() === userData.uid && (
-              <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('inviteToSquad')}>
+            {/* MODIFIED: Show notification card if there are pending invites, otherwise show invite card */}
+            {incomingSquadInvites.length > 0 ? (
+              <div
+                className={`${styles.card} ${styles.inviteCard}`}
+                onClick={() => setActiveModal('inviteToSquad')}
+                style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', background: '#fffbe6', borderColor: '#facc15' }}
+              >
                 <div className={styles.inviteIconContainer}>
-                  <span className={styles.invitePlus}>+</span>
+                  <FaBell color="#facc15" size={28} />
                 </div>
-                <div>
-                  <p style={{fontWeight: 'bold'}}>Invite Friends</p>
+                <div style={{ flex: 1 }}>
+                  <p style={{fontWeight: 'bold', color: '#b45309', marginBottom: 2}}>
+                    Squad Invite!
+                  </p>
+                  {/* Show details for the first invite */}
+                  <div style={{fontSize: '0.95rem', color: '#92400e'}}>
+                    From: <strong>{getDisplayNameByUid(incomingSquadInvites[0].from)}</strong>
+                  </div>
+                </div>
+                <div style={{marginLeft: 8, fontSize: '0.9rem', color: '#92400e'}}>
+                  View
                 </div>
               </div>
+            ) : (
+              getSquadLeaderUid() === userData.uid && (
+                <div className={`${styles.card} ${styles.inviteCard}`} onClick={() => setActiveModal('inviteToSquad')}>
+                  <div className={styles.inviteIconContainer}>
+                    <span className={styles.invitePlus}>+</span>
+                  </div>
+                  <div>
+                    <p style={{fontWeight: 'bold'}}>Invite Friends</p>
+                  </div>
+                </div>
+              )
             )}
           </>
         ) : (
@@ -888,7 +914,6 @@ export default function HomePage() {
               {/* --- IMPROVED: Friends quick invite list above the email input --- */}
               {friendsData.filter(f => f.squadId !== userData?.squadId).length > 0 && (
                 <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Invite your friends to squad:</div>
                   <div>
                     {friendsData
                       .filter(friend => friend.squadId !== userData?.squadId)
