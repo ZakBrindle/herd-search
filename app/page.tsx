@@ -366,6 +366,13 @@ export default function HomePage() {
     return leader ? leader.uid : userData.squadOwnerId || userData.uid;
   };
 
+  // --- Helper to get display name by UID ---
+  const getDisplayNameByUid = (uid: string): string => {
+    if (uid === userData?.uid) return userData.displayName || uid;
+    const friend = friendsData.find(f => f.uid === uid);
+    return friend?.displayName || uid;
+  };
+
   // --- Handler for kicking a member ---
   const handleKickMember = async (member: UserData) => {
     if (!userData || !userData.squadId || !member.uid) return;
@@ -383,6 +390,35 @@ export default function HomePage() {
     } catch (error) {
       console.error("Error kicking member:", error);
       showAlert("Failed to kick member from squad.");
+      setSelectedMember(null);
+    }
+  };
+
+  // --- Handler for leaving squad and creating a new one ---
+  const handleLeaveSquad = async () => {
+    if (!userData || !userData.squadId || !currentUser) return;
+    try {
+      // Remove user from current squad's members array
+      await updateDoc(doc(db, "squads", userData.squadId), {
+        members: arrayRemove(currentUser.uid)
+      });
+      // Create a new squad for the user
+      const squadDoc = await addDoc(collection(db, "squads"), {
+        ownerId: currentUser.uid,
+        members: [currentUser.uid],
+        pendingMembers: [],
+        createdAt: Date.now(),
+      });
+      // Update user's squadId and squadOwnerId
+      await updateDoc(doc(db, "users", currentUser.uid), {
+        squadId: squadDoc.id,
+        squadOwnerId: currentUser.uid,
+      });
+      setSelectedMember(null);
+      showAlert("You have left your squad and created a new one.");
+    } catch (error) {
+      console.error("Error leaving squad:", error);
+      showAlert("Failed to leave squad.");
       setSelectedMember(null);
     }
   };
@@ -777,6 +813,16 @@ export default function HomePage() {
                 Kick from squad
               </button>
             )}
+            {/* --- ADDED: Leave Squad button if viewing own card --- */}
+            {selectedMember.uid === userData?.uid && (
+              <button
+                className={styles.dangerButton}
+                onClick={handleLeaveSquad}
+                style={{marginTop: 16}}
+              >
+                Leave Squad
+              </button>
+            )}
             <div className={styles.modalActions} style={{marginTop: 16}}>
               <button className={styles.primaryButton} onClick={() => setSelectedMember(null)}>Close</button>
             </div>
@@ -825,39 +871,41 @@ export default function HomePage() {
             {activeModal === 'addFriend' && (<>
               <h3 className={styles.modalHeader}>Add a Friend</h3>
               {/* --- IMPROVED: Friends quick invite list above the email input --- */}
-              {friendsData.length > 0 && (
+              {friendsData.filter(f => f.squadId !== userData?.squadId).length > 0 && (
                 <div style={{ marginBottom: '1rem' }}>
                   <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Invite your friends to squad:</div>
                   <div>
-                    {friendsData.map(friend => (
-                      <div
-                        key={friend.uid}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.75rem',
-                          padding: '0.5rem 0',
-                          borderBottom: '1px solid #494e61'
-                        }}
-                      >
-                        <Image
-                          src={friend.photoURL || "/default-avatar.png"}
-                          alt={friend.displayName || "Friend"}
-                          width={32}
-                          height={32}
-                          style={{ borderRadius: '50%' }}
-                        />
-                        <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
-                        <button
-                          className={styles.secondaryButton}
-                          style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80 }}
-                          onClick={() => handleInviteToSquad(friend.uid)}
-                          aria-label={`Invite ${friend.displayName} to squad`}
+                    {friendsData
+                      .filter(friend => friend.squadId !== userData?.squadId)
+                      .map(friend => (
+                        <div
+                          key={friend.uid}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem',
+                            padding: '0.5rem 0',
+                            borderBottom: '1px solid #494e61'
+                          }}
                         >
-                          Invite
-                        </button>
-                      </div>
-                    ))}
+                          <Image
+                            src={friend.photoURL || "/default-avatar.png"}
+                            alt={friend.displayName || "Friend"}
+                            width={32}
+                            height={32}
+                            style={{ borderRadius: '50%' }}
+                          />
+                          <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
+                          <button
+                            className={styles.secondaryButton}
+                            style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80 }}
+                            onClick={() => handleInviteToSquad(friend.uid)}
+                            aria-label={`Invite ${friend.displayName} to squad`}
+                          >
+                            Invite
+                          </button>
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
@@ -1083,7 +1131,7 @@ export default function HomePage() {
                       {incomingSquadInvites.map(invite => (
                         <div key={invite.id} className={styles.locationItemManager}>
                           <span>
-                            Squad invite from <strong>{invite.from}</strong>
+                            Squad invite from <strong>{getDisplayNameByUid(invite.from)}</strong>
                           </span>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
@@ -1105,39 +1153,41 @@ export default function HomePage() {
                   </div>
                 )}
                 {/* --- Friends quick invite list --- */}
-                {friendsData.length > 0 && (
+                {friendsData.filter(f => f.squadId !== userData?.squadId).length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
                     <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Invite your friends to squad:</div>
                     <div>
-                      {friendsData.map(friend => (
-                        <div
-                          key={friend.uid}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.5rem 0',
-                            borderBottom: '1px solid #494e61'
-                          }}
-                        >
-                          <Image
-                            src={friend.photoURL || "/default-avatar.png"}
-                            alt={friend.displayName || "Friend"}
-                            width={32}
-                            height={32}
-                            style={{ borderRadius: '50%' }}
-                          />
-                          <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
-                          <button
-                            className={styles.secondaryButton}
-                            style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80 }}
-                            onClick={() => handleInviteToSquad(friend.uid)}
-                            aria-label={`Invite ${friend.displayName} to squad`}
+                      {friendsData
+                        .filter(friend => friend.squadId !== userData?.squadId)
+                        .map(friend => (
+                          <div
+                            key={friend.uid}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.75rem',
+                              padding: '0.5rem 0',
+                              borderBottom: '1px solid #494e61'
+                            }}
                           >
-                            Invite
-                          </button>
-                        </div>
-                      ))}
+                            <Image
+                              src={friend.photoURL || "/default-avatar.png"}
+                              alt={friend.displayName || "Friend"}
+                              width={32}
+                              height={32}
+                              style={{ borderRadius: '50%' }}
+                            />
+                            <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
+                            <button
+                              className={styles.secondaryButton}
+                              style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80 }}
+                              onClick={() => handleInviteToSquad(friend.uid)}
+                              aria-label={`Invite ${friend.displayName} to squad`}
+                            >
+                              Invite
+                            </button>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 )}
