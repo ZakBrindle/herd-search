@@ -451,7 +451,7 @@ export default function HomePage() {
       await updateDoc(doc(db, "squadInvites", invite.id), {
         status: "accepted"
       });
-      showAlert("You have joined the squad!");
+     
     } catch (error) {
       console.error("Error accepting squad invite:", error);
       showAlert("Could not accept squad invite.");
@@ -887,7 +887,7 @@ export default function HomePage() {
               </div>
             </div>
             <div style={{marginBottom: 8}}>
-              <strong>UID:</strong> {selectedMember.uid}   
+              
             </div>
             {/* Only show kick button if current user is squad leader and not viewing their own card */}
             {getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
@@ -1141,6 +1141,8 @@ export default function HomePage() {
                     </div>
                 )}
 
+                
+
                 <div className={styles.modalActions} style={{ marginTop: '2rem' }}>
                     <button
                         onClick={() => {
@@ -1208,11 +1210,11 @@ export default function HomePage() {
             {/* --- ADDED --- Modal for inviting friends to squad */}
             {activeModal === 'inviteToSquad' && (
               <>
-                <h3 className={styles.modalHeader}>Squad Invites &amp; Friends</h3>
+                <h3 className={styles.modalHeader}>Squad Invites</h3>
                 {/* --- Incoming Squad Invites --- */}
                 {incomingSquadInvites.length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Pending Squad Invites:</div>
+             
                     <div>
                       {incomingSquadInvites.map(invite => (
                         <div key={invite.id} className={styles.locationItemManager}>
