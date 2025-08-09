@@ -1071,61 +1071,40 @@ export default function HomePage() {
               </div>
             </>)}
 
-            {/* --- MODIFIED: Unified Invite Modal --- */}
+            {/* --- ADDED --- Modal for inviting friends to squad */}
             {activeModal === 'inviteToSquad' && (
               <>
                 <h3 className={styles.modalHeader}>Squad Invites &amp; Friends</h3>
-                {/* --- Pending Squad Invites --- */}
+                {/* --- Incoming Squad Invites --- */}
                 {incomingSquadInvites.length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
                     <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Pending Squad Invites:</div>
                     <div>
-                      {incomingSquadInvites.map(invite => {
-                        // Try to show sender's name/photo if possible
-                        const sender = [userData, ...friendsData].find(u => u.uid === invite.from);
-                        return (
-                          <div
-                            key={invite.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.75rem',
-                              padding: '0.5rem 0',
-                              borderBottom: '1px solid #494e61'
-                            }}
-                          >
-                            <Image
-                              src={sender?.photoURL || "/default-avatar.png"}
-                              alt={sender?.displayName || invite.from}
-                              width={32}
-                              height={32}
-                              style={{ borderRadius: '50%' }}
-                            />
-                            <span style={{ flex: 1, fontWeight: 500 }}>
-                              {sender?.displayName || invite.from}
-                            </span>
+                      {incomingSquadInvites.map(invite => (
+                        <div key={invite.id} className={styles.locationItemManager}>
+                          <span>
+                            Squad invite from <strong>{invite.from}</strong>
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
                               className={styles.primaryButton}
-                              style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80 }}
                               onClick={() => handleAcceptSquadInvite(invite)}
                             >
                               Accept
                             </button>
                             <button
                               className={styles.dangerButton}
-                              style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80 }}
                               onClick={() => handleDeclineSquadInvite(invite)}
                             >
                               Decline
                             </button>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
-
-                {/* --- Friends Quick Invite List --- */}
+                {/* --- Friends quick invite list --- */}
                 {friendsData.length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
                     <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Invite your friends to squad:</div>
@@ -1162,8 +1141,7 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
-
-                {/* --- Invite by Email --- */}
+                {/* --- Invite by email --- */}
                 <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Invite by email:</div>
                 <input
                   type="email"
@@ -1174,7 +1152,7 @@ export default function HomePage() {
                   autoFocus
                 />
                 <div className={styles.modalActions}>
-                  <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Close</button>
+                  <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
                   <button
                     onClick={async () => {
                       // Try to add friend by email, then send squad invite if already a friend
