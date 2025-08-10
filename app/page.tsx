@@ -762,7 +762,7 @@ export default function HomePage() {
             onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
             className="gsi-material-button"
             style={{
-              width: 200,
+              width: 300,
               background: 'white',
               border: 'none',
               borderRadius: 4,
