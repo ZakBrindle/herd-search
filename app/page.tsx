@@ -330,10 +330,10 @@ export default function HomePage() {
         await updateDoc(getUserDocRef(currentUser.uid), {
             location: centroid,
             currentArea: area.name,
-            lastKnownArea: area.name
+            lastKnownArea: area.name,
+            lastUpdate: Date.now() // <-- ADDED
         });
         setActiveModal(null);
-        // --- ADDED --- Clear the selected area after a successful check-in
         setSelectedAreaForCheckIn(null);
     } catch (error) {
         console.error("Error checking in manually:", error);
@@ -451,7 +451,8 @@ export default function HomePage() {
       await updateDoc(doc(db, "squadInvites", invite.id), {
         status: "accepted"
       });
-     
+      // ADDED: Close the invite modal after accepting
+      setActiveModal(null);
     } catch (error) {
       console.error("Error accepting squad invite:", error);
       showAlert("Could not accept squad invite.");
@@ -603,9 +604,10 @@ export default function HomePage() {
           }
       }
       
-      const updatePayload: LocationUpdatePayload = {
+      const updatePayload: LocationUpdatePayload & { lastUpdate: number } = {
         location: { x, y },
-        currentArea: newAreaName
+        currentArea: newAreaName,
+        lastUpdate: Date.now() // <-- ADDED
       };
 
       if (newAreaName !== 'Out of Bounds') {
