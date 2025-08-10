@@ -1244,15 +1244,17 @@ export default function HomePage() {
                         <div key={invite.id} className={styles.locationItemManager}>
                           <span>
                             Squad invite from 
+                            <br />
+                           <strong>{getDisplayNameByUid(invite.from)}</strong>
                           </span>
-                           <span>
-                          <strong>{getDisplayNameByUid(invite.from)}</strong>
-                          </span>
+                         
+                        
+                       
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
                               className={styles.primaryButton}
                               onClick={() => handleAcceptSquadInvite(invite)}
-                              style={{ backgroundColor: '#90EE90' }} // Light green for accept
+                              style={{ backgroundColor: '#468f46ff' }} 
                             >
                               ✔
                             </button>
