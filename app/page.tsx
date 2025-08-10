@@ -836,7 +836,7 @@ export default function HomePage() {
               const sortedMembers = squadMembers.sort((a, b) =>
                 a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0
               );
-              return sortedMembers.map(member => (
+              return sortedMembers.map member => (
                 <div
                   key={member.uid}
                   className={`${styles.card} ${getSquadLeaderUid() === member.uid ? styles.currentUserCard : ""}`}
@@ -940,50 +940,54 @@ export default function HomePage() {
       {/* --- MEMBER DETAIL POPUP --- */}
       {selectedMember && (
         <div className={styles.modalOverlay} onClick={() => setSelectedMember(null)}>
-          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-            <Image src={selectedMember.photoURL!} alt="avatar" width={64} height={64} style={{borderRadius: '50%', marginBottom: 12}} />
-            <h3 className={styles.modalHeader}>
-              {getSquadLeaderUid() === selectedMember.uid && <span style={{marginRight: 4}}></span>}
-              {selectedMember.displayName}
-            </h3>
-            <div style={{marginBottom: 8}}>
-              <div><strong>Last Seen</strong> <br />{selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}</div>
+          <div className={styles.modalContent} onClick={e => e.stopPropagation()} style={{ maxWidth: 340, padding: '2rem 1.5rem', borderRadius: 18 }}>
+            {/* MODIFIED: Centered avatar */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 18 }}>
+              <Image src={selectedMember.photoURL!} alt="avatar" width={80} height={80} style={{borderRadius: '50%', marginBottom: 12, boxShadow: '0 2px 12px #0002'}} />
+              <h3 className={styles.modalHeader} style={{ textAlign: 'center', fontSize: '1.35rem', fontWeight: 700, margin: 0 }}>
+                {getSquadLeaderUid() === selectedMember.uid && <span style={{marginRight: 4}}>👑</span>}
+                {selectedMember.displayName}
+              </h3>
+            </div>
+            {/* MODIFIED: Info section with better spacing */}
+            <div style={{ textAlign: 'center', marginBottom: 18 }}>
+              <div style={{ fontWeight: 600, fontSize: '1.05rem', marginBottom: 2 }}>Last Seen</div>
+              <div style={{ fontSize: '1rem', color: '#3b3b3b', marginBottom: 4 }}>
+                {selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}
+              </div>
               <div>
-                {/* MODIFIED: Make last update text smaller */}
-                <span style={{ fontSize: '0.85em', color: '#a3a3a3ff' }}>
+                <span style={{ fontSize: '0.9em', color: '#a3a3a3' }}>
                   {selectedMember.lastUpdate
                     ? new Date(selectedMember.lastUpdate).toLocaleString()
                     : "Unknown"}
                 </span>
               </div>
             </div>
-            <div style={{marginBottom: 8}}>
-              
-            </div>
-            {/* Only show kick button if current user is squad leader and not viewing their own card */}
-            {getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
-              <button
-                className={styles.dangerButton}
-                // MODIFIED: Now calls confirmation wrapper
-                onClick={() => handleKickMember(selectedMember)}
-                style={{marginTop: 16}}
-              >
-                Kick from squad
-              </button>
-            )}
-            {/* --- ADDED: Leave Squad button if viewing own card --- */}
-            {selectedMember.uid === userData?.uid && (
-              <button
-                className={styles.dangerButton}
-                // MODIFIED: Now calls confirmation wrapper
-                onClick={handleLeaveSquad}
-                style={{marginTop: 16}}
-              >
-                Leave Squad
-              </button>
-            )}
-            <div className={styles.modalActions} style={{marginTop: 16}}>
-              <button className={styles.primaryButton} onClick={() => setSelectedMember(null)}>Close</button>
+            {/* MODIFIED: Divider */}
+            <div style={{ borderTop: '1px solid #e5e5e5', margin: '0 -1.5rem 18px', height: 0 }} />
+            {/* MODIFIED: Actions section */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Only show kick button if current user is squad leader and not viewing their own card */}
+              {getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
+                <button
+                  className={styles.dangerButton}
+                  onClick={() => handleKickMember(selectedMember)}
+                  style={{marginTop: 0, width: '100%', fontSize: '1rem'}}
+                >
+                  Kick from squad
+                </button>
+              )}
+              {/* --- ADDED: Leave Squad button if viewing own card --- */}
+              {selectedMember.uid === userData?.uid && (
+                <button
+                  className={styles.dangerButton}
+                  onClick={handleLeaveSquad}
+                  style={{marginTop: 0, width: '100%', fontSize: '1rem'}}
+                >
+                  Leave Squad
+                </button>
+              )}
+              <button className={styles.primaryButton} onClick={() => setSelectedMember(null)} style={{ width: '100%', fontSize: '1rem' }}>Close</button>
             </div>
           </div>
         </div>
