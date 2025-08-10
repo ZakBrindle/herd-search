@@ -850,7 +850,7 @@ export default function HomePage() {
                       {member.displayName}
                     </p>
                     {member.currentArea === 'The Wilds' ? (
-                      <p style={{fontSize: '0.9rem'}}>Last Seen at <span style={{fontWeight: 600}}>{member.lastKnownArea || 'Unknown'}</span></p>
+                      <p style={{fontSize: '0.9rem'}}>Last Seen <span style={{fontWeight: 600}}>{member.lastKnownArea || 'Unknown'}</span></p>
                     ) : (
                       <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{member.currentArea || 'Unknown'}</span></p>
                     )}
@@ -927,7 +927,7 @@ export default function HomePage() {
               <div>
                 <p style={{fontWeight: 'bold'}}>{userData.displayName}</p>
                 {userData.currentArea === 'The Wilds' ? (
-                  <p style={{fontSize: '0.9rem'}}>Last Seen at <span style={{fontWeight: 600}}>{userData.lastKnownArea || 'Unknown'}</span></p>
+                  <p style={{fontSize: '0.9rem'}}>Last Seen <span style={{fontWeight: 600}}>{userData.lastKnownArea || 'Unknown'}</span></p>
                 ) : (
                   <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
                 )}
@@ -947,10 +947,10 @@ export default function HomePage() {
               {selectedMember.displayName}
             </h3>
             <div style={{marginBottom: 8}}>
-              <div><strong>Last Seen at</strong> {selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}</div>
+              <div><strong>Last Seen</strong> <br />{selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}</div>
               <div>
                 {/* MODIFIED: Make last update text smaller */}
-                <span style={{ fontSize: '0.85em', color: '#666' }}>
+                <span style={{ fontSize: '0.85em', color: '#a3a3a3ff' }}>
                   {selectedMember.lastUpdate
                     ? new Date(selectedMember.lastUpdate).toLocaleString()
                     : "Unknown"}
