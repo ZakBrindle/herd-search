@@ -249,10 +249,10 @@ export default function HomePage() {
       await updateDoc(getUserDocRef(currentUser.uid), {
         friends: arrayUnion(friendUid)
       });
-      
+        setActiveModal(null);
       showAlert("Friend added successfully!");
       setFriendEmail('');
-      setActiveModal(null);
+    
     } catch (error) {
        console.error("Error adding friend:", error);
        showAlert("An error occurred while adding the friend.");
@@ -270,7 +270,7 @@ export default function HomePage() {
         createdAt: Date.now(),
         status: "pending"
       });
-      showAlert("Squad invite sent!");
+    
     } catch (error) {
       console.error("Error sending squad invite:", error);
       showAlert("Failed to send squad invite.");
@@ -378,14 +378,13 @@ export default function HomePage() {
   };
 
   // --- Handler for kicking a member ---
-  const handleKickMember = async (member: UserData) => {
+  // MODIFIED: Now shows confirmation before kicking
+  const handleKickMemberConfirmed = async (member: UserData) => {
     if (!userData || !userData.squadId || !member.uid) return;
     try {
-      // Remove member from squad's members array
       await updateDoc(doc(db, "squads", userData.squadId), {
         members: arrayRemove(member.uid)
       });
-      // Optionally, clear their squadId on their user doc (if you want them to leave the squad)
       await updateDoc(getUserDocRef(member.uid), {
         squadId: null
       });
@@ -396,6 +395,14 @@ export default function HomePage() {
       showAlert("Failed to kick member from squad.");
       setSelectedMember(null);
     }
+  };
+
+  // ADDED: Wrapper to show confirmation dialog for kicking
+  const handleKickMember = (member: UserData) => {
+    showConfirm(
+      `Are you sure you want to kick '${member.displayName}' from the squad?`,
+      () => handleKickMemberConfirmed(member)
+    );
   };
 
   // --- Handler for leaving squad and creating a new one ---
@@ -778,9 +785,7 @@ export default function HomePage() {
       </div>
       
       {/* --- SQUAD LIST --- */}
-      <div style={{marginTop: '2rem', marginBottom: '0.5rem'}}>
-        <h2 className={styles.headerTitle} style={{fontSize: '1.5rem'}}>Your Squad</h2>
-      </div>
+     
       <div className={styles.squadList}>
         {/* Show squad UI if user has a squadId (even if it's just them) */}
         {userData?.squadId ? (
@@ -919,6 +924,7 @@ export default function HomePage() {
             {getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
               <button
                 className={styles.dangerButton}
+                // MODIFIED: Now calls confirmation wrapper
                 onClick={() => handleKickMember(selectedMember)}
                 style={{marginTop: 16}}
               >
