@@ -440,7 +440,7 @@ export default function HomePage() {
   // ADDED: Wrapper to show confirmation dialog
   const handleLeaveSquad = () => {
     showConfirm(
-      "Are you sure you want to leave your squad? You will create a new squad and leave your current one.",
+      "Are you sure you want to leave the squad?",
       handleLeaveSquadConfirmed
     );
   };
@@ -992,45 +992,51 @@ export default function HomePage() {
 
             {activeModal === 'addFriend' && (<>
               <h3 className={styles.modalHeader}>Add a Friend</h3>
-              {/* --- IMPROVED: Friends quick invite list above the email input --- */}
-              {friendsData.filter(f => f.squadId !== userData?.squadId).length > 0 && (
+              {/* --- MODIFIED: Hide friends invite list if there is a pending incoming invite --- */}
+              {incomingSquadInvites.length === 0 && friendsData.filter(f => f.squadId !== userData?.squadId).length > 0 && (
                 <div style={{ marginBottom: '1rem' }}>
                   <div>
                     {friendsData
                       .filter(friend => friend.squadId !== userData?.squadId)
-                      .map(friend => (
-                        <div
-                          key={friend.uid}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            padding: '0.5rem 0',
-                            borderBottom: '1px solid #494e61'
-                          }}
-                        >
-                          <Image
-                            src={friend.photoURL || "/default-avatar.png"}
-                            alt={friend.displayName || "Friend"}
-                            width={32}
-                            height={32}
-                            style={{ borderRadius: '50%' }}
-                          />
-                          <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
-                          <button
-                            className={styles.secondaryButton}
-                            style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80 }}
-                            onClick={() => handleInviteToSquad(friend.uid)}
-                            aria-label={`Invite ${friend.displayName} to squad`}
+                      .map(friend => {
+                        const inviteSent = outgoingSquadInvites.some(invite => invite.to === friend.uid && invite.status === "pending");
+                        return (
+                          <div
+                            key={friend.uid}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.75rem',
+                              padding: '0.5rem 0',
+                              borderBottom: '1px solid #494e61'
+                            }}
                           >
-                            Invite
-                          </button>
-                        </div>
-                      ))}
+                            <Image
+                              src={friend.photoURL || "/default-avatar.png"}
+                              alt={friend.displayName || "Friend"}
+                              width={32}
+                              height={32}
+                              style={{ borderRadius: '50%' }}
+                            />
+                            <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
+                            <button
+                              className={inviteSent ? styles.neutralButton : styles.secondaryButton}
+                              style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80, opacity: inviteSent ? 0.7 : 1, cursor: inviteSent ? 'not-allowed' : 'pointer' }}
+                              onClick={() => {
+                                if (!inviteSent) handleInviteToSquad(friend.uid);
+                              }}
+                              aria-label={`Invite ${friend.displayName} to squad`}
+                              disabled={inviteSent}
+                            >
+                              {inviteSent ? "Sent" : "Invite"}
+                            </button>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}
-              {/* --- END IMPROVED --- */}
+              {/* --- END MODIFIED --- */}
               <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Invite by email:</div>
               <input
                 type="email"
@@ -1080,6 +1086,7 @@ export default function HomePage() {
                     }
                   }}
                   className={styles.primaryButton}
+                  disabled={incomingSquadInvites.length > 0} // ADDED: Disable if pending invite
                 >
                   Invite by Email
                 </button>
@@ -1249,7 +1256,6 @@ export default function HomePage() {
                 {/* --- Incoming Squad Invites --- */}
                 {incomingSquadInvites.length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
-             
                     <div>
                       {incomingSquadInvites.map(invite => (
                         <div key={invite.id} className={styles.locationItemManager}>
@@ -1258,9 +1264,6 @@ export default function HomePage() {
                             <br />
                            <strong>{getDisplayNameByUid(invite.from)}</strong>
                           </span>
-                         
-                        
-                       
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
                               className={styles.acceptButton}
@@ -1280,47 +1283,52 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
-                {/* --- Friends quick invite list --- */}
-                {friendsData.filter(f => f.squadId !== userData?.squadId).length > 0 && (
+                {/* --- MODIFIED: Hide friends invite list if there is a pending incoming invite --- */}
+                {incomingSquadInvites.length === 0 && friendsData.filter(f => f.squadId !== userData?.squadId).length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
-     
                     <div>
                       {friendsData
                         .filter(friend => friend.squadId !== userData?.squadId)
-                        .map(friend => (
-                          <div
-                            key={friend.uid}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.75rem',
-                              padding: '0.5rem 0',
-                              borderBottom: '1px solid #494e61'
-                            }}
-                          >
-                            <Image
-                              src={friend.photoURL || "/default-avatar.png"}
-                              alt={friend.displayName || "Friend"}
-                              width={32}
-                              height={32}
-                              style={{ borderRadius: '50%' }}
-                            />
-                            <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
-                            <button
-                              className={styles.secondaryButton}
-                              style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80 }}
-                              onClick={() => handleInviteToSquad(friend.uid)}
-                              aria-label={`Invite ${friend.displayName} to squad`}
+                        .map(friend => {
+                          const inviteSent = outgoingSquadInvites.some(invite => invite.to === friend.uid && invite.status === "pending");
+                          return (
+                            <div
+                              key={friend.uid}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                padding: '0.5rem 0',
+                                borderBottom: '1px solid #494e61'
+                              }}
                             >
-                              Invite
-                            </button>
-                          </div>
-                        ))}
+                              <Image
+                                src={friend.photoURL || "/default-avatar.png"}
+                                alt={friend.displayName || "Friend"}
+                                width={32}
+                                height={32}
+                                style={{ borderRadius: '50%' }}
+                              />
+                              <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
+                              <button
+                                className={inviteSent ? styles.neutralButton : styles.secondaryButton}
+                                style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80, opacity: inviteSent ? 0.7 : 1, cursor: inviteSent ? 'not-allowed' : 'pointer' }}
+                                onClick={() => {
+                                  if (!inviteSent) handleInviteToSquad(friend.uid);
+                                }}
+                                aria-label={`Invite ${friend.displayName} to squad`}
+                                disabled={inviteSent}
+                              >
+                                {inviteSent ? "Sent" : "Invite"}
+                              </button>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
-       
-                  <br />
+                {/* --- END MODIFIED --- */}
+                <br />
                 {/* --- Invite by email --- */}
                 <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Invite by email:</div>
                 <input
@@ -1369,6 +1377,7 @@ export default function HomePage() {
                       }
                     }}
                     className={styles.primaryButton}
+                    disabled={incomingSquadInvites.length > 0} // ADDED: Disable if pending invite
                   >
                     Invite by Email
                   </button>
