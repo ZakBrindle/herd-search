@@ -732,13 +732,49 @@ export default function HomePage() {
   if (!currentUser) {
     return (
       <div className={styles.container}>
+        {/* --- HEADER --- */}
         <header className={styles.header}>
-            <h1 className={styles.headerTitle}>Herd Search</h1>
-            <button onClick={() => signInWithPopup(auth, new GoogleAuthProvider())} className={styles.primaryButton}>Sign in with Google</button>
+          <div className={styles.logo}>Herd Search</div>
         </header>
-        <div className={styles.card} style={{textAlign: 'center', padding: '2rem'}}>
-            <h2 className={styles.headerTitle}>Welcome!</h2>
-            <p>Please sign in to find your friends and see the map.</p>
+
+        {/* --- MAP --- */}
+        <div className={styles.mapContainer}>
+          <Image
+            ref={mapImageRef}
+            src="/Beatherder Map.png"
+            alt="Beat-Herder Festival Map"
+            width={1200}
+            height={800}
+            className={styles.mapImage}
+            onLoad={resizeCanvas}
+            priority
+          />
+          <canvas
+            ref={canvasRef}
+            className={styles.mapCanvas}
+            // No click handler, no pointer cursor
+            style={{ cursor: 'default' }}
+          />
+          {/* No user or squad member markers */}
+        </div>
+
+        {/* --- SQUAD CARD --- */}
+        <br />
+        <div className={styles.squadList}>
+          <div className={`${styles.card} ${styles.currentUserCard}`} style={{ textAlign: 'center', padding: '2rem 1.5rem', maxWidth: 340, margin: '0 auto' }}>
+            <Image src="/default-avatar.png" alt="avatar" width={48} height={48} style={{ borderRadius: '50%', marginBottom: 12 }} />
+            <div>
+              <p style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: 8 }}>Sign In</p>
+              <p style={{ fontSize: '1rem', color: '#aaa' }}>Sign in to find your friends and see your squad.</p>
+            </div>
+            <button
+              onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
+              className={styles.primaryButton}
+              style={{ marginTop: 18, width: '100%', fontSize: '1.05rem' }}
+            >
+              Sign in with Google
+            </button>
+          </div>
         </div>
       </div>
     );
