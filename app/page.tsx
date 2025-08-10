@@ -945,7 +945,7 @@ export default function HomePage() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 18 }}>
               <Image src={selectedMember.photoURL!} alt="avatar" width={80} height={80} style={{borderRadius: '50%', marginBottom: 12, boxShadow: '0 2px 12px #0002'}} />
               <h3 className={styles.modalHeader} style={{ textAlign: 'center', fontSize: '1.35rem', fontWeight: 700, margin: 0 }}>
-                {getSquadLeaderUid() === selectedMember.uid && <span style={{marginRight: 4}}>👑</span>}
+                {getSquadLeaderUid() === selectedMember.uid && <span style={{marginRight: 4}}>👑<br /></span>}
                 {selectedMember.displayName}
               </h3>
             </div>
