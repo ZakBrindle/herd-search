@@ -57,6 +57,14 @@
   background-color: #9277ff;
 }
 
+.acceptButton {
+  composes: button;
+  background-color: #468f46ff; /* Purple primary */
+}
+.acceptButton:hover {
+  background-color: rgb(89, 177, 89);
+}
+
 .secondaryButton {
   composes: button;
   background-color: #494e61; /* Dark gray secondary */

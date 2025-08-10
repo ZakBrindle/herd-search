@@ -1252,9 +1252,8 @@ export default function HomePage() {
                        
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
-                              className={styles.primaryButton}
+                              className={styles.acceptButton}
                               onClick={() => handleAcceptSquadInvite(invite)}
-                              style={{ backgroundColor: '#468f46ff' }} 
                             >
                               ✔
                             </button>
@@ -1309,6 +1308,8 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
+                 <br />
+                  <br />
                 {/* --- Invite by email --- */}
                 <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Invite by email:</div>
                 <input
