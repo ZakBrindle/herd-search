@@ -804,7 +804,9 @@ export default function HomePage() {
             <div className={styles.nameLabel}>{(userData.displayName?.split(' ')[0]) || "You"}</div>
           </div>
         )}
-        {friendsData.filter(f => !!f.location).map(u => (
+        {friendsData
+          .filter(f => !!f.location && f.squadId === userData?.squadId) // MODIFIED: Only show friends in same squad
+          .map(u => (
           <div
             key={u.uid}
             className={styles.userMarker}
@@ -952,7 +954,7 @@ export default function HomePage() {
             {/* MODIFIED: Info section with better spacing */}
             <div style={{ textAlign: 'center', marginBottom: 18 }}>
               <div style={{ fontWeight: 600, fontSize: '1.05rem', marginBottom: 2 }}>Last Seen</div>
-              <div style={{ fontSize: '2rem', color: '#ffffffc2', marginBottom: 4 }}>
+              <div style={{ fontSize: '1.7rem', color: '#ffffffc2', marginBottom: 4 }}>
                 {selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}
               </div>
               <div>
