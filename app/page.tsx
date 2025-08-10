@@ -377,8 +377,43 @@ export default function HomePage() {
   const getDisplayNameByUid = (uid: string): string => {
     if (uid === userData?.uid) return userData.displayName || uid;
     const friend = friendsData.find(f => f.uid === uid);
-    return friend?.displayName || uid;
+    if (friend?.displayName) return friend.displayName;
+    // --- ADDED: Try to get from public profile if not found locally ---
+    // This is a synchronous fallback, so we use a placeholder and fetch async below.
+    return publicProfileCache[uid] || uid;
   };
+
+  // --- ADDED: Public profile cache and fetch logic ---
+  const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
+
+  useEffect(() => {
+    // Find all UIDs that need display names (from invites)
+    const inviteUids = [
+      ...incomingSquadInvites.map(inv => inv.from),
+      ...outgoingSquadInvites.map(inv => inv.to)
+    ].filter(uid =>
+      uid !== userData?.uid &&
+      !friendsData.some(f => f.uid === uid) &&
+      !(publicProfileCache[uid])
+    );
+    if (inviteUids.length === 0) return;
+    // Fetch public profiles for missing UIDs
+    inviteUids.forEach(async uid => {
+      try {
+        const docRef = doc(db, 'public/user_profiles/users', uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const profile = docSnap.data();
+          setPublicProfileCache(prev => ({
+            ...prev,
+            [uid]: profile.displayName || uid
+          }));
+        }
+      } catch (e) {
+        // Ignore errors, fallback to UID
+      }
+    });
+  }, [incomingSquadInvites, outgoingSquadInvites, friendsData, userData, publicProfileCache]);
 
   // --- Handler for kicking a member ---
   // MODIFIED: Now shows confirmation before kicking
@@ -815,7 +850,7 @@ export default function HomePage() {
                       {member.displayName}
                     </p>
                     {member.currentArea === 'The Wilds' ? (
-                      <p style={{fontSize: '0.9rem'}}>Last Seen: <span style={{fontWeight: 600}}>{member.lastKnownArea || 'Unknown'}</span></p>
+                      <p style={{fontSize: '0.9rem'}}>Last Seen at <span style={{fontWeight: 600}}>{member.lastKnownArea || 'Unknown'}</span></p>
                     ) : (
                       <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{member.currentArea || 'Unknown'}</span></p>
                     )}
@@ -892,7 +927,7 @@ export default function HomePage() {
               <div>
                 <p style={{fontWeight: 'bold'}}>{userData.displayName}</p>
                 {userData.currentArea === 'The Wilds' ? (
-                  <p style={{fontSize: '0.9rem'}}>Last Seen: <span style={{fontWeight: 600}}>{userData.lastKnownArea || 'Unknown'}</span></p>
+                  <p style={{fontSize: '0.9rem'}}>Last Seen at <span style={{fontWeight: 600}}>{userData.lastKnownArea || 'Unknown'}</span></p>
                 ) : (
                   <p style={{fontSize: '0.9rem'}}>Location: <span style={{fontWeight: 600}}>{userData.currentArea || 'Unknown'}</span></p>
                 )}
@@ -912,12 +947,14 @@ export default function HomePage() {
               {selectedMember.displayName}
             </h3>
             <div style={{marginBottom: 8}}>
-              <div><strong>Last Seen:</strong> {selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}</div>
+              <div><strong>Last Seen at</strong> {selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}</div>
               <div>
-                <strong></strong>{" "}
-                {selectedMember.lastUpdate
-                  ? new Date(selectedMember.lastUpdate).toLocaleString()
-                  : "Unknown"}
+                {/* MODIFIED: Make last update text smaller */}
+                <span style={{ fontSize: '0.85em', color: '#666' }}>
+                  {selectedMember.lastUpdate
+                    ? new Date(selectedMember.lastUpdate).toLocaleString()
+                    : "Unknown"}
+                </span>
               </div>
             </div>
             <div style={{marginBottom: 8}}>
