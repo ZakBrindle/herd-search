@@ -956,7 +956,7 @@ export default function HomePage() {
                 {selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}
               </div>
               <div>
-                <span style={{ fontSize: '0.9em', color: '#a3a3a3' }}>
+                <span style={{ fontSize: '0.9em', color: '#919191ff' }}>
                   {selectedMember.lastUpdate
                     ? new Date(selectedMember.lastUpdate).toLocaleString()
                     : "Unknown"}
