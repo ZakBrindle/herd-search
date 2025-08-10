@@ -952,7 +952,7 @@ export default function HomePage() {
             {/* MODIFIED: Info section with better spacing */}
             <div style={{ textAlign: 'center', marginBottom: 18 }}>
               <div style={{ fontWeight: 600, fontSize: '1.05rem', marginBottom: 2 }}>Last Seen</div>
-              <div style={{ fontSize: '1rem', color: '#3b3b3b', marginBottom: 4 }}>
+              <div style={{ fontSize: '2rem', color: '#ffffffc2', marginBottom: 4 }}>
                 {selectedMember.lastKnownArea || selectedMember.currentArea || "Unknown"}
               </div>
               <div>
