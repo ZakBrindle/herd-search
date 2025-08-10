@@ -836,7 +836,7 @@ export default function HomePage() {
               const sortedMembers = squadMembers.sort((a, b) =>
                 a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0
               );
-              return sortedMembers.map member => (
+              return sortedMembers.map((member: UserData) => (
                 <div
                   key={member.uid}
                   className={`${styles.card} ${getSquadLeaderUid() === member.uid ? styles.currentUserCard : ""}`}
