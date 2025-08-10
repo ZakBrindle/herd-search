@@ -261,8 +261,12 @@ export default function HomePage() {
 
   const handleInviteToSquad = async (friendUid: string) => {
     if (!userData?.squadId || !userData?.uid) return;
+    // ADDED: Only allow squad leader to send invites
+    if (userData.uid !== userData.squadOwnerId) {
+      showAlert("Only the squad leader can send invites.");
+      return;
+    }
     try {
-      // Create a squad invite notification for the friend
       await addDoc(collection(db, "squadInvites"), {
         squadId: userData.squadId,
         from: userData.uid,
@@ -270,7 +274,6 @@ export default function HomePage() {
         createdAt: Date.now(),
         status: "pending"
       });
-    
     } catch (error) {
       console.error("Error sending squad invite:", error);
       showAlert("Failed to send squad invite.");
@@ -388,7 +391,7 @@ export default function HomePage() {
       await updateDoc(getUserDocRef(member.uid), {
         squadId: null
       });
-      showAlert(`${member.displayName} has been kicked from the squad.`);
+   
       setSelectedMember(null);
     } catch (error) {
       console.error("Error kicking member:", error);
@@ -785,7 +788,7 @@ export default function HomePage() {
       </div>
       
       {/* --- SQUAD LIST --- */}
-     
+        <br />
       <div className={styles.squadList}>
         {/* Show squad UI if user has a squadId (even if it's just them) */}
         {userData?.squadId ? (
@@ -1316,7 +1319,7 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
-                 <br />
+       
                   <br />
                 {/* --- Invite by email --- */}
                 <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>Invite by email:</div>
