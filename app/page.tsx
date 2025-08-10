@@ -1243,12 +1243,16 @@ export default function HomePage() {
                       {incomingSquadInvites.map(invite => (
                         <div key={invite.id} className={styles.locationItemManager}>
                           <span>
-                            Squad invite from <strong>{getDisplayNameByUid(invite.from)}</strong>
+                            Squad invite from 
+                          </span>
+                           <span>
+                          <strong>{getDisplayNameByUid(invite.from)}</strong>
                           </span>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
                               className={styles.primaryButton}
                               onClick={() => handleAcceptSquadInvite(invite)}
+                              style={{ backgroundColor: '#90EE90' }} // Light green for accept
                             >
                               ✔
                             </button>
