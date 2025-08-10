@@ -488,8 +488,21 @@ export default function HomePage() {
             email: user.email?.toLowerCase(),
             photoURL: user.photoURL
           };
+          // Create user doc
           await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
           await setDoc(publicProfileRef, profileData);
+
+          // --- ADDED: Immediately create a squad for new users ---
+          const squadDoc = await addDoc(collection(db, "squads"), {
+            ownerId: user.uid,
+            members: [user.uid],
+            pendingMembers: [],
+            createdAt: Date.now(),
+          });
+          await updateDoc(userRef, {
+            squadId: squadDoc.id,
+            squadOwnerId: user.uid,
+          });
         }
       } else {
         setCurrentUser(null);
