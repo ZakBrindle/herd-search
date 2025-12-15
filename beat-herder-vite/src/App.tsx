@@ -994,28 +994,46 @@ export default function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-header">Settings</h3>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <span>Ghost Mode (Mask Location for 1h)</span>
-              <input
-                type="checkbox"
-                checked={userData?.ghostMode && userData.ghostModeExpiry ? userData.ghostModeExpiry > Date.now() : false}
-                onChange={async (e) => {
-                  const isEnabled = e.target.checked;
-                  try {
-                    if (isEnabled) {
-                      await updateDoc(getUserDocRef(currentUser!.uid), {
-                        ghostMode: true,
-                        ghostModeExpiry: Date.now() + 3600000 // 1 hour
-                      });
-                    } else {
-                      await updateDoc(getUserDocRef(currentUser!.uid), {
-                        ghostMode: false,
-                        ghostModeExpiry: null
-                      });
-                    }
-                  } catch (err) { console.error(err); }
-                }}
-              />
+            {/* Ghost Mode Toggle */}
+            <div
+              className="card"
+              style={{
+                cursor: 'pointer',
+                backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#333' : '#1e1e1e',
+                border: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '2px solid #03dac6' : '1px solid #333',
+                alignItems: 'center'
+              }}
+              onClick={async () => {
+                const isEnabled = !(userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now());
+                try {
+                  if (isEnabled) {
+                    await updateDoc(getUserDocRef(currentUser!.uid), {
+                      ghostMode: true,
+                      ghostModeExpiry: Date.now() + 3600000 // 1 hour
+                    });
+                  } else {
+                    await updateDoc(getUserDocRef(currentUser!.uid), {
+                      ghostMode: false,
+                      ghostModeExpiry: null
+                    });
+                  }
+                } catch (err) { console.error(err); }
+              }}
+            >
+              <div style={{ marginRight: '1rem', fontSize: '1.5rem' }}>👻</div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: 0, color: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : 'white' }}>Ghost Mode</h3>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                  {(userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())
+                    ? "Active: You are hidden from the map."
+                    : "Tap to mask your location for 1 hour."}
+                </p>
+              </div>
+              <div style={{
+                width: '20px', height: '20px', borderRadius: '50%',
+                backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : '#333',
+                border: '1px solid #555'
+              }} />
             </div>
 
             {currentUser?.email === 'z4kbrindle@gmail.com' && (
@@ -1044,239 +1062,258 @@ export default function App() {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
-      {activeModal === 'upgrade' && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-header">Choose Your Plan</h3>
-            <p className="text-center" style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Upgrade to create squads and invite friends!</p>
+      {
+        activeModal === 'upgrade' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">Choose Your Plan</h3>
+              <p className="text-center" style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Upgrade to create squads and invite friends!</p>
 
-            {PLANS.map(plan => (
-              <div key={plan.id} className={`pricing-card`} onClick={() => handleUpgrade(plan.id as Tier)}>
-                <h3>{plan.name}</h3>
-                <div className="pricing-price">{plan.price}<span style={{ fontSize: '0.9rem', color: '#888', fontWeight: 'normal' }}>/year</span></div>
-                <p>Invite {plan.limit} friend{plan.limit > 1 ? 's' : ''} to your squad</p>
+              {PLANS.map(plan => (
+                <div key={plan.id} className={`pricing-card`} onClick={() => handleUpgrade(plan.id as Tier)}>
+                  <h3>{plan.name}</h3>
+                  <div className="pricing-price">{plan.price}<span style={{ fontSize: '0.9rem', color: '#888', fontWeight: 'normal' }}>/year</span></div>
+                  <p>Invite {plan.limit} friend{plan.limit > 1 ? 's' : ''} to your squad</p>
+                </div>
+              ))}
+
+              <div className="modal-actions">
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
               </div>
-            ))}
-
-            <div className="modal-actions">
-              <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {activeModal === 'checkIn' && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-header">Select Location</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
-              {areas.map(area => (
-                <div key={area.id} className="card" onClick={() => handleManualCheckIn(area)} style={{ cursor: 'pointer' }}>
-                  {area.name}
-                </div>
-              ))}
-            </div>
-            <div className="modal-actions">
-              <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeModal === 'locations' && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-header">Locations</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
-              {areas.map(area => (
-                <div key={area.id} className="card" style={{ justifyContent: 'space-between' }}>
-                  <span>{area.name}</span>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button onClick={() => { setRenamingArea(area); setNewAreaName(area.name); setActiveModal('renameArea') }} className="icon-button"><FaPencilAlt /></button>
-                    <button onClick={() => handleDeleteArea(area.id)} className="icon-button" style={{ color: 'var(--error)' }}><FaTrash /></button>
+      {
+        activeModal === 'checkIn' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">Select Location</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+                {areas.map(area => (
+                  <div key={area.id} className="card" onClick={() => handleManualCheckIn(area)} style={{ cursor: 'pointer' }}>
+                    {area.name}
                   </div>
-                </div>
-              ))}
-            </div>
-            <div className="modal-actions">
-              <button onClick={() => { setActiveModal(null); setIsDevMode(true) }} className="btn btn-primary">Add New</button>
-              <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeModal === 'areaName' && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3 className="modal-header">Name Area</h3>
-            <input value={areaName} onChange={e => setAreaName(e.target.value)} className="input-field" autoFocus />
-            <div className="modal-actions">
-              <button onClick={cancelDrawing} className="btn btn-secondary">Cancel</button>
-              <button onClick={handleSaveArea} className="btn btn-primary">Save</button>
+                ))}
+              </div>
+              <div className="modal-actions">
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Cancel</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {activeModal === 'renameArea' && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3 className="modal-header">Rename Area</h3>
-            <input value={newAreaName} onChange={e => setNewAreaName(e.target.value)} className="input-field" autoFocus />
-            <div className="modal-actions">
-              <button onClick={() => setActiveModal('locations')} className="btn btn-secondary">Cancel</button>
-              <button onClick={handleRenameArea} className="btn btn-primary">Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeModal === 'inviteToSquad' && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-header">Invite / Add Friend</h3>
-
-            {incomingSquadInvites.length > 0 && (
-              <div>
-                <h4>Squad Invites</h4>
-                {incomingSquadInvites.map(invite => (
-                  <div key={invite.id} className="card">
-                    <span>{getDisplayNameByUid(invite.from)}</span>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => handleAcceptSquadInvite(invite)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
-                      <button onClick={() => handleDeclineSquadInvite(invite)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+      {
+        activeModal === 'locations' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">Locations</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+                {areas.map(area => (
+                  <div key={area.id} className="card" style={{ justifyContent: 'space-between' }}>
+                    <span>{area.name}</span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button onClick={() => { setRenamingArea(area); setNewAreaName(area.name); setActiveModal('renameArea') }} className="icon-button"><FaPencilAlt /></button>
+                      <button onClick={() => handleDeleteArea(area.id)} className="icon-button" style={{ color: 'var(--error)' }}><FaTrash /></button>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-
-            {/* Quick Invite Friends Section */}
-            {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
-              <div className="mt-4">
-                <h4>Invite from Friends List</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
-                  {friendsData.filter(f => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
-
-                  {friendsData
-                    .filter(f => f.squadId !== userData.squadId) // Only show friends NOT in my squad
-                    .map(friend => {
-                      const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
-                      return (
-                        <div key={friend.uid} className="card" style={{ justifyContent: 'space-between', padding: '0.5rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <img src={friend.photoURL || "/default-avatar.png"} className="avatar" style={{ width: 30, height: 30 }} alt="Avatar" />
-                            <span>{friend.displayName}</span>
-                          </div>
-                          {isInvited ? (
-                            <span style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>Invited</span>
-                          ) : (
-                            <button onClick={() => handleInviteToSquad(friend.uid)} className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Invite</button>
-                          )}
-                        </div>
-                      )
-                    })}
-                </div>
+              <div className="modal-actions">
+                <button onClick={() => { setActiveModal(null); setIsDevMode(true) }} className="btn btn-primary">Add New</button>
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
               </div>
-            )}
-
-            <div className="mt-4">
-              <h4>Search User by Email</h4>
-              <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
-              <button onClick={async () => {
-                // Logic for email invite...
-                if (!friendEmail || !currentUser) return;
-                try {
-                  if (friendEmail.toLowerCase() === currentUser.email?.toLowerCase()) return;
-                  const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
-                  const querySnapshot = await getDocs(q);
-                  if (querySnapshot.empty) { showConfirm("User not found!", () => { }); return; }
-                  const friendUid = querySnapshot.docs[0].id;
-
-                  // Check if already friends
-                  const userFriends = userData?.friends || [];
-                  if (userFriends.includes(friendUid)) {
-                    // If already friend, try to invite to squad
-                    await handleInviteToSquad(friendUid);
-                    setFriendEmail('');
-                  } else {
-                    // Send Friend Request
-                    await handleSendFriendRequest(friendUid);
-                  }
-                } catch (e) { console.error(e); }
-              }} className="btn btn-primary w-full">Send Friend Request / Invite</button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {activeModal === 'alert' && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <p className="text-center">{alertMessage}</p>
-            <div className="modal-actions" style={{ justifyContent: 'center' }}>
-              <button onClick={() => setActiveModal(null)} className="btn btn-primary">OK</button>
+      {
+        activeModal === 'areaName' && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3 className="modal-header">Name Area</h3>
+              <input value={areaName} onChange={e => setAreaName(e.target.value)} className="input-field" autoFocus />
+              <div className="modal-actions">
+                <button onClick={cancelDrawing} className="btn btn-secondary">Cancel</button>
+                <button onClick={handleSaveArea} className="btn btn-primary">Save</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {activeModal === 'confirm' && confirmAction && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3 className="modal-header">Confirm</h3>
-            <p className="text-center">{confirmAction.message}</p>
-            <div className="modal-actions">
-              <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Cancel</button>
-              <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); }} className="btn btn-danger">Confirm</button>
+      {
+        activeModal === 'renameArea' && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3 className="modal-header">Rename Area</h3>
+              <input value={newAreaName} onChange={e => setNewAreaName(e.target.value)} className="input-field" autoFocus />
+              <div className="modal-actions">
+                <button onClick={() => setActiveModal('locations')} className="btn btn-secondary">Cancel</button>
+                <button onClick={handleRenameArea} className="btn btn-primary">Save</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {selectedMember && (
-        <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div style={{ textAlign: 'center' }}>
-              <img src={selectedMember.photoURL!} alt="Avatar" className="avatar" style={{ width: 80, height: 80, marginBottom: '1rem' }} />
-              <h2>{selectedMember.displayName}</h2>
-              <p>{selectedMember.currentArea || "Unknown Location"}</p>
+      {
+        activeModal === 'inviteToSquad' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">Invite / Add Friend</h3>
 
-              {/* Case 1: Friend is in MY squad and I am leader -> Kick */}
-              {getSquadLeaderUid() === userData?.uid && selectedMember.squadId === userData?.squadId && selectedMember.uid !== userData?.uid && (
-                <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
+              {incomingSquadInvites.length > 0 && (
+                <div>
+                  <h4>Squad Invites</h4>
+                  {incomingSquadInvites.map(invite => (
+                    <div key={invite.id} className="card">
+                      <span>{getDisplayNameByUid(invite.from)}</span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleAcceptSquadInvite(invite)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
+                        <button onClick={() => handleDeclineSquadInvite(invite)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
 
-              {/* Case 2: Friend is NOT in MY squad (could be no squad or other squad) and I have capacity -> Invite */}
-              {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (userData.tier !== 'free') && (
-                <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
+              {/* Quick Invite Friends Section */}
+              {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
+                <div className="mt-4">
+                  <h4>Invite from Friends List</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
+                    {friendsData.filter(f => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
+
+                    {friendsData
+                      .filter(f => f.squadId !== userData.squadId) // Only show friends NOT in my squad
+                      .map(friend => {
+                        const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
+                        return (
+                          <div key={friend.uid} className="card" style={{ justifyContent: 'space-between', padding: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <img src={friend.photoURL || "/default-avatar.png"} className="avatar" style={{ width: 30, height: 30 }} alt="Avatar" />
+                              <span>{friend.displayName}</span>
+                            </div>
+                            {isInvited ? (
+                              <span style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>Invited</span>
+                            ) : (
+                              <button onClick={() => handleInviteToSquad(friend.uid)} className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Invite</button>
+                            )}
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
               )}
 
-              {/* Case 3: I want to remove them from my friend list (always available if not self) */}
-              {selectedMember.uid !== userData?.uid && (
-                <button onClick={() => {
-                  // Remove friend logic
-                  showConfirm(`Remove ${selectedMember.displayName} from friends?`, async () => {
-                    try {
-                      await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
-                      setSelectedMember(null);
-                      showAlert("Friend removed.");
-                    } catch (e) { console.error(e); }
-                  });
-                }} className="btn btn-danger w-full mt-4" style={{ background: 'transparent', border: '1px solid var(--error)' }}>Remove Friend</button>
-              )}
+              <div className="mt-4">
+                <h4>Search User by Email</h4>
+                <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
+                <button onClick={async () => {
+                  // Logic for email invite...
+                  if (!friendEmail || !currentUser) return;
+                  try {
+                    if (friendEmail.toLowerCase() === currentUser.email?.toLowerCase()) return;
+                    const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
+                    const querySnapshot = await getDocs(q);
+                    if (querySnapshot.empty) { showConfirm("User not found!", () => { }); return; }
+                    const friendUid = querySnapshot.docs[0].id;
 
-              {selectedMember.uid === userData?.uid && (
-                <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4">Leave Squad</button>
-              )}
-              <button onClick={() => setSelectedMember(null)} className="btn btn-secondary w-full mt-4">Close</button>
+                    // Check if already friends
+                    const userFriends = userData?.friends || [];
+                    if (userFriends.includes(friendUid)) {
+                      // If already friend, try to invite to squad
+                      await handleInviteToSquad(friendUid);
+                      setFriendEmail('');
+                    } else {
+                      // Send Friend Request
+                      await handleSendFriendRequest(friendUid);
+                    }
+                  } catch (e) { console.error(e); }
+                }} className="btn btn-primary w-full">Send Friend Request / Invite</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+
+      {
+        activeModal === 'alert' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <p className="text-center">{alertMessage}</p>
+              <div className="modal-actions" style={{ justifyContent: 'center' }}>
+                <button onClick={() => setActiveModal(null)} className="btn btn-primary">OK</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {
+        activeModal === 'confirm' && confirmAction && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3 className="modal-header">Confirm</h3>
+              <p className="text-center">{confirmAction.message}</p>
+              <div className="modal-actions">
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Cancel</button>
+                <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); }} className="btn btn-danger">Confirm</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {
+        selectedMember && (
+          <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <div style={{ textAlign: 'center' }}>
+                <img src={selectedMember.photoURL!} alt="Avatar" className="avatar" style={{ width: 80, height: 80, marginBottom: '1rem' }} />
+                <h2>{selectedMember.displayName}</h2>
+                <p>{selectedMember.currentArea || "Unknown Location"}</p>
+
+                {/* Case 1: Friend is in MY squad and I am leader -> Kick */}
+                {getSquadLeaderUid() === userData?.uid && selectedMember.squadId === userData?.squadId && selectedMember.uid !== userData?.uid && (
+                  <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
+                )}
+
+                {/* Case 2: Friend is NOT in MY squad (could be no squad or other squad) and I have capacity -> Invite */}
+                {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (userData.tier !== 'free') && (
+                  <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
+                )}
+
+                {/* Case 3: I want to remove them from my friend list (always available if not self) */}
+                {selectedMember.uid !== userData?.uid && (
+                  <button onClick={() => {
+                    // Remove friend logic
+                    showConfirm(`Remove ${selectedMember.displayName} from friends?`, async () => {
+                      try {
+                        await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
+                        setSelectedMember(null);
+                        showAlert("Friend removed.");
+                      } catch (e) { console.error(e); }
+                    });
+                  }} className="btn btn-danger w-full mt-4" style={{ background: 'transparent', border: '1px solid var(--error)' }}>Remove Friend</button>
+                )}
+
+                {selectedMember.uid === userData?.uid && (
+                  <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4">Leave Squad</button>
+                )}
+                <button onClick={() => setSelectedMember(null)} className="btn btn-secondary w-full mt-4">Close</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 }
