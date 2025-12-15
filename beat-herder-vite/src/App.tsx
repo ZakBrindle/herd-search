@@ -75,6 +75,7 @@ export default function App() {
   const [newAreaName, setNewAreaName] = useState('');
   const [selectedAreaForCheckIn, setSelectedAreaForCheckIn] = useState<Area | null>(null);
   const [selectedMember, setSelectedMember] = useState<UserData | null>(null);
+  const [selectedMemberContext, setSelectedMemberContext] = useState<'squad' | 'friend' | null>(null);
   const [incomingSquadInvites, setIncomingSquadInvites] = useState<DocumentData[]>([]);
   const [outgoingSquadInvites, setOutgoingSquadInvites] = useState<DocumentData[]>([]);
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
@@ -762,7 +763,7 @@ export default function App() {
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
                 .map(member => (
-                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => setSelectedMember(member)} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <img src={member.photoURL!} className="avatar" alt="Avatar" />
                       <div>
@@ -807,11 +808,18 @@ export default function App() {
           )}
 
           {/* Floating Check-in Button */}
-          {userData?.useGps === false && (
-            <button onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')} className="floating-btn">
-              <FaMapMarkerAlt /> {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
+          {/* Floating Action Buttons */}
+          <div style={{ position: 'fixed', bottom: '90px', right: '20px', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end', zIndex: 999 }}>
+            <button onClick={() => setActiveModal('updateStatus')} className="floating-btn" style={{ position: 'static', width: 'auto', padding: '12px 16px', borderRadius: '30px', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #333' }}>
+              <span>💬 Update Status</span>
             </button>
-          )}
+
+            {userData?.useGps === false && (
+              <button onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')} className="floating-btn" style={{ position: 'static', transform: 'none' }}>
+                <FaMapMarkerAlt /> {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
+              </button>
+            )}
+          </div>
         </>
       )
     }
@@ -827,7 +835,7 @@ export default function App() {
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
                 .map(member => (
-                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => setSelectedMember(member)}>
+                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }}>
                     <img src={member.photoURL!} className="avatar" alt="Avatar" />
                     <div>
                       <h3>
@@ -883,12 +891,19 @@ export default function App() {
                 <h3>+ Invite Friends to Squad</h3>
               </div>
             )}
+
+            {/* Leave Squad Button for members (not owner) */}
+            {userData?.squadId && userData?.squadOwnerId !== userData?.uid && (
+              <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4" style={{ border: '1px solid var(--error)', background: 'transparent' }}>
+                Leave Squad
+              </button>
+            )}
           </div>
 
           <h2 className="section-title">All Friends</h2>
           <div className="squad-list">
             {friendsData.map(friend => (
-              <div key={friend.uid} className="card" onClick={() => setSelectedMember(friend)}>
+              <div key={friend.uid} className="card" onClick={() => { setSelectedMember(friend); setSelectedMemberContext('friend'); }}>
                 <img src={friend.photoURL || "/default-avatar.png"} className="avatar" alt="Avatar" />
                 <div>
                   <h3>{friend.displayName}</h3>
@@ -963,9 +978,11 @@ export default function App() {
         <>
           <header>
             <div className="logo">Profile</div>
-            <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
-              <FaCog size={24} color="var(--text-muted)" />
-            </div>
+            {currentUser?.email === 'z4kbrindle@gmail.com' && (
+              <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
+                <FaCog size={24} color="var(--text-muted)" />
+              </div>
+            )}
           </header>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
@@ -1120,6 +1137,54 @@ export default function App() {
               <div className="modal-actions">
                 <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Okay</button>
                 <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>Upgrade Plan ⚡</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {
+        activeModal === 'updateStatus' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">Update Status</h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  id="statusInputModal"
+                  placeholder="What's happening?"
+                  className="input-field"
+                  defaultValue={userData?.statusMessage || ''}
+                  autoFocus
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter') {
+                      const val = (e.target as HTMLInputElement).value;
+                      try {
+                        await updateDoc(getUserDocRef(currentUser!.uid), {
+                          statusMessage: val,
+                          statusTimestamp: Date.now()
+                        });
+                        setActiveModal(null);
+                        showAlert("Status updated!");
+                      } catch (err) { console.error(err); showAlert("Error updating status. Check permissions/keys."); }
+                    }
+                  }}
+                />
+                <button onClick={async () => {
+                  const input = document.getElementById('statusInputModal') as HTMLInputElement;
+                  const val = input.value;
+                  try {
+                    await updateDoc(getUserDocRef(currentUser!.uid), {
+                      statusMessage: val,
+                      statusTimestamp: Date.now()
+                    });
+                    setActiveModal(null);
+                    showAlert("Status updated!");
+                  } catch (e) { console.error(e); showAlert("Error updating status. Check permissions/keys."); }
+                }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>➜</button>
+              </div>
+              <div className="modal-actions">
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
               </div>
             </div>
           </div>
@@ -1302,8 +1367,8 @@ export default function App() {
                     // Check if already friends
                     const userFriends = userData?.friends || [];
                     if (userFriends.includes(friendUid)) {
-                      // If already friend, try to invite to squad
-                      await handleInviteToSquad(friendUid);
+                      // If already friend, do NOT invite to squad per request. Just say already friends.
+                      showAlert("You are already friends with this user!");
                       setFriendEmail('');
                     } else {
                       // Send Friend Request
@@ -1357,25 +1422,38 @@ export default function App() {
                 {/* Status Update for Self */}
                 {selectedMember.uid === userData?.uid && (
                   <div style={{ marginTop: '1rem', width: '100%' }}>
-                    <input
-                      type="text"
-                      placeholder="What's on your mind?"
-                      className="input-field"
-                      defaultValue={userData?.statusMessage || ''}
-                      onKeyDown={async (e) => {
-                        if (e.key === 'Enter') {
-                          const val = (e.target as HTMLInputElement).value;
-                          try {
-                            await updateDoc(getUserDocRef(currentUser!.uid), {
-                              statusMessage: val,
-                              statusTimestamp: Date.now()
-                            });
-                            showAlert("Status updated!");
-                            // Update local state locally to reflect immediately or wait for snapshot
-                          } catch (err) { console.error(err); }
-                        }
-                      }}
-                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        id="statusInputSelf"
+                        placeholder="What's on your mind?"
+                        className="input-field"
+                        defaultValue={userData?.statusMessage || ''}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            const val = (e.target as HTMLInputElement).value;
+                            try {
+                              await updateDoc(getUserDocRef(currentUser!.uid), {
+                                statusMessage: val,
+                                statusTimestamp: Date.now()
+                              });
+                              showAlert("Status updated!");
+                            } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
+                          }
+                        }}
+                      />
+                      <button onClick={async () => {
+                        const input = document.getElementById('statusInputSelf') as HTMLInputElement;
+                        const val = input.value;
+                        try {
+                          await updateDoc(getUserDocRef(currentUser!.uid), {
+                            statusMessage: val,
+                            statusTimestamp: Date.now()
+                          });
+                          showAlert("Status updated!");
+                        } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
+                      }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>➜</button>
+                    </div>
                     <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '4px' }}>Press Enter to update status</p>
                   </div>
                 )}
@@ -1390,8 +1468,8 @@ export default function App() {
                   <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
                 )}
 
-                {/* Case 3: I want to remove them from my friend list (always available if not self) */}
-                {selectedMember.uid !== userData?.uid && (
+                {/* Case 3: I want to remove them from my friend list (always available if not self) - ONLY IN FRIEND CONTEXT */}
+                {selectedMember.uid !== userData?.uid && selectedMemberContext === 'friend' && (
                   <button onClick={() => {
                     // Remove friend logic
                     showConfirm(`Remove ${selectedMember.displayName} from friends?`, async () => {
