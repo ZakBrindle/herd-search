@@ -42,12 +42,11 @@ export default function App() {
   const [areas, setAreas] = useState<Area[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isDevMode, setIsDevMode] = useState(false);
-  const [passcode, setPasscode] = useState('');
   const [friendEmail, setFriendEmail] = useState('');
   const [areaName, setAreaName] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
-  const [isDeveloper, setIsDeveloper] = useState(false);
+
   const [showZones, setShowZones] = useState(false);
   const [renamingArea, setRenamingArea] = useState<Area | null>(null);
   const [newAreaName, setNewAreaName] = useState('');
@@ -155,15 +154,7 @@ export default function App() {
   }, [resizeCanvas]);
 
   // --- Event Handlers & App Logic ---
-  const handlePasscodeSubmit = () => {
-    if (passcode === '1979') {
-      setIsDevMode(true);
-      setActiveModal('locations');
-    } else {
-      showAlert("Incorrect passcode.");
-    }
-    setPasscode('');
-  };
+
 
   const handleSaveArea = async () => {
     if (!areaName || currentPolygonPoints.current.length < 3) {
@@ -518,7 +509,6 @@ export default function App() {
       if (doc.exists()) {
         const data = doc.data() as UserData;
         setUserData(data);
-        setIsDeveloper(data?.displayName === 'Zak Brindle');
       }
     });
     return () => unsubUser();
@@ -695,8 +685,8 @@ export default function App() {
               <span>Show Zones</span>
               <input type="checkbox" checked={showZones} onChange={e => setShowZones(e.target.checked)} />
             </div>
-            {isDeveloper && (
-              <button onClick={() => setActiveModal(isDevMode ? 'locations' : 'passcode')} className="btn btn-secondary w-full">
+            {currentUser?.email === 'z4kbrindle@gmail.com' && (
+              <button onClick={() => setActiveModal('locations')} className="btn btn-secondary w-full">
                 Manage Locations
               </button>
             )}
@@ -708,18 +698,7 @@ export default function App() {
         </div>
       )}
 
-      {activeModal === 'passcode' && (
-        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-header">Enter Passcode</h3>
-            <input type="password" value={passcode} onChange={e => setPasscode(e.target.value)} className="input-field" autoFocus />
-            <div className="modal-actions">
-              <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Cancel</button>
-              <button onClick={handlePasscodeSubmit} className="btn btn-primary">Submit</button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {activeModal === 'checkIn' && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
