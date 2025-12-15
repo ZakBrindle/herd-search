@@ -797,25 +797,27 @@ export default function App() {
                 className="card"
                 onClick={() => setActiveModal('inviteToSquad')}
                 style={{
-                  minWidth: '60px',
-                  padding: '0 12px',
+                  minWidth: '85px',
+                  padding: '12px 0',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
                   background: 'rgba(255, 255, 255, 0.05)',
                   border: '1px dashed #444',
-                  color: 'var(--text-muted)'
+                  color: 'var(--text-muted)',
+                  gap: '2px'
                 }}>
-                <div style={{ fontSize: '1.2rem' }}><FaUserFriends /></div>
-                <div style={{ fontSize: '0.6rem', marginTop: '4px' }}>
+                <FaUserFriends size={20} />
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Invite</span>
+                <span style={{ fontSize: '0.65rem' }}>
                   {(() => {
                     const limit = TIER_LIMITS[userData?.tier || 'free'];
                     const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
                     const remaining = Math.max(0, limit - currentCount);
-                    return `+${remaining}`;
+                    return `${remaining} left`;
                   })()}
-                </div>
+                </span>
               </div>
             )}
           </div>
@@ -823,18 +825,16 @@ export default function App() {
 
 
 
-          {/* Floating Check-in Button */}
           {/* Floating Action Buttons */}
-          <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'row', gap: '12px', alignItems: 'center', zIndex: 999, width: 'max-content' }}>
-            <button onClick={() => setActiveModal('updateStatus')} className="floating-btn" style={{ position: 'static', width: 'auto', padding: '10px 16px', borderRadius: '30px', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #333' }}>
+          {/* Floating Action Buttons */}
+          <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', zIndex: 999, width: 'max-content' }}>
+            <button onClick={() => setActiveModal('updateStatus')} className="floating-btn" style={{ position: 'static', width: 'auto', minWidth: '140px', justifyContent: 'center', padding: '10px 16px', height: '44px', borderRadius: '30px', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #333' }}>
               <span>💬 Update Status</span>
             </button>
 
-            {userData?.useGps === false && (
-              <button onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')} className="floating-btn" style={{ position: 'static', transform: 'none' }}>
-                <FaMapMarkerAlt /> {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
-              </button>
-            )}
+            <button onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')} className="floating-btn" style={{ position: 'static', width: 'auto', minWidth: '140px', justifyContent: 'center', padding: '10px 16px', height: '44px', borderRadius: '30px', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #333', transform: 'none' }}>
+              <FaMapMarkerAlt /> {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
+            </button>
           </div>
         </>
       )
@@ -1444,12 +1444,13 @@ export default function App() {
                 {/* Status Update for Self */}
                 {selectedMember.uid === userData?.uid && (
                   <div style={{ marginTop: '1rem', width: '100%' }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
                       <input
                         type="text"
                         id="statusInputSelf"
                         placeholder="What's on your mind?"
                         className="input-field"
+                        style={{ flex: 1 }}
                         defaultValue={userData?.statusMessage || ''}
                         onKeyDown={async (e) => {
                           if (e.key === 'Enter') {
@@ -1476,7 +1477,6 @@ export default function App() {
                         } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
                       }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>➜</button>
                     </div>
-                    <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '4px' }}>Press Enter to update status</p>
                   </div>
                 )}
 
