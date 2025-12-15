@@ -750,6 +750,9 @@ export default function App() {
               .map(u => (
                 <div key={u.uid} className="user-marker" style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}>
                   <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
+                  {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
+                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
+                  )}
                   <div className="marker-label">{u.displayName?.split(' ')[0]}</div>
                 </div>
               ))}
@@ -794,22 +797,23 @@ export default function App() {
                 className="card"
                 onClick={() => setActiveModal('inviteToSquad')}
                 style={{
-                  minWidth: '100px',
+                  minWidth: '60px',
+                  padding: '0 12px',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  background: 'var(--secondary)',
-                  color: 'black'
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px dashed #444',
+                  color: 'var(--text-muted)'
                 }}>
-                <div style={{ fontSize: '1.5rem' }}><FaUserFriends /></div>
-                <div style={{ fontWeight: 'bold', marginTop: '4px' }}>Invite</div>
-                <div style={{ fontSize: '0.8rem' }}>
+                <div style={{ fontSize: '1.2rem' }}><FaUserFriends /></div>
+                <div style={{ fontSize: '0.6rem', marginTop: '4px' }}>
                   {(() => {
                     const limit = TIER_LIMITS[userData?.tier || 'free'];
                     const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
                     const remaining = Math.max(0, limit - currentCount);
-                    return `${remaining} left`;
+                    return `+${remaining}`;
                   })()}
                 </div>
               </div>
@@ -821,8 +825,8 @@ export default function App() {
 
           {/* Floating Check-in Button */}
           {/* Floating Action Buttons */}
-          <div style={{ position: 'fixed', bottom: '90px', right: '20px', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end', zIndex: 999 }}>
-            <button onClick={() => setActiveModal('updateStatus')} className="floating-btn" style={{ position: 'static', width: 'auto', padding: '12px 16px', borderRadius: '30px', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #333' }}>
+          <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'row', gap: '12px', alignItems: 'center', zIndex: 999, width: 'max-content' }}>
+            <button onClick={() => setActiveModal('updateStatus')} className="floating-btn" style={{ position: 'static', width: 'auto', padding: '10px 16px', borderRadius: '30px', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #333' }}>
               <span>💬 Update Status</span>
             </button>
 
@@ -855,9 +859,12 @@ export default function App() {
                         {member.displayName}
                       </h3>
                       <p>
-                        {member.currentArea === 'The Wilds' ?
-                          <>Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span></> :
-                          <>Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span></>
+                        {(member.ghostMode && member.ghostModeExpiry && member.ghostModeExpiry > Date.now()) ?
+                          <span style={{ color: 'var(--text-muted)' }}>Ghost Mode 👻</span> :
+                          (member.currentArea === 'The Wilds' ?
+                            <>Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span></> :
+                            <>Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span></>
+                          )
                         }
                       </p>
                       {member.statusMessage && (
@@ -1125,6 +1132,9 @@ export default function App() {
                   <span>Dev Mode (Tier Cycling)</span>
                   <input type="checkbox" checked={allowTierCycling} onChange={e => setAllowTierCycling(e.target.checked)} />
                 </div>
+                <button onClick={() => handleUpgrade('free')} className="btn btn-danger w-full" style={{ marginBottom: '1rem', border: '1px solid var(--error)', background: 'transparent' }}>
+                  Rest Plan to Free Tier
+                </button>
               </>
             )}
 
