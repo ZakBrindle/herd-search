@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaBell
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaBell, FaMap, FaUserFriends, FaUser
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, type User
@@ -14,6 +14,8 @@ import { auth, db } from './firebase';
 // --- Type Definitions ---
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
+type Tier = 'free' | 'basic' | 'standard' | 'premium';
+
 type UserData = DocumentData & {
   uid: string;
   location?: Point;
@@ -26,12 +28,27 @@ type UserData = DocumentData & {
   lastUpdate?: number;
   squadId?: string;
   squadOwnerId?: string;
+  tier?: Tier;
+  subscriptionExpiry?: number;
+  email?: string;
 };
 type ConfirmAction = {
   message: string;
   onConfirm: () => void;
 };
 
+const TIER_LIMITS = {
+  free: 0,
+  basic: 1,
+  standard: 3,
+  premium: 8
+};
+
+const PLANS = [
+  { id: 'basic', name: 'Just the 2 of us', price: '£2.99', limit: 1 },
+  { id: 'standard', name: 'Squad of 4', price: '£4.99', limit: 3 },
+  { id: 'premium', name: 'Full Squad', price: '£9.99', limit: 8 }
+];
 
 // --- Main Component ---
 export default function App() {
@@ -46,7 +63,6 @@ export default function App() {
   const [areaName, setAreaName] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
-
   const [showZones, setShowZones] = useState(false);
   const [renamingArea, setRenamingArea] = useState<Area | null>(null);
   const [newAreaName, setNewAreaName] = useState('');
@@ -55,6 +71,8 @@ export default function App() {
   const [incomingSquadInvites, setIncomingSquadInvites] = useState<DocumentData[]>([]);
   const [outgoingSquadInvites, setOutgoingSquadInvites] = useState<DocumentData[]>([]);
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
+
+  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'profile'>('map');
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -154,8 +172,6 @@ export default function App() {
   }, [resizeCanvas]);
 
   // --- Event Handlers & App Logic ---
-
-
   const handleSaveArea = async () => {
     if (!areaName || currentPolygonPoints.current.length < 3) {
       return showAlert("Please provide a name and draw a valid shape (at least 3 points).");
@@ -208,6 +224,21 @@ export default function App() {
 
   const handleInviteToSquad = async (friendUid: string) => {
     if (!userData?.squadId || !userData?.uid) return;
+
+    // Check Tier Limits
+    const myTier = userData.tier || 'free';
+    if (myTier === 'free') {
+      showAlert("Free tier users cannot invite friends to a squad. Please upgrade to create a squad.");
+      return;
+    }
+
+    // Check Squad Size Limit
+    const squadMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+    if (squadMembers.length >= (TIER_LIMITS[myTier] + 1)) { // +1 for self
+      showAlert(`You have reached the limit of your ${myTier} plan (${TIER_LIMITS[myTier]} friends). Upgrade to invite more users.`);
+      return;
+    }
+
     if (userData.uid !== userData.squadOwnerId) {
       showAlert("Only the squad leader can send invites.");
       return;
@@ -363,6 +394,7 @@ export default function App() {
   };
 
   const handleKickMember = (member: UserData) => {
+    setSelectedMember(null);
     showConfirm(
       `Are you sure you want to kick '${member.displayName}' from the squad?`,
       () => handleKickMemberConfirmed(member)
@@ -394,6 +426,7 @@ export default function App() {
   };
 
   const handleLeaveSquad = () => {
+    setSelectedMember(null);
     showConfirm(
       "Are you sure you want to leave the squad?",
       handleLeaveSquadConfirmed
@@ -440,6 +473,22 @@ export default function App() {
     }
   };
 
+  const handleUpgrade = async (planId: Tier) => {
+    // Simulate Payment
+    if (!currentUser) return;
+    try {
+      await updateDoc(getUserDocRef(currentUser.uid), {
+        tier: planId,
+        subscriptionExpiry: Date.now() + (365 * 24 * 60 * 60 * 1000) // 1 year
+      });
+      showAlert("Upgrade successful! You now have access to better squad features.");
+      setActiveModal(null);
+    } catch (e) {
+      console.error(e);
+      showAlert("Upgrade failed.");
+    }
+  };
+
   // --- Subscriptions ---
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -454,7 +503,8 @@ export default function App() {
             uid: user.uid,
             displayName: user.displayName,
             email: user.email?.toLowerCase(),
-            photoURL: user.photoURL
+            photoURL: user.photoURL,
+            tier: 'free'
           };
           await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
           await setDoc(publicProfileRef, profileData);
@@ -561,116 +611,200 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="app-container">
-      <header>
-        <div className="logo">Herd Search</div>
-        <div className="user-controls">
-          {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
-          <button onClick={() => setActiveModal('settings')} className="icon-button"><FaCog size={20} /></button>
-        </div>
-      </header>
+  const renderContent = () => {
+    if (activeTab === 'map') {
+      return (
+        <>
+          <header>
+            <div className="logo">Herd Search</div>
+          </header>
 
-      {isDevMode && (
-        <div className="dev-panel">
-          <h3>Developer Mode</h3>
-          <p>Click on the map to draw areas.</p>
-          <button onClick={cancelDrawing} className="btn btn-danger" style={{ padding: '0.25rem 0.5rem' }}>Cancel</button>
-        </div>
-      )}
-
-      {/* Map */}
-      <div className="map-container">
-        <img
-          ref={mapImageRef}
-          src="/Beatherder Map.png"
-          alt="Map"
-          className="map-image"
-          onLoad={resizeCanvas}
-        />
-        <canvas
-          ref={canvasRef}
-          className="map-canvas"
-          onClick={handleCanvasClick}
-          style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }}
-        />
-
-        {userData?.location && (
-          <div className="user-marker" style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%` }}>
-            <img src={userData.photoURL || "/default-avatar.png"} className="marker-avatar" alt="Me" />
-            <div className="marker-label">You</div>
-          </div>
-        )}
-
-        {friendsData
-          .filter(f => !!f.location && f.squadId === userData?.squadId)
-          .map(u => (
-            <div key={u.uid} className="user-marker" style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}>
-              <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
-              <div className="marker-label">{u.displayName?.split(' ')[0]}</div>
+          {isDevMode && (
+            <div className="dev-panel">
+              <h3>Developer Mode</h3>
+              <p>Click on the map to draw areas.</p>
+              <button onClick={cancelDrawing} className="btn btn-danger" style={{ padding: '0.25rem 0.5rem' }}>Cancel</button>
             </div>
-          ))}
-      </div>
+          )}
 
-      {/* Squad */}
-      <div className="squad-list">
-        {userData?.squadId && (() => {
-          const squadMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
-          const leaderUid = getSquadLeaderUid();
-          return squadMembers
-            .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
-            .map(member => (
-              <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => setSelectedMember(member)}>
-                <img src={member.photoURL!} className="avatar" alt="Avatar" />
+          {/* Map */}
+          <div className="map-container">
+            <img
+              ref={mapImageRef}
+              src="/Beatherder Map.png"
+              alt="Map"
+              className="map-image"
+              onLoad={resizeCanvas}
+            />
+            <canvas
+              ref={canvasRef}
+              className="map-canvas"
+              onClick={handleCanvasClick}
+              style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }}
+            />
+
+            {userData?.location && (
+              <div className="user-marker" style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%` }}>
+                <img src={userData.photoURL || "/default-avatar.png"} className="marker-avatar" alt="Me" />
+                <div className="marker-label">You</div>
+              </div>
+            )}
+
+            {friendsData
+              .filter(f => !!f.location && f.squadId === userData?.squadId)
+              .map(u => (
+                <div key={u.uid} className="user-marker" style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}>
+                  <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
+                  <div className="marker-label">{u.displayName?.split(' ')[0]}</div>
+                </div>
+              ))}
+          </div>
+
+          {/* Floating Button */}
+          {userData?.useGps === false && (
+            <button onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')} className="floating-btn">
+              <FaMapMarkerAlt /> {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
+            </button>
+          )}
+        </>
+      )
+    }
+
+    if (activeTab === 'friends') {
+      return (
+        <>
+          <h2 className="section-title">My Squad</h2>
+          <div className="squad-list">
+            {userData?.squadId && (() => {
+              const squadMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+              const leaderUid = getSquadLeaderUid();
+              return squadMembers
+                .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
+                .map(member => (
+                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => setSelectedMember(member)}>
+                    <img src={member.photoURL!} className="avatar" alt="Avatar" />
+                    <div>
+                      <h3>
+                        {leaderUid === member.uid && '👑 '}
+                        {member.displayName}
+                      </h3>
+                      <p>
+                        {member.currentArea === 'The Wilds' ?
+                          <>Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span></> :
+                          <>Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span></>
+                        }
+                      </p>
+                    </div>
+                  </div>
+                ));
+            })()}
+
+            {/* Invites Sections */}
+            {outgoingSquadInvites.map(invite => (
+              <div key={invite.id} className="card" style={{ borderColor: '#bb86fc' }}>
+                <FaBell color="#bb86fc" />
+                <div style={{ flex: 1 }}>
+                  <p>Invite sent to <strong>{getDisplayNameByUid(invite.to)}</strong></p>
+                </div>
+                <button className="btn btn-danger" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => handleWithdrawSquadInvite(invite)}>Withdraw</button>
+              </div>
+            ))}
+
+            {incomingSquadInvites.length > 0 && (
+              <div className="card" onClick={() => setActiveModal('inviteToSquad')} style={{ cursor: 'pointer', borderColor: '#facc15' }}>
+                <FaBell color="#facc15" size={24} />
                 <div>
-                  <h3>
-                    {leaderUid === member.uid && '👑 '}
-                    {member.displayName}
-                  </h3>
-                  <p>
-                    {member.currentArea === 'The Wilds' ?
-                      <>Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span></> :
-                      <>Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span></>
-                    }
-                  </p>
+                  <h3>Squad Invite!</h3>
+                  <p>From: <strong>{getDisplayNameByUid(incomingSquadInvites[0].from)}</strong></p>
                 </div>
               </div>
-            ));
-        })()}
+            )}
 
-        {outgoingSquadInvites.map(invite => (
-          <div key={invite.id} className="card" style={{ borderColor: '#bb86fc' }}>
-            <FaBell color="#bb86fc" />
-            <div style={{ flex: 1 }}>
-              <p>Invite sent to <strong>{getDisplayNameByUid(invite.to)}</strong></p>
-            </div>
-            <button className="btn btn-danger" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => handleWithdrawSquadInvite(invite)}>Withdraw</button>
+            {/* Only allow adding friends if they are the leader */}
+            {getSquadLeaderUid() === userData?.uid && (
+              <div className="card" onClick={() => setActiveModal('inviteToSquad')} style={{ cursor: 'pointer', justifyContent: 'center' }}>
+                <h3>+ Invite Friends to Squad</h3>
+              </div>
+            )}
           </div>
-        ))}
 
-        {incomingSquadInvites.length > 0 ? (
-          <div className="card" onClick={() => setActiveModal('inviteToSquad')} style={{ cursor: 'pointer', borderColor: '#facc15' }}>
-            <FaBell color="#facc15" size={24} />
-            <div>
-              <h3>Squad Invite!</h3>
-              <p>From: <strong>{getDisplayNameByUid(incomingSquadInvites[0].from)}</strong></p>
+          <h2 className="section-title">All Friends</h2>
+          <div className="squad-list">
+            {friendsData.map(friend => (
+              <div key={friend.uid} className="card" onClick={() => setSelectedMember(friend)}>
+                <img src={friend.photoURL || "/default-avatar.png"} className="avatar" alt="Avatar" />
+                <div>
+                  <h3>{friend.displayName}</h3>
+                  <p>Status: {friend.squadId ? (friend.squadId === userData?.squadId ? "In your squad" : "In another squad") : "Alone or Free"}</p>
+                </div>
+              </div>
+            ))}
+            {/* Reuse the Invite Friends modal logic to add new friends via email */}
+            <div className="card" onClick={() => setActiveModal('inviteToSquad')} style={{ cursor: 'pointer', justifyContent: 'center', marginTop: '1rem', borderStyle: 'dashed' }}>
+              <p>+ Add Friend by Email</p>
             </div>
           </div>
-        ) : (
-          getSquadLeaderUid() === userData?.uid && (
-            <div className="card" onClick={() => setActiveModal('inviteToSquad')} style={{ cursor: 'pointer', justifyContent: 'center' }}>
-              <h3>+ Invite Friends</h3>
-            </div>
-          )
-        )}
-      </div>
+        </>
+      )
+    }
 
-      {/* Floating Button */}
-      {userData?.useGps === false && (
-        <button onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')} className="floating-btn">
-          <FaMapMarkerAlt /> {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
+    if (activeTab === 'profile') {
+      const tier = userData?.tier || 'free';
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '2rem' }}>
+          {userData?.photoURL && <img className="avatar-large" src={userData.photoURL} alt="Profile" />}
+          <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
+          <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
+
+          <div className="card" style={{ width: '100%', marginTop: '2rem', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+              <h3>Current Plan</h3>
+              <span style={{
+                padding: '4px 12px',
+                borderRadius: '20px',
+                background: tier === 'free' ? '#333' : 'var(--secondary)',
+                color: tier === 'free' ? '#aaa' : '#000',
+                fontWeight: 'bold',
+                textTransform: 'uppercase',
+                fontSize: '0.8rem'
+              }}>{tier}</span>
+            </div>
+            <p>
+              {tier === 'free' && "You are on the Free Tier. You can join squads but cannot create your own."}
+              {tier !== 'free' && `You can invite up to ${TIER_LIMITS[tier]} friends to your squad.`}
+            </p>
+          </div>
+
+          <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full mt-4" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>
+            Upgrade Plan ⚡
+          </button>
+
+          <div className="card" style={{ width: '100%', marginTop: '1rem', cursor: 'pointer' }} onClick={() => setActiveModal('settings')}>
+            <FaCog /> Settings
+          </div>
+        </div>
+      )
+    }
+  }
+
+  return (
+    <div className="app-container">
+      {renderContent()}
+
+      <nav className="bottom-nav">
+        <button className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>
+          <FaMap />
+          <span>Map</span>
         </button>
-      )}
+        <button className={`nav-item ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')}>
+          <FaUserFriends />
+          <span>Friends</span>
+        </button>
+        <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
+          <FaUser />
+          <span>Profile</span>
+        </button>
+      </nav>
 
       {/* Modals */}
       {activeModal === 'settings' && (
@@ -698,7 +832,26 @@ export default function App() {
         </div>
       )}
 
+      {activeModal === 'upgrade' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-header">Choose Your Plan</h3>
+            <p className="text-center" style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Upgrade to create squads and invite friends!</p>
 
+            {PLANS.map(plan => (
+              <div key={plan.id} className={`pricing-card`} onClick={() => handleUpgrade(plan.id as Tier)}>
+                <h3>{plan.name}</h3>
+                <div className="pricing-price">{plan.price}<span style={{ fontSize: '0.9rem', color: '#888', fontWeight: 'normal' }}>/year</span></div>
+                <p>Invite {plan.limit} friend{plan.limit > 1 ? 's' : ''} to your squad</p>
+              </div>
+            ))}
+
+            <div className="modal-actions">
+              <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeModal === 'checkIn' && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
@@ -770,11 +923,11 @@ export default function App() {
       {activeModal === 'inviteToSquad' && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-header">Invite Friends</h3>
+            <h3 className="modal-header">Invite / Add Friend</h3>
 
             {incomingSquadInvites.length > 0 && (
               <div>
-                <h4>Invites</h4>
+                <h4>Squad Invites</h4>
                 {incomingSquadInvites.map(invite => (
                   <div key={invite.id} className="card">
                     <span>{getDisplayNameByUid(invite.from)}</span>
@@ -788,7 +941,7 @@ export default function App() {
             )}
 
             <div className="mt-4">
-              <h4>Invite by Email</h4>
+              <h4>Search User by Email</h4>
               <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
               <button onClick={async () => {
                 // Logic for email invite...
@@ -799,16 +952,19 @@ export default function App() {
                   if (querySnapshot.empty) { showConfirm("User not found!", () => { }); return; }
                   const friendUid = querySnapshot.docs[0].id;
                   if (friendUid === currentUser.uid) return;
-                  // Add as friend first if needed
+                  // Add as friend first (always allowed)
                   const userFriends = userData?.friends || [];
                   if (!userFriends.includes(friendUid)) {
                     await updateDoc(getUserDocRef(currentUser.uid), { friends: arrayUnion(friendUid) });
+                    showAlert(`${friendEmail} added to friends!`);
+                    setFriendEmail('');
+                  } else {
+                    // If already friend, try to invite to squad
+                    await handleInviteToSquad(friendUid);
+                    setFriendEmail('');
                   }
-                  await handleInviteToSquad(friendUid);
-                  setFriendEmail(''); setIncomingSquadInvites([]);
-                  showAlert("Invite sent!");
                 } catch (e) { console.error(e); }
-              }} className="btn btn-primary w-full">Send Invite</button>
+              }} className="btn btn-primary w-full">Add Friend / Invite</button>
             </div>
           </div>
         </div>
@@ -847,7 +1003,7 @@ export default function App() {
               <p>{selectedMember.currentArea || "Unknown Location"}</p>
 
               {getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
-                <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Hub</button>
+                <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
               )}
               {selectedMember.uid === userData?.uid && (
                 <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4">Leave Squad</button>

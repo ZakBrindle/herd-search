@@ -25,7 +25,8 @@ body {
   max-width: 600px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 1rem;
+  padding: 1rem 1rem 5rem 1rem;
+  /* Added bottom padding for nav bar */
   display: flex;
   flex-direction: column;
 }
@@ -62,6 +63,15 @@ header {
   border: 2px solid var(--primary);
 }
 
+.avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--primary);
+  margin-bottom: 1rem;
+}
+
 .icon-button {
   background: var(--bg-card);
   padding: 8px;
@@ -78,7 +88,7 @@ header {
   width: 100%;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   margin-bottom: 1.5rem;
   user-select: none;
 }
@@ -117,7 +127,7 @@ header {
 }
 
 .marker-label {
-  background: rgba(0,0,0,0.75);
+  background: rgba(0, 0, 0, 0.75);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.75rem;
@@ -130,6 +140,15 @@ header {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.5rem 0;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .card {
@@ -201,7 +220,8 @@ header {
 
 .floating-btn {
   position: fixed;
-  bottom: 2rem;
+  bottom: 6rem;
+  /* Adjusted for bottom nav */
   left: 50%;
   transform: translateX(-50%);
   background: var(--secondary);
@@ -210,10 +230,44 @@ header {
   border-radius: 50px;
   box-shadow: 0 4px 15px rgba(3, 218, 198, 0.4);
   font-weight: 700;
-  z-index: 100;
+  z-index: 90;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Bottom Nav */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  display: flex;
+  justify-content: space-around;
+  padding: 1rem 0;
+  border-top: 1px solid var(--border);
+  z-index: 100;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.nav-item.active {
+  color: var(--primary);
+}
+
+.nav-item svg {
+  font-size: 1.5rem;
 }
 
 /* Modals */
@@ -223,7 +277,7 @@ header {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -238,13 +292,22 @@ header {
   width: 90%;
   max-width: 400px;
   border: 1px solid var(--border);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   animation: slideUp 0.3s ease;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .modal-header {
@@ -277,6 +340,29 @@ header {
   margin-top: 1.5rem;
 }
 
+/* Pricing Cards */
+.pricing-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  background: #252525;
+  margin-bottom: 1rem;
+  cursor: pointer;
+}
+
+.pricing-card.selected {
+  border-color: var(--secondary);
+  background: rgba(3, 218, 198, 0.1);
+}
+
+.pricing-price {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin: 0.5rem 0;
+}
+
 /* Google Button Utility */
 .google-btn {
   width: 100%;
@@ -296,7 +382,20 @@ header {
 }
 
 /* Utils */
-.flex-center { display: flex; align-items: center; justify-content: center; }
-.w-full { width: 100%; }
-.mt-4 { margin-top: 1rem; }
-.text-center { text-align: center; }
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}
+
+.text-center {
+  text-align: center;
+}
