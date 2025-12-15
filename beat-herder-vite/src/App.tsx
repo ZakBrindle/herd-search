@@ -58,6 +58,7 @@ export default function App() {
   const [friendsData, setFriendsData] = useState<UserData[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [allowTierCycling, setAllowTierCycling] = useState(false);
   const [isDevMode, setIsDevMode] = useState(false);
   const [friendEmail, setFriendEmail] = useState('');
   const [areaName, setAreaName] = useState('');
@@ -474,14 +475,23 @@ export default function App() {
   };
 
   const handleUpgrade = async (planId: Tier) => {
-    // Simulate Payment
+    // If Admin Dev Mode for Cycling is on, just switch instantly without payment simulation logic (conceptually)
+    // Here we just use the same logic but the user perception of "payment" is bypassed by intent.
+    // In a real app, successful payment callback would trigger this.
+
     if (!currentUser) return;
     try {
+      if (allowTierCycling && currentUser.email === 'z4kbrindle@gmail.com') {
+        // Just set it directly
+      } else {
+        // Simulate Payment Delay or Process here if needed
+      }
+
       await updateDoc(getUserDocRef(currentUser.uid), {
         tier: planId,
         subscriptionExpiry: Date.now() + (365 * 24 * 60 * 60 * 1000) // 1 year
       });
-      showAlert("Upgrade successful! You now have access to better squad features.");
+      showAlert(allowTierCycling ? `Dev Mode: Switched to ${planId}` : "Upgrade successful! You now have access to better squad features.");
       setActiveModal(null);
     } catch (e) {
       console.error(e);
@@ -820,9 +830,15 @@ export default function App() {
               <input type="checkbox" checked={showZones} onChange={e => setShowZones(e.target.checked)} />
             </div>
             {currentUser?.email === 'z4kbrindle@gmail.com' && (
-              <button onClick={() => setActiveModal('locations')} className="btn btn-secondary w-full">
-                Manage Locations
-              </button>
+              <>
+                <button onClick={() => setActiveModal('locations')} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
+                  Manage Locations
+                </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <span>Dev Mode (Tier Cycling)</span>
+                  <input type="checkbox" checked={allowTierCycling} onChange={e => setAllowTierCycling(e.target.checked)} />
+                </div>
+              </>
             )}
             <div className="modal-actions">
               <button onClick={() => signOut(auth)} className="btn btn-danger">Sign Out</button>
@@ -1002,9 +1018,30 @@ export default function App() {
               <h2>{selectedMember.displayName}</h2>
               <p>{selectedMember.currentArea || "Unknown Location"}</p>
 
-              {getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
+              {/* Case 1: Friend is in MY squad and I am leader -> Kick */}
+              {getSquadLeaderUid() === userData?.uid && selectedMember.squadId === userData?.squadId && selectedMember.uid !== userData?.uid && (
                 <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
               )}
+
+              {/* Case 2: Friend is NOT in ANY squad and I have capacity -> Invite */}
+              {!selectedMember.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (userData.tier !== 'free') && (
+                <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
+              )}
+
+              {/* Case 3: I want to remove them from my friend list (always available if not self) */}
+              {selectedMember.uid !== userData?.uid && (
+                <button onClick={() => {
+                  // Remove friend logic
+                  showConfirm(`Remove ${selectedMember.displayName} from friends?`, async () => {
+                    try {
+                      await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
+                      setSelectedMember(null);
+                      showAlert("Friend removed.");
+                    } catch (e) { console.error(e); }
+                  });
+                }} className="btn btn-danger w-full mt-4" style={{ background: 'transparent', border: '1px solid var(--error)' }}>Remove Friend</button>
+              )}
+
               {selectedMember.uid === userData?.uid && (
                 <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4">Leave Squad</button>
               )}
