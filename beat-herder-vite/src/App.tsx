@@ -33,6 +33,8 @@ type UserData = DocumentData & {
   email?: string;
   ghostMode?: boolean;
   ghostModeExpiry?: number;
+  statusMessage?: string;
+  statusTimestamp?: number;
 };
 
 
@@ -240,7 +242,7 @@ export default function App() {
     // Check Squad Size Limit
     const squadMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
     if (squadMembers.length >= (TIER_LIMITS[myTier] + 1)) { // +1 for self
-      showAlert(`You have reached the limit of your ${myTier} plan (${TIER_LIMITS[myTier]} friends). Upgrade to invite more users.`);
+      setActiveModal('limitReached');
       return;
     }
 
@@ -776,12 +778,35 @@ export default function App() {
                         )
                       }
                     </p>
+                    {member.statusMessage && (
+                      <p style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0.2rem', fontStyle: 'italic', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        "{member.statusMessage}"
+                      </p>
+                    )}
                   </div>
                 ));
             })()}
           </div>
 
-          {/* Floating Button */}
+
+          {/* Floating Invite Button for Squad Leaders */}
+          {getSquadLeaderUid() === userData?.uid && userData?.tier !== 'free' && (
+            <button
+              onClick={() => setActiveModal('inviteToSquad')}
+              className="floating-btn"
+              style={{ bottom: '90px', right: '20px', backgroundColor: 'var(--secondary)', color: 'black' }} // Different position/color
+            >
+              <FaUserFriends />
+              {(() => {
+                const limit = TIER_LIMITS[userData?.tier || 'free'];
+                const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1; // Exclude self
+                const remaining = Math.max(0, limit - currentCount);
+                return ` ${remaining}`;
+              })()}
+            </button>
+          )}
+
+          {/* Floating Check-in Button */}
           {userData?.useGps === false && (
             <button onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')} className="floating-btn">
               <FaMapMarkerAlt /> {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
@@ -815,6 +840,17 @@ export default function App() {
                           <>Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span></>
                         }
                       </p>
+                      {member.statusMessage && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.2rem', fontStyle: 'italic' }}>
+                          "{member.statusMessage}" <span style={{ color: '#666' }}>
+                            ({(() => {
+                              const diff = (Date.now() - (member.statusTimestamp || 0)) / 60000;
+                              if (diff < 90) return `${Math.floor(diff)}m ago`;
+                              return `${Math.floor(diff / 60)}h ago`;
+                            })()})
+                          </span>
+                        </p>
+                      )}
                     </div>
                   </div>
                 ));
@@ -956,9 +992,58 @@ export default function App() {
               </p>
             </div>
 
-            <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full mt-4" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>
-              Upgrade Plan ⚡
-            </button>
+            {tier !== 'premium' && (
+              <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full mt-4" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>
+                Upgrade Plan ⚡
+              </button>
+            )}
+
+            <div style={{ marginTop: '2rem', width: '100%', borderTop: '1px solid #333', paddingTop: '2rem' }}>
+              {/* Ghost Mode Toggle */}
+              <div
+                className="card"
+                style={{
+                  cursor: 'pointer',
+                  backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#333' : '#1e1e1e',
+                  border: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '2px solid #03dac6' : '1px solid #333',
+                  alignItems: 'center',
+                  marginBottom: '1rem'
+                }}
+                onClick={async () => {
+                  const isEnabled = !(userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now());
+                  try {
+                    if (isEnabled) {
+                      await updateDoc(getUserDocRef(currentUser!.uid), {
+                        ghostMode: true,
+                        ghostModeExpiry: Date.now() + 3600000 // 1 hour
+                      });
+                    } else {
+                      await updateDoc(getUserDocRef(currentUser!.uid), {
+                        ghostMode: false,
+                        ghostModeExpiry: null
+                      });
+                    }
+                  } catch (err) { console.error(err); }
+                }}
+              >
+                <div style={{ marginRight: '1rem', fontSize: '1.5rem' }}>👻</div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: 0, color: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : 'white' }}>Ghost Mode</h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                    {(userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())
+                      ? "Active: You are hidden from the map."
+                      : "Tap to mask your location for 1 hour."}
+                  </p>
+                </div>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '50%',
+                  backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : '#333',
+                  border: '1px solid #555'
+                }} />
+              </div>
+
+              <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
+            </div>
           </div>
         </>
       )
@@ -994,48 +1079,6 @@ export default function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-header">Settings</h3>
 
-            {/* Ghost Mode Toggle */}
-            <div
-              className="card"
-              style={{
-                cursor: 'pointer',
-                backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#333' : '#1e1e1e',
-                border: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '2px solid #03dac6' : '1px solid #333',
-                alignItems: 'center'
-              }}
-              onClick={async () => {
-                const isEnabled = !(userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now());
-                try {
-                  if (isEnabled) {
-                    await updateDoc(getUserDocRef(currentUser!.uid), {
-                      ghostMode: true,
-                      ghostModeExpiry: Date.now() + 3600000 // 1 hour
-                    });
-                  } else {
-                    await updateDoc(getUserDocRef(currentUser!.uid), {
-                      ghostMode: false,
-                      ghostModeExpiry: null
-                    });
-                  }
-                } catch (err) { console.error(err); }
-              }}
-            >
-              <div style={{ marginRight: '1rem', fontSize: '1.5rem' }}>👻</div>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: 0, color: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : 'white' }}>Ghost Mode</h3>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                  {(userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())
-                    ? "Active: You are hidden from the map."
-                    : "Tap to mask your location for 1 hour."}
-                </p>
-              </div>
-              <div style={{
-                width: '20px', height: '20px', borderRadius: '50%',
-                backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : '#333',
-                border: '1px solid #555'
-              }} />
-            </div>
-
             {currentUser?.email === 'z4kbrindle@gmail.com' && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -1057,7 +1100,6 @@ export default function App() {
             )}
 
             <div className="modal-actions">
-              <button onClick={() => signOut(auth)} className="btn btn-danger">Sign Out</button>
               <button onClick={() => setActiveModal(null)} className="btn btn-primary">Done</button>
             </div>
           </div>
@@ -1066,20 +1108,51 @@ export default function App() {
       }
 
       {
+        activeModal === 'limitReached' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">Squad Limit Reached 🛑</h3>
+              <p className="text-center" style={{ marginBottom: '1.5rem' }}>
+                You have reached the limit of your <strong>{userData?.tier || 'free'}</strong> plan.
+                <br />
+                Upgrade to invite more users!
+              </p>
+              <div className="modal-actions">
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Okay</button>
+                <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>Upgrade Plan ⚡</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {
         activeModal === 'upgrade' && (
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">Choose Your Plan</h3>
-              <p className="text-center" style={{ marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Upgrade to create squads and invite friends!</p>
-
-              {PLANS.map(plan => (
-                <div key={plan.id} className={`pricing-card`} onClick={() => handleUpgrade(plan.id as Tier)}>
-                  <h3>{plan.name}</h3>
-                  <div className="pricing-price">{plan.price}<span style={{ fontSize: '0.9rem', color: '#888', fontWeight: 'normal' }}>/year</span></div>
-                  <p>Invite {plan.limit} friend{plan.limit > 1 ? 's' : ''} to your squad</p>
-                </div>
-              ))}
-
+              <h3 className="modal-header">Upgrade Plan</h3>
+              <div className="pricing-grid">
+                {allowTierCycling && (
+                  <div className="pricing-card" onClick={() => handleUpgrade('free')}>
+                    <h3>Free</h3>
+                    <p className="price">£0.00</p>
+                    <ul>
+                      <li>Max 0 Friends in Squad (Solo)</li>
+                    </ul>
+                    <button className="btn btn-primary w-full">Select Free</button>
+                  </div>
+                )}
+                {PLANS.filter(p => allowTierCycling || p.limit > TIER_LIMITS[userData?.tier || 'free']).map(plan => (
+                  <div key={plan.id} className="pricing-card" onClick={() => handleUpgrade(plan.id as Tier)}>
+                    <h3>{plan.name}</h3>
+                    <p className="price">{plan.price}</p>
+                    <ul>
+                      <li>Max {plan.limit} Friends in Squad</li>
+                    </ul>
+                    <button className="btn btn-primary w-full">Select</button>
+                  </div>
+                ))}
+              </div>
               <div className="modal-actions">
                 <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
               </div>
@@ -1281,6 +1354,32 @@ export default function App() {
                 <h2>{selectedMember.displayName}</h2>
                 <p>{selectedMember.currentArea || "Unknown Location"}</p>
 
+                {/* Status Update for Self */}
+                {selectedMember.uid === userData?.uid && (
+                  <div style={{ marginTop: '1rem', width: '100%' }}>
+                    <input
+                      type="text"
+                      placeholder="What's on your mind?"
+                      className="input-field"
+                      defaultValue={userData?.statusMessage || ''}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          const val = (e.target as HTMLInputElement).value;
+                          try {
+                            await updateDoc(getUserDocRef(currentUser!.uid), {
+                              statusMessage: val,
+                              statusTimestamp: Date.now()
+                            });
+                            showAlert("Status updated!");
+                            // Update local state locally to reflect immediately or wait for snapshot
+                          } catch (err) { console.error(err); }
+                        }
+                      }}
+                    />
+                    <p style={{ fontSize: '0.8rem', color: '#888', marginTop: '4px' }}>Press Enter to update status</p>
+                  </div>
+                )}
+
                 {/* Case 1: Friend is in MY squad and I am leader -> Kick */}
                 {getSquadLeaderUid() === userData?.uid && selectedMember.squadId === userData?.squadId && selectedMember.uid !== userData?.uid && (
                   <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
@@ -1305,7 +1404,7 @@ export default function App() {
                   }} className="btn btn-danger w-full mt-4" style={{ background: 'transparent', border: '1px solid var(--error)' }}>Remove Friend</button>
                 )}
 
-                {selectedMember.uid === userData?.uid && (
+                {selectedMember.uid === userData?.uid && userData?.squadOwnerId !== userData?.uid && (
                   <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4">Leave Squad</button>
                 )}
                 <button onClick={() => setSelectedMember(null)} className="btn btn-secondary w-full mt-4">Close</button>
