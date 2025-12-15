@@ -226,38 +226,7 @@ export default function HomePage() {
     }
   };
   
-  const handleAddFriend = async () => {
-    if (!friendEmail || !currentUser) return;
-    try {
-      const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
-      const querySnapshot = await getDocs(q);
 
-      if (querySnapshot.empty) {
-        return showAlert("User not found. Ensure they have signed in at least once.");
-      }
-      
-      const friendUid = querySnapshot.docs[0].id;
-      if (friendUid === currentUser.uid) {
-        return showAlert("You can't add yourself as a friend!");
-      }
-
-      const userFriends = userData?.friends || [];
-      if (userFriends.includes(friendUid)) {
-        return showAlert("This user is already your friend.");
-      }
-
-      await updateDoc(getUserDocRef(currentUser.uid), {
-        friends: arrayUnion(friendUid)
-      });
-        setActiveModal(null);
-      showAlert("Friend added successfully!");
-      setFriendEmail('');
-    
-    } catch (error) {
-       console.error("Error adding friend:", error);
-       showAlert("An error occurred while adding the friend.");
-    }
-  };
 
   const handleInviteToSquad = async (friendUid: string) => {
     if (!userData?.squadId || !userData?.uid) return;
@@ -409,7 +378,7 @@ export default function HomePage() {
             [uid]: profile.displayName || uid
           }));
         }
-      } catch (e) {
+      } catch {
         // Ignore errors, fallback to UID
       }
     });
