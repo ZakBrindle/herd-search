@@ -31,7 +31,11 @@ type UserData = DocumentData & {
   tier?: Tier;
   subscriptionExpiry?: number;
   email?: string;
+  ghostMode?: boolean;
+  ghostModeExpiry?: number;
 };
+
+
 type ConfirmAction = {
   message: string;
   onConfirm: () => void;
@@ -73,7 +77,7 @@ export default function App() {
   const [outgoingSquadInvites, setOutgoingSquadInvites] = useState<DocumentData[]>([]);
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
 
-  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'profile'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -436,6 +440,13 @@ export default function App() {
 
   const handleAcceptSquadInvite = async (invite: DocumentData) => {
     try {
+      // Leave old squad if in one
+      if (userData?.squadId) {
+        await updateDoc(doc(db, "squads", userData.squadId), {
+          members: arrayRemove(currentUser!.uid)
+        });
+      }
+
       await updateDoc(doc(db, "squads", invite.squadId), {
         members: arrayUnion(currentUser!.uid)
       });
@@ -591,6 +602,11 @@ export default function App() {
     return () => unsubscribes.forEach(unsub => unsub());
   }, [userData?.friends]);
 
+  const [incomingFriendRequests, setIncomingFriendRequests] = useState<DocumentData[]>([]);
+  const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
+
+
+
   useEffect(() => {
     if (!currentUser?.uid) return;
     const qIn = query(collection(db, "squadInvites"), where("to", "==", currentUser.uid), where("status", "==", "pending"));
@@ -601,8 +617,71 @@ export default function App() {
     const unsubOut = onSnapshot(qOut, (snapshot) => {
       setOutgoingSquadInvites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-    return () => { unsubIn(); unsubOut(); };
+
+    const qFreqIn = query(collection(db, "friendRequests"), where("to", "==", currentUser.uid), where("status", "==", "pending"));
+    const unsubFreqIn = onSnapshot(qFreqIn, (snapshot) => {
+      setIncomingFriendRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const qFreqOut = query(collection(db, "friendRequests"), where("from", "==", currentUser.uid), where("status", "==", "pending"));
+    const unsubFreqOut = onSnapshot(qFreqOut, (snapshot) => {
+      setOutgoingFriendRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => { unsubIn(); unsubOut(); unsubFreqIn(); unsubFreqOut(); };
   }, [currentUser?.uid]);
+
+  const handleSendFriendRequest = async (friendUid: string) => {
+    if (!currentUser) return;
+    try {
+      // Check if already friends
+      if (userData?.friends?.includes(friendUid)) {
+        showAlert("You are already friends!");
+        return;
+      }
+      await addDoc(collection(db, "friendRequests"), {
+        from: currentUser.uid,
+        to: friendUid,
+        status: 'pending',
+        createdAt: Date.now()
+      });
+      showAlert("Friend request sent!");
+      setFriendEmail('');
+      setActiveModal(null);
+    } catch (e) {
+      console.error(e);
+      showAlert("Failed to send friend request.");
+    }
+  };
+
+  const handleAcceptFriendRequest = async (request: DocumentData) => {
+    if (!currentUser) return;
+    try {
+      await updateDoc(getUserDocRef(currentUser.uid), { friends: arrayUnion(request.from) });
+      // Note context: We need to update the other user's friend list too, but Firestore security rules might prevent this 
+      // unless we have specific rules allowing "mutual add" if request exists.
+      // For now, assuming the rules I requested allow it OR we just do it one-way 
+      // Update: The rules I tried to apply earlier (and failed) had the mutual add logic. 
+      // Since I couldn't apply them, this might fail for the OTHER user if rules are strict.
+      // Let's at least update our own and delete request.
+      // Ideally: Cloud function or less strict rules.
+      // I will attempt to update the other user too, hoping current rules allow it or user applied rules.
+
+      await updateDoc(getUserDocRef(request.from), { friends: arrayUnion(currentUser.uid) });
+
+      await deleteDoc(doc(db, "friendRequests", request.id));
+      showAlert("Friend Request Accepted!");
+    } catch (e) {
+      console.error(e);
+      showAlert("Error accepting friend request. (Permissions?)");
+    }
+  };
+
+  const handleDeclineFriendRequest = async (request: DocumentData) => {
+    try {
+      await deleteDoc(doc(db, "friendRequests", request.id));
+    } catch (e) { console.error(e); }
+  };
 
   // --- Render ---
   if (!currentUser) {
@@ -664,13 +743,42 @@ export default function App() {
             )}
 
             {friendsData
-              .filter(f => !!f.location && f.squadId === userData?.squadId)
+              .filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()))
               .map(u => (
                 <div key={u.uid} className="user-marker" style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}>
                   <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
                   <div className="marker-label">{u.displayName?.split(' ')[0]}</div>
                 </div>
               ))}
+          </div>
+
+          <h2 className="section-title">My Squad</h2>
+          <div className="squad-list horizontal" style={{ display: 'flex', overflowX: 'auto', gap: '8px', paddingBottom: '8px' }}>
+            {userData?.squadId && (() => {
+              const squadMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+              const leaderUid = getSquadLeaderUid();
+              return squadMembers
+                .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
+                .map(member => (
+                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => setSelectedMember(member)} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <img src={member.photoURL!} className="avatar" alt="Avatar" />
+                      <div>
+                        <span>{leaderUid === member.uid && '👑 '}{member.displayName}</span>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                      {(member.ghostMode && member.ghostModeExpiry && member.ghostModeExpiry > Date.now() && member.uid !== userData.uid) ?
+                        <span style={{ color: 'var(--text-muted)' }}>Ghost Mode 👻</span> :
+                        (member.currentArea === 'The Wilds' ?
+                          <>Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span></> :
+                          <>Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span></>
+                        )
+                      }
+                    </p>
+                  </div>
+                ));
+            })()}
           </div>
 
           {/* Floating Button */}
@@ -761,41 +869,98 @@ export default function App() {
       )
     }
 
+    if (activeTab === 'notifications') {
+      return (
+        <>
+          <h2 className="section-title">Notifications</h2>
+
+          {/* Friend Requests */}
+          <h3 className="section-subtitle">Friend Requests</h3>
+          {incomingFriendRequests.length === 0 && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>No pending friend requests.</p>}
+          {incomingFriendRequests.map(req => (
+            <div key={req.id} className="card">
+              <div>
+                <strong>{getDisplayNameByUid(req.from)}</strong> wants to be friends.
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => handleAcceptFriendRequest(req)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
+                <button onClick={() => handleDeclineFriendRequest(req)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+              </div>
+            </div>
+          ))}
+
+          {/* Squad Invites */}
+          <h3 className="section-subtitle" style={{ marginTop: '1.5rem' }}>Squad Invites</h3>
+          {incomingSquadInvites.length === 0 && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>No pending squad invites.</p>}
+          {incomingSquadInvites.map(invite => (
+            <div key={invite.id} className="card">
+              <div>
+                <strong>{getDisplayNameByUid(invite.from)}</strong> invited you to their squad.
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => handleAcceptSquadInvite(invite)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
+                <button onClick={() => handleDeclineSquadInvite(invite)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+              </div>
+            </div>
+          ))}
+
+          <h3 className="section-subtitle" style={{ marginTop: '1.5rem' }}>Sent Requests</h3>
+          {outgoingFriendRequests.map(req => (
+            <div key={req.id} className="card" style={{ opacity: 0.7 }}>
+              <span>To {getDisplayNameByUid(req.to)} (Friend Request)</span>
+              <span style={{ fontSize: '0.8rem' }}>Pending</span>
+            </div>
+          ))}
+          {outgoingSquadInvites.map(invite => (
+            <div key={invite.id} className="card" style={{ opacity: 0.7 }}>
+              <span>To {getDisplayNameByUid(invite.to)} (Squad Invite)</span>
+              <button className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleWithdrawSquadInvite(invite)}>Withdraw</button>
+            </div>
+          ))}
+        </>
+      )
+    }
+
     if (activeTab === 'profile') {
       const tier = userData?.tier || 'free';
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '2rem' }}>
-          {userData?.photoURL && <img className="avatar-large" src={userData.photoURL} alt="Profile" />}
-          <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
-          <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
-
-          <div className="card" style={{ width: '100%', marginTop: '2rem', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-              <h3>Current Plan</h3>
-              <span style={{
-                padding: '4px 12px',
-                borderRadius: '20px',
-                background: tier === 'free' ? '#333' : 'var(--secondary)',
-                color: tier === 'free' ? '#aaa' : '#000',
-                fontWeight: 'bold',
-                textTransform: 'uppercase',
-                fontSize: '0.8rem'
-              }}>{tier}</span>
+        <>
+          <header>
+            <div className="logo">Profile</div>
+            <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
+              <FaCog size={24} color="var(--text-muted)" />
             </div>
-            <p>
-              {tier === 'free' && "You are on the Free Tier. You can join squads but cannot create your own."}
-              {tier !== 'free' && `You can invite up to ${TIER_LIMITS[tier]} friends to your squad.`}
-            </p>
-          </div>
+          </header>
 
-          <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full mt-4" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>
-            Upgrade Plan ⚡
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
+            {userData?.photoURL && <img className="avatar-large" src={userData.photoURL} alt="Profile" />}
+            <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
+            <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
 
-          <div className="card" style={{ width: '100%', marginTop: '1rem', cursor: 'pointer' }} onClick={() => setActiveModal('settings')}>
-            <FaCog /> Settings
+            <div className="card" style={{ width: '100%', marginTop: '2rem', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                <h3>Current Plan</h3>
+                <span style={{
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  background: tier === 'free' ? '#333' : 'var(--secondary)',
+                  color: tier === 'free' ? '#aaa' : '#000',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                  fontSize: '0.8rem'
+                }}>{tier}</span>
+              </div>
+              <p>
+                {tier === 'free' && "You are on the Free Tier. You can join squads but cannot create your own."}
+                {tier !== 'free' && `You can invite up to ${TIER_LIMITS[tier]} friends to your squad.`}
+              </p>
+            </div>
+
+            <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full mt-4" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>
+              Upgrade Plan ⚡
+            </button>
           </div>
-        </div>
+        </>
       )
     }
   }
@@ -813,6 +978,10 @@ export default function App() {
           <FaUserFriends />
           <span>Friends</span>
         </button>
+        <button className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveTab('notifications')}>
+          <FaBell />
+          <span>Alerts</span>
+        </button>
         <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
           <FaUser />
           <span>Profile</span>
@@ -824,16 +993,41 @@ export default function App() {
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-header">Settings</h3>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <span>Use GPS (Simulated)</span>
-              <input type="checkbox" checked={userData?.useGps ?? true} onChange={e => handleGpsToggle(e.target.checked)} />
+              <span>Ghost Mode (Mask Location for 1h)</span>
+              <input
+                type="checkbox"
+                checked={userData?.ghostMode && userData.ghostModeExpiry ? userData.ghostModeExpiry > Date.now() : false}
+                onChange={async (e) => {
+                  const isEnabled = e.target.checked;
+                  try {
+                    if (isEnabled) {
+                      await updateDoc(getUserDocRef(currentUser!.uid), {
+                        ghostMode: true,
+                        ghostModeExpiry: Date.now() + 3600000 // 1 hour
+                      });
+                    } else {
+                      await updateDoc(getUserDocRef(currentUser!.uid), {
+                        ghostMode: false,
+                        ghostModeExpiry: null
+                      });
+                    }
+                  } catch (err) { console.error(err); }
+                }}
+              />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <span>Show Zones</span>
-              <input type="checkbox" checked={showZones} onChange={e => setShowZones(e.target.checked)} />
-            </div>
+
             {currentUser?.email === 'z4kbrindle@gmail.com' && (
               <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <span>Use GPS (Simulated)</span>
+                  <input type="checkbox" checked={userData?.useGps ?? true} onChange={e => handleGpsToggle(e.target.checked)} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <span>Show Zones</span>
+                  <input type="checkbox" checked={showZones} onChange={e => setShowZones(e.target.checked)} />
+                </div>
                 <button onClick={() => setActiveModal('locations')} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
                   Manage Locations
                 </button>
@@ -843,6 +1037,7 @@ export default function App() {
                 </div>
               </>
             )}
+
             <div className="modal-actions">
               <button onClick={() => signOut(auth)} className="btn btn-danger">Sign Out</button>
               <button onClick={() => setActiveModal(null)} className="btn btn-primary">Done</button>
@@ -959,6 +1154,35 @@ export default function App() {
               </div>
             )}
 
+            {/* Quick Invite Friends Section */}
+            {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
+              <div className="mt-4">
+                <h4>Invite from Friends List</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
+                  {friendsData.filter(f => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
+
+                  {friendsData
+                    .filter(f => f.squadId !== userData.squadId) // Only show friends NOT in my squad
+                    .map(friend => {
+                      const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
+                      return (
+                        <div key={friend.uid} className="card" style={{ justifyContent: 'space-between', padding: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <img src={friend.photoURL || "/default-avatar.png"} className="avatar" style={{ width: 30, height: 30 }} alt="Avatar" />
+                            <span>{friend.displayName}</span>
+                          </div>
+                          {isInvited ? (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>Invited</span>
+                          ) : (
+                            <button onClick={() => handleInviteToSquad(friend.uid)} className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Invite</button>
+                          )}
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4">
               <h4>Search User by Email</h4>
               <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
@@ -966,24 +1190,24 @@ export default function App() {
                 // Logic for email invite...
                 if (!friendEmail || !currentUser) return;
                 try {
+                  if (friendEmail.toLowerCase() === currentUser.email?.toLowerCase()) return;
                   const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
                   const querySnapshot = await getDocs(q);
                   if (querySnapshot.empty) { showConfirm("User not found!", () => { }); return; }
                   const friendUid = querySnapshot.docs[0].id;
-                  if (friendUid === currentUser.uid) return;
-                  // Add as friend first (always allowed)
+
+                  // Check if already friends
                   const userFriends = userData?.friends || [];
-                  if (!userFriends.includes(friendUid)) {
-                    await updateDoc(getUserDocRef(currentUser.uid), { friends: arrayUnion(friendUid) });
-                    showAlert(`${friendEmail} added to friends!`);
-                    setFriendEmail('');
-                  } else {
+                  if (userFriends.includes(friendUid)) {
                     // If already friend, try to invite to squad
                     await handleInviteToSquad(friendUid);
                     setFriendEmail('');
+                  } else {
+                    // Send Friend Request
+                    await handleSendFriendRequest(friendUid);
                   }
                 } catch (e) { console.error(e); }
-              }} className="btn btn-primary w-full">Add Friend / Invite</button>
+              }} className="btn btn-primary w-full">Send Friend Request / Invite</button>
             </div>
           </div>
         </div>
@@ -1026,8 +1250,8 @@ export default function App() {
                 <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
               )}
 
-              {/* Case 2: Friend is NOT in ANY squad and I have capacity -> Invite */}
-              {!selectedMember.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (userData.tier !== 'free') && (
+              {/* Case 2: Friend is NOT in MY squad (could be no squad or other squad) and I have capacity -> Invite */}
+              {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (userData.tier !== 'free') && (
                 <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
               )}
 
