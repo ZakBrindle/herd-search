@@ -1,0 +1,5 @@
+{
+    "buildCommand": "cd beat-herder-vite && npm install && npm run build",
+    "outputDirectory": "beat-herder-vite/dist",
+    "framework": "vite"
+}
