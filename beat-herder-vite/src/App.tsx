@@ -787,25 +787,37 @@ export default function App() {
                   </div>
                 ));
             })()}
+
+            {/* Invite Button for Squad Leaders */}
+            {getSquadLeaderUid() === userData?.uid && userData?.tier !== 'free' && (
+              <div
+                className="card"
+                onClick={() => setActiveModal('inviteToSquad')}
+                style={{
+                  minWidth: '100px',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  background: 'var(--secondary)',
+                  color: 'black'
+                }}>
+                <div style={{ fontSize: '1.5rem' }}><FaUserFriends /></div>
+                <div style={{ fontWeight: 'bold', marginTop: '4px' }}>Invite</div>
+                <div style={{ fontSize: '0.8rem' }}>
+                  {(() => {
+                    const limit = TIER_LIMITS[userData?.tier || 'free'];
+                    const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
+                    const remaining = Math.max(0, limit - currentCount);
+                    return `${remaining} left`;
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
 
 
-          {/* Floating Invite Button for Squad Leaders */}
-          {getSquadLeaderUid() === userData?.uid && userData?.tier !== 'free' && (
-            <button
-              onClick={() => setActiveModal('inviteToSquad')}
-              className="floating-btn"
-              style={{ bottom: '90px', right: '20px', backgroundColor: 'var(--secondary)', color: 'black' }} // Different position/color
-            >
-              <FaUserFriends />
-              {(() => {
-                const limit = TIER_LIMITS[userData?.tier || 'free'];
-                const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1; // Exclude self
-                const remaining = Math.max(0, limit - currentCount);
-                return ` ${remaining}`;
-              })()}
-            </button>
-          )}
+
 
           {/* Floating Check-in Button */}
           {/* Floating Action Buttons */}
