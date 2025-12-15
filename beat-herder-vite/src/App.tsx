@@ -825,15 +825,36 @@ export default function App() {
 
 
 
+
+          {/* Check In Button (Big & Colourful) */}
+          <div style={{ padding: '0 4px' }}>
+            <button
+              onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')}
+              className="btn btn-primary w-full"
+              style={{
+                background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                padding: '16px',
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                borderRadius: '12px',
+                boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                marginTop: '1rem',
+                marginBottom: '1rem'
+              }}
+            >
+              <FaMapMarkerAlt size={22} />
+              {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
+            </button>
+          </div>
+
           {/* Floating Action Buttons */}
-          {/* Floating Action Buttons */}
-          <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', zIndex: 999, width: 'max-content' }}>
+          <div style={{ position: 'fixed', bottom: '110px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', zIndex: 999, width: 'max-content' }}>
             <button onClick={() => setActiveModal('updateStatus')} className="floating-btn" style={{ position: 'static', width: 'auto', minWidth: '140px', justifyContent: 'center', padding: '10px 16px', height: '44px', borderRadius: '30px', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #333' }}>
               <span>💬 Update Status</span>
-            </button>
-
-            <button onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')} className="floating-btn" style={{ position: 'static', width: 'auto', minWidth: '140px', justifyContent: 'center', padding: '10px 16px', height: '44px', borderRadius: '30px', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #333', transform: 'none' }}>
-              <FaMapMarkerAlt /> {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
             </button>
           </div>
         </>
