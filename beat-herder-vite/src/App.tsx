@@ -627,6 +627,9 @@ export default function App() {
         <>
           <header>
             <div className="logo">Herd Search</div>
+            <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
+              {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
+            </div>
           </header>
 
           {isDevMode && (
