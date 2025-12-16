@@ -57,10 +57,12 @@ export default async (req, res) => {
         if (userId && tierId) {
             try {
                 const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days from now
+                const subscriptionEndDate = new Date(expiresAt).toISOString();
 
                 await db.collection('users').doc(userId).update({
                     tier: tierId, // Used by Frontend
                     subscriptionExpiry: expiresAt, // Used by Frontend
+                    subscriptionEndDate: subscriptionEndDate, // Readable Date
                     tier_level: tierId, // Requested by User
                     tier_expires_at: expiresAt // Requested by User
                 });

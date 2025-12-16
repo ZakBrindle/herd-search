@@ -1655,43 +1655,42 @@ export default function App() {
             <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
             <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
 
-            <div className="card" style={{ marginTop: '2rem', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '1rem',
-                  width: '100%', // Full width
-                  boxSizing: 'border-box'
-                }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '1.2rem' }}>💎</span>
-                  <strong>Current Plan</strong>
-                </div>
-                <span style={{
-                  background: 'rgba(187, 134, 252, 0.1)',
-                  color: 'var(--primary)',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  fontWeight: 'bold',
-                  textTransform: 'uppercase',
-                  fontSize: '0.8rem'
-                }}>{tier}</span>
-              </div>
-              <p style={{ width: '100%', boxSizing: 'border-box' }}>
-                {tier === 'free' && "You are on the Free Tier. You can join squads but cannot create your own."}
-                {tier !== 'free' && `You can invite up to ${TIER_LIMITS[tier]} friends to your squad.`}
-              </p>
-            </div>
-
-            {tier !== 'premium' && (
-              <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full mt-4" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>
-                Upgrade Plan ⚡
-              </button>
-            )}
-
             <div style={{ marginTop: '2rem', width: '100%', borderTop: '1px solid #333', paddingTop: '2rem' }}>
+              <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '1rem', width: '100%', boxSizing: 'border-box' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '1rem',
+                    width: '100%',
+                    boxSizing: 'border-box'
+                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.2rem' }}>💎</span>
+                    <strong>Current Plan</strong>
+                  </div>
+                  <span style={{
+                    background: 'rgba(187, 134, 252, 0.1)',
+                    color: 'var(--primary)',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    fontSize: '0.8rem'
+                  }}>{tier}</span>
+                </div>
+                <p style={{ width: '100%', boxSizing: 'border-box' }}>
+                  {tier === 'free' && "You are on the Free Tier. You can join squads but cannot create your own."}
+                  {tier !== 'free' && `You can invite up to ${TIER_LIMITS[tier]} friends to your squad.`}
+                </p>
+              </div>
+
+              {tier !== 'premium' && (
+                <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', marginBottom: '1rem' }}>
+                  Upgrade Plan ⚡
+                </button>
+              )}
               {/* Ghost Mode Toggle */}
               <div
                 className="card"
