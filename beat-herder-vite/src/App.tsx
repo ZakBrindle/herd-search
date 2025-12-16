@@ -1313,6 +1313,7 @@ export default function App() {
                               Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
                                 ({(() => {
                                   const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
+                                  if (diff < 2) return "Right Now";
                                   if (diff < 90) return `${Math.floor(diff)}m ago`;
                                   return `${Math.floor(diff / 60)}h ago`;
                                 })()})
@@ -1322,6 +1323,7 @@ export default function App() {
                               Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
                                 ({(() => {
                                   const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
+                                  if (diff < 2) return "Right Now";
                                   if (diff < 90) return `${Math.floor(diff)}m ago`;
                                   return `${Math.floor(diff / 60)}h ago`;
                                 })()})
@@ -1335,6 +1337,7 @@ export default function App() {
                           "{member.statusMessage}" <span style={{ color: '#666' }}>
                             ({(() => {
                               const diff = (Date.now() - (member.statusTimestamp || 0)) / 60000;
+                              if (diff < 2) return "Right Now";
                               if (diff < 90) return `${Math.floor(diff)}m ago`;
                               return `${Math.floor(diff / 60)}h ago`;
                             })()})
@@ -1486,16 +1489,16 @@ export default function App() {
       {renderContent()}
 
       <nav className="bottom-nav">
-        <button className={`nav - item ${activeTab === 'map' ? 'active' : ''} `} onClick={() => setActiveTab('map')}>
+        <button className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>
           <FaMap />
           <span>Map</span>
         </button>
-        <button className={`nav - item ${activeTab === 'friends' ? 'active' : ''} `} onClick={() => setActiveTab('friends')}>
+        <button className={`nav-item ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')}>
           <FaUserFriends />
           <span>Friends</span>
         </button>
 
-        <button className={`nav - item ${activeTab === 'profile' ? 'active' : ''} `} onClick={() => setActiveTab('profile')}>
+        <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
           <FaUser />
           <span>Profile</span>
         </button>
