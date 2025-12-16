@@ -74,6 +74,40 @@ const PLANS = [
   { id: 'festival', name: 'Festival Group', price: '£15.99', limit: 20 }
 ];
 
+// --- Helper Components ---
+const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: string }) => {
+  const [statusText, setStatusText] = useState("Loading...");
+
+  useEffect(() => {
+    if (!friend.squadId) {
+      setStatusText("Alone or Free");
+      return;
+    }
+    if (friend.squadId === mySquadId) {
+      setStatusText("In your squad");
+      return;
+    }
+
+    // Subscribe to that squad to check member count
+    const unsub = onSnapshot(doc(db, "squads", friend.squadId), (sDoc) => {
+      if (sDoc.exists()) {
+        const data = sDoc.data();
+        if (data?.members && data.members.length > 1) {
+          setStatusText("In another squad");
+        } else {
+          setStatusText("Alone or Free");
+        }
+      } else {
+        setStatusText("Alone or Free");
+      }
+    });
+
+    return () => unsub();
+  }, [friend.squadId, mySquadId]);
+
+  return <span>Status: {statusText}</span>;
+};
+
 // --- Main Component ---
 export default function App() {
   const navigate = useNavigate();
@@ -1625,7 +1659,7 @@ export default function App() {
                 <img src={friend.photoURL || "/default-avatar.png"} className="avatar" alt="Avatar" />
                 <div>
                   <h3>{friend.displayName}</h3>
-                  <p>Status: {friend.squadId ? (friend.squadId === userData?.squadId ? "In your squad" : "In another squad") : "Alone or Free"}</p>
+                  <p><FriendStatus friend={friend} mySquadId={userData?.squadId} /></p>
                 </div>
               </div>
             ))}
