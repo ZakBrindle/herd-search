@@ -60,13 +60,15 @@ const TIER_LIMITS = {
   free: 0,
   basic: 1,
   standard: 3,
-  premium: 8
+  premium: 8,
+  festival: 20
 };
 
 const PLANS = [
   { id: 'basic', name: 'Just the 2 of us', price: '£2.99', limit: 1 },
   { id: 'standard', name: 'Squad of 4', price: '£4.99', limit: 3 },
-  { id: 'premium', name: 'Full Squad', price: '£9.99', limit: 8 }
+  { id: 'premium', name: 'Full Squad', price: '£9.99', limit: 8 },
+  { id: 'festival', name: 'Festival Group', price: '£15.99', limit: 20 }
 ];
 
 // --- Main Component ---
@@ -1778,6 +1780,7 @@ export default function App() {
                       {plan.id === 'basic' && '👤👤'}
                       {plan.id === 'standard' && '👤👤👤👤'}
                       {plan.id === 'premium' && '👤👤👤👤👤👤👤👤'}
+                      {plan.id === 'festival' && '🎪🎪🎪'}
                       {/* Or simpler representative icons */}
                     </div>
                     <p className="price">{plan.price}</p>
