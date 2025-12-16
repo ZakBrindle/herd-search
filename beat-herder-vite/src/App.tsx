@@ -187,40 +187,50 @@ export default function App() {
         const { north, south, east, west } = mapCalibration;
 
         // Map (Lat, Lon) to (x, y) 0-1 range
-        // X: (lon - west) / (east - west)
-        // Y: (north - lat) / (north - south) (Lat decreases South)
-
         let x = (longitude - west) / (east - west);
         let y = (north - latitude) / (north - south);
 
-        // Clamp to 0-1? Maybe not, user might be outside map bounds.
-        // But for display, we might want to clamp or handling outside.
-        // Checking in to 'Unknown' area handling is done elsewhere by polygon check.
-
         const newPoint = { x, y };
 
-        // Update Firestore? Only if changed significantly? 
-        // For now update every change (throttling handled by watchPosition somewhat, but could be noisy)
-        // We can add a throttle or distance check if needed.
-        // Also check if we are in Ghost Mode
+        // Check if we are in Ghost Mode
         if (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) {
           console.log("GPS: Ghost Mode Active, skipping update");
           return;
         }
 
-        console.log("GPS: Update", { latitude, longitude, x, y });
+        // Determine which area the user is in
+        let foundArea: Area | null = null;
+        for (const area of areas) {
+          if (isPointInPolygon(newPoint, area.polygon)) {
+            foundArea = area;
+            break;
+          }
+        }
+
+        const areaName = foundArea ? foundArea.name : 'The Wilds';
+
+        console.log("GPS: Update", { latitude, longitude, x, y, area: areaName });
+
         try {
-          await updateDoc(getUserDocRef(userData.uid), {
+          const updateData: any = {
             location: newPoint,
-            lastUpdate: Date.now()
-          });
+            lastUpdate: Date.now(),
+            currentArea: areaName
+          };
+
+          // Update lastKnownArea if not in The Wilds
+          if (areaName !== 'The Wilds') {
+            updateData.lastKnownArea = areaName;
+          }
+
+          await updateDoc(getUserDocRef(userData.uid), updateData);
         } catch (e) { console.error("Error updating GPS location", e); }
       },
       (err) => console.error("GPS Watch Error:", err),
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode]);
+  }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode, areas]);
 
   // ... (skip lines) ...
 
@@ -1490,7 +1500,7 @@ export default function App() {
               >
                 <FaMapMarkerAlt size={22} />
                 {userData?.useGps
-                  ? "Using GPS. Click to refresh"
+                  ? "Refresh my GPS"
                   : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`)}
               </button>
             )}
