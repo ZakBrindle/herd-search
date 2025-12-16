@@ -781,7 +781,7 @@ export default function App() {
 
     if (!currentUser) return;
     try {
-      if (allowTierCycling && currentUser.email === 'z4kbrindle@gmail.com') {
+      if (allowTierCycling && currentUser.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS) {
         // Just set it directly
         if (planId === 'free') {
           // Reset Logic: Remove everyone from squad, cancel invites
@@ -1625,7 +1625,7 @@ export default function App() {
         <>
           <header>
             <div className="logo">Profile</div>
-            {currentUser?.email === 'z4kbrindle@gmail.com' && (
+            {currentUser?.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS && (
               <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
                 <FaCog size={24} color="var(--text-muted)" />
               </div>
@@ -1755,7 +1755,7 @@ export default function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-header">Settings</h3>
 
-            {currentUser?.email === 'z4kbrindle@gmail.com' && (
+            {currentUser?.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <span>Use GPS (Simulated)</span>
@@ -1861,7 +1861,7 @@ export default function App() {
               <h3 className="modal-header">Settings</h3>
 
               {/* Developer Settings Section inside Modal */}
-              {currentUser?.email === 'z4kbrindle@gmail.com' && (
+              {currentUser?.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS && (
                 <div style={{ marginBottom: '2rem' }}>
                   <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Developer</h4>
                   <div className="card" onClick={() => setUseSandboxStripe(!useSandboxStripe)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1878,6 +1878,32 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* Dev Settings Options */}
+              {currentUser?.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS && (
+                <>
+                  {/* Manage Locations */}
+                  <div className="card" onClick={() => setActiveModal('locations')} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+                    <span>Manage Locations</span>
+                    <span style={{ fontSize: '1.2rem' }}>📍</span>
+                  </div>
+
+                  {/* Toggle Zones */}
+                  <div className="card" onClick={() => setShowZones(!showZones)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+                    <span>View Locations on map</span>
+                    <div style={{
+                      width: '40px', height: '20px', background: showZones ? 'var(--primary)' : '#555',
+                      borderRadius: '10px', position: 'relative', transition: 'background 0.3s'
+                    }}>
+                      <div style={{
+                        width: '16px', height: '16px', background: 'white', borderRadius: '50%',
+                        position: 'absolute', top: '2px', left: showZones ? '22px' : '2px',
+                        transition: 'left 0.3s'
+                      }} />
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="modal-actions">
