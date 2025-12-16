@@ -1445,6 +1445,15 @@ export default function App() {
                       const { north, south, east, west } = mapCalibration;
                       let x = (longitude - west) / (east - west);
                       let y = (north - latitude) / (north - south);
+                      const isInside = x >= 0 && x <= 1 && y >= 0 && y <= 1;
+
+                      console.log("--- GPS Refresh Debug ---");
+                      console.log(`Current Location: Lat ${latitude}, Lon ${longitude}`);
+                      console.log(`Map Bounds: N ${north}, S ${south}, E ${east}, W ${west}`);
+                      console.log(`Map Coords: x ${x.toFixed(4)}, y ${y.toFixed(4)}`);
+                      console.log(`Within Map Area: ${isInside}`);
+                      console.log("-------------------------");
+
                       const newPoint = { x, y };
                       try {
                         await updateDoc(getUserDocRef(userData!.uid), {
