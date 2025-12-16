@@ -179,10 +179,16 @@ export default function App() {
     if (userData?.useGps === false) { console.log("GPS: Disabled by user settings"); return; }
     if (!mapCalibration) { console.log("GPS: Waiting for Map Calibration"); return; }
     if (!navigator.geolocation) { console.log("GPS: Not supported"); return; }
+    if (areas.length === 0) { console.log("GPS: Waiting for areas to load"); return; }
 
     console.log("GPS: Starting automatic updates (every 2 minutes)");
 
     const updateGpsLocation = async () => {
+      // Double-check areas are still loaded
+      if (areas.length === 0) {
+        console.log("GPS: Areas not loaded, skipping update");
+        return;
+      }
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const { latitude, longitude } = pos.coords;
