@@ -1888,9 +1888,19 @@ export default function App() {
                   <span>Dev Mode (Tier Cycling)</span>
                   <input type="checkbox" checked={allowTierCycling} onChange={e => setAllowTierCycling(e.target.checked)} />
                 </div>
-                <button onClick={() => handleUpgrade('free')} className="btn btn-danger w-full" style={{ marginBottom: '1rem', border: '1px solid var(--error)', background: 'transparent' }}>
-                  Rest Plan to Free Tier
-                </button>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary)' }}>Override Tier (Dev)</label>
+                  <select
+                    className="input-field"
+                    value={userData?.tier || 'free'}
+                    onChange={(e) => handleUpgrade(e.target.value as Tier)}
+                  >
+                    <option value="free">Free</option>
+                    {PLANS.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                    ))}
+                  </select>
+                </div>
               </>
             )}
 
