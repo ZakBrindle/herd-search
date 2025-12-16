@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaBell, FaMap, FaUserFriends, FaUser
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, type User
@@ -758,6 +758,29 @@ export default function App() {
               ))}
           </div>
 
+          {/* Check In Button (Moved) */}
+          <div style={{ padding: '0 4px', marginBottom: '1rem' }}>
+            <button
+              onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')}
+              className="btn btn-primary w-full"
+              style={{
+                background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                padding: '16px',
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                borderRadius: '12px',
+                boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px'
+              }}
+            >
+              <FaMapMarkerAlt size={22} />
+              {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
+            </button>
+          </div>
+
           <h2 className="section-title">My Squad</h2>
           <div className="squad-list horizontal" style={{ display: 'flex', overflowX: 'auto', gap: '8px', paddingBottom: '8px' }}>
             {userData?.squadId && (() => {
@@ -766,7 +789,30 @@ export default function App() {
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
                 .map(member => (
-                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start', position: 'relative' }}>
+                    {member.uid === currentUser.uid && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setActiveModal('updateStatus'); }}
+                        style={{
+                          position: 'absolute',
+                          top: '8px',
+                          right: '8px',
+                          background: 'rgba(255,255,255,0.1)',
+                          border: 'none',
+                          color: 'var(--text-primary)',
+                          borderRadius: '50%',
+                          width: '24px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          zIndex: 10
+                        }}
+                      >
+                        <FaPencilAlt size={12} />
+                      </button>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <img src={member.photoURL!} className="avatar" alt="Avatar" />
                       <div>
@@ -826,37 +872,7 @@ export default function App() {
 
 
 
-          {/* Check In Button (Big & Colourful) */}
-          <div style={{ padding: '0 4px' }}>
-            <button
-              onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')}
-              className="btn btn-primary w-full"
-              style={{
-                background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                padding: '16px',
-                fontSize: '1.2rem',
-                fontWeight: 'bold',
-                borderRadius: '12px',
-                boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                marginTop: '1rem',
-                marginBottom: '1rem'
-              }}
-            >
-              <FaMapMarkerAlt size={22} />
-              {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
-            </button>
-          </div>
 
-          {/* Floating Action Buttons */}
-          <div style={{ position: 'fixed', bottom: '110px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'row', gap: '8px', alignItems: 'center', zIndex: 999, width: 'max-content' }}>
-            <button onClick={() => setActiveModal('updateStatus')} className="floating-btn" style={{ position: 'static', width: 'auto', minWidth: '140px', justifyContent: 'center', padding: '10px 16px', height: '44px', borderRadius: '30px', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #333' }}>
-              <span>💬 Update Status</span>
-            </button>
-          </div>
         </>
       )
     }
@@ -864,6 +880,50 @@ export default function App() {
     if (activeTab === 'friends') {
       return (
         <>
+          <h2 className="section-title">Requests</h2>
+          {/* Incoming Requests */}
+          {incomingFriendRequests.map(req => (
+            <div key={req.id} className="card">
+              <div>
+                <strong>{getDisplayNameByUid(req.from)}</strong> wants to be friends.
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => handleAcceptFriendRequest(req)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
+                <button onClick={() => handleDeclineFriendRequest(req)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+              </div>
+            </div>
+          ))}
+          {incomingSquadInvites.map(invite => (
+            <div key={invite.id} className="card">
+              <div>
+                <strong>{getDisplayNameByUid(invite.from)}</strong> invited you to their squad.
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => handleAcceptSquadInvite(invite)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
+                <button onClick={() => handleDeclineSquadInvite(invite)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+              </div>
+            </div>
+          ))}
+
+          {/* Outgoing Requests */}
+          {outgoingFriendRequests.length > 0 && <h3 className="section-subtitle">Sent</h3>}
+          {outgoingFriendRequests.map(req => (
+            <div key={req.id} className="card" style={{ opacity: 0.7 }}>
+              <span>To {getDisplayNameByUid(req.to)} (Friend Request)</span>
+              <span style={{ fontSize: '0.8rem' }}>Pending</span>
+            </div>
+          ))}
+          {outgoingSquadInvites.map(invite => (
+            <div key={invite.id} className="card" style={{ opacity: 0.7 }}>
+              <span>To {getDisplayNameByUid(invite.to)} (Squad Invite)</span>
+              <button className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleWithdrawSquadInvite(invite)}>Withdraw</button>
+            </div>
+          ))}
+
+          {(incomingFriendRequests.length === 0 && incomingSquadInvites.length === 0 && outgoingFriendRequests.length === 0 && outgoingSquadInvites.length === 0) && (
+            <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginBottom: '1rem', fontStyle: 'italic' }}>No pending requests.</p>
+          )}
+
           <h2 className="section-title">My Squad</h2>
           <div className="squad-list">
             {userData?.squadId && (() => {
@@ -904,26 +964,7 @@ export default function App() {
                 ));
             })()}
 
-            {/* Invites Sections */}
-            {outgoingSquadInvites.map(invite => (
-              <div key={invite.id} className="card" style={{ borderColor: '#bb86fc' }}>
-                <FaBell color="#bb86fc" />
-                <div style={{ flex: 1 }}>
-                  <p>Invite sent to <strong>{getDisplayNameByUid(invite.to)}</strong></p>
-                </div>
-                <button className="btn btn-danger" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => handleWithdrawSquadInvite(invite)}>Withdraw</button>
-              </div>
-            ))}
 
-            {incomingSquadInvites.length > 0 && (
-              <div className="card" onClick={() => setActiveModal('inviteToSquad')} style={{ cursor: 'pointer', borderColor: '#facc15' }}>
-                <FaBell color="#facc15" size={24} />
-                <div>
-                  <h3>Squad Invite!</h3>
-                  <p>From: <strong>{getDisplayNameByUid(incomingSquadInvites[0].from)}</strong></p>
-                </div>
-              </div>
-            )}
 
             {/* Only allow adding friends if they are the leader */}
             {getSquadLeaderUid() === userData?.uid && (
@@ -960,57 +1001,7 @@ export default function App() {
       )
     }
 
-    if (activeTab === 'notifications') {
-      return (
-        <>
-          <h2 className="section-title">Notifications</h2>
 
-          {/* Friend Requests */}
-          <h3 className="section-subtitle">Friend Requests</h3>
-          {incomingFriendRequests.length === 0 && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>No pending friend requests.</p>}
-          {incomingFriendRequests.map(req => (
-            <div key={req.id} className="card">
-              <div>
-                <strong>{getDisplayNameByUid(req.from)}</strong> wants to be friends.
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => handleAcceptFriendRequest(req)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
-                <button onClick={() => handleDeclineFriendRequest(req)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
-              </div>
-            </div>
-          ))}
-
-          {/* Squad Invites */}
-          <h3 className="section-subtitle" style={{ marginTop: '1.5rem' }}>Squad Invites</h3>
-          {incomingSquadInvites.length === 0 && <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>No pending squad invites.</p>}
-          {incomingSquadInvites.map(invite => (
-            <div key={invite.id} className="card">
-              <div>
-                <strong>{getDisplayNameByUid(invite.from)}</strong> invited you to their squad.
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => handleAcceptSquadInvite(invite)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
-                <button onClick={() => handleDeclineSquadInvite(invite)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
-              </div>
-            </div>
-          ))}
-
-          <h3 className="section-subtitle" style={{ marginTop: '1.5rem' }}>Sent Requests</h3>
-          {outgoingFriendRequests.map(req => (
-            <div key={req.id} className="card" style={{ opacity: 0.7 }}>
-              <span>To {getDisplayNameByUid(req.to)} (Friend Request)</span>
-              <span style={{ fontSize: '0.8rem' }}>Pending</span>
-            </div>
-          ))}
-          {outgoingSquadInvites.map(invite => (
-            <div key={invite.id} className="card" style={{ opacity: 0.7 }}>
-              <span>To {getDisplayNameByUid(invite.to)} (Squad Invite)</span>
-              <button className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleWithdrawSquadInvite(invite)}>Withdraw</button>
-            </div>
-          ))}
-        </>
-      )
-    }
 
     if (activeTab === 'profile') {
       const tier = userData?.tier || 'free';
@@ -1120,10 +1111,7 @@ export default function App() {
           <FaUserFriends />
           <span>Friends</span>
         </button>
-        <button className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveTab('notifications')}>
-          <FaBell />
-          <span>Alerts</span>
-        </button>
+
         <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
           <FaUser />
           <span>Profile</span>
