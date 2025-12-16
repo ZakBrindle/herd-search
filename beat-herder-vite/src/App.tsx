@@ -143,6 +143,7 @@ export default function App() {
   const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
+  const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
   const [showSplash, setShowSplash] = useState(true);
@@ -1563,30 +1564,34 @@ export default function App() {
               {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
             </div>
           </header>
-          <h2 className="section-title">Requests</h2>
-          {/* Incoming Requests */}
-          {incomingFriendRequests.map(req => (
-            <div key={req.id} className="card">
-              <div>
-                <strong>{getDisplayNameByUid(req.from)}</strong> wants to be friends.
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => handleAcceptFriendRequest(req)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
-                <button onClick={() => handleDeclineFriendRequest(req)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
-              </div>
-            </div>
-          ))}
-          {incomingSquadInvites.map(invite => (
-            <div key={invite.id} className="card">
-              <div>
-                <strong>{getDisplayNameByUid(invite.from)}</strong> invited you to their squad.
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => handleAcceptSquadInvite(invite)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
-                <button onClick={() => handleDeclineSquadInvite(invite)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
-              </div>
-            </div>
-          ))}
+          {(incomingFriendRequests.length > 0 || incomingSquadInvites.length > 0) && (
+            <>
+              <h2 className="section-title">Requests</h2>
+              {/* Incoming Requests */}
+              {incomingFriendRequests.map(req => (
+                <div key={req.id} className="card">
+                  <div>
+                    <strong>{getDisplayNameByUid(req.from)}</strong> wants to be friends.
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleAcceptFriendRequest(req)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
+                    <button onClick={() => handleDeclineFriendRequest(req)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+                  </div>
+                </div>
+              ))}
+              {incomingSquadInvites.map(invite => (
+                <div key={invite.id} className="card">
+                  <div>
+                    <strong>{getDisplayNameByUid(invite.from)}</strong> invited you to their squad.
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleAcceptSquadInvite(invite)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
+                    <button onClick={() => handleDeclineSquadInvite(invite)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
 
           {/* Outgoing Requests */}
           {outgoingFriendRequests.length > 0 && <h3 className="section-subtitle">Sent</h3>}
@@ -2003,8 +2008,17 @@ export default function App() {
                 )}
 
                 {/* Case 2: Friend is NOT in MY squad (could be no squad or other squad) and I have capacity -> Invite */}
-                {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (userData.tier !== 'free') && (
-                  <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
+                {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
+                  <button onClick={() => {
+                    if (userData?.tier === 'free') {
+                      setAlertMessage("Free tier users cannot invite friends to a squad. Please upgrade to create a squad.");
+                      setAlertIsUpgrade(true);
+                      setActiveModal('alert');
+                      return;
+                    }
+                    setSelectedMember(null);
+                    handleInviteToSquad(selectedMember.uid);
+                  }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
                 )}
 
 
@@ -2425,8 +2439,11 @@ export default function App() {
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <p className="text-center">{alertMessage}</p>
-              <div className="modal-actions" style={{ justifyContent: 'center' }}>
-                <button onClick={() => setActiveModal(null)} className="btn btn-primary">OK</button>
+              <div className="modal-actions" style={{ justifyContent: 'center', gap: '8px' }}>
+                <button onClick={() => { setActiveModal(null); setAlertIsUpgrade(false); }} className="btn btn-secondary">OK</button>
+                {alertIsUpgrade && (
+                  <button onClick={() => { setActiveModal('upgrade'); setAlertIsUpgrade(false); }} className="btn" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', color: 'black', fontWeight: 'bold' }}>Upgrade Plan ⚡</button>
+                )}
               </div>
             </div>
           </div>
