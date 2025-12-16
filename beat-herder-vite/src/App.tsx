@@ -1857,6 +1857,14 @@ export default function App() {
 
               {/* Support Buttons */}
               <button
+                onClick={() => navigate('/about')}
+                className="btn btn-secondary w-full"
+                style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
+              >
+                <span>ℹ️</span> About App
+              </button>
+
+              <button
                 onClick={() => setActiveModal('support')}
                 className="btn btn-secondary w-full"
                 style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
