@@ -178,6 +178,27 @@ export default function App() {
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | null>(null);
+
+  // Check for payment return from Stripe
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentIntent = urlParams.get('payment_intent');
+    const paymentIntentClientSecret = urlParams.get('payment_intent_client_secret');
+    const redirectStatus = urlParams.get('redirect_status');
+
+    if (paymentIntent && redirectStatus) {
+      if (redirectStatus === 'succeeded') {
+        setPaymentStatus('success');
+        setActiveModal('paymentResult');
+      } else {
+        setPaymentStatus('failed');
+        setActiveModal('paymentResult');
+      }
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
   const [mapCalibration, setMapCalibration] = useState<GPSBounds | null>(null);
 
   useEffect(() => {
@@ -2984,6 +3005,74 @@ export default function App() {
               <div className="modal-actions">
                 <button onClick={() => setActiveModal(null)} className="btn btn-primary">Done</button>
               </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Payment Result Modal */}
+      {
+        activeModal === 'paymentResult' && paymentStatus && (
+          <div className="modal-overlay" onClick={() => { setActiveModal(null); setPaymentStatus(null); }}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              {paymentStatus === 'success' ? (
+                <>
+                  <h3 className="modal-header" style={{ color: 'var(--primary)' }}>🎉 Payment Successful!</h3>
+                  <p style={{ textAlign: 'center', marginBottom: '20px', fontSize: '1.1rem' }}>
+                    Your payment was successful! You can now invite friends to your squad.
+                  </p>
+                  <div className="modal-actions" style={{ flexDirection: 'column', gap: '12px' }}>
+                    <button
+                      onClick={() => {
+                        setActiveModal(null);
+                        setPaymentStatus(null);
+                        setActiveTab('map');
+                        window.location.reload(); // Force refresh to update subscription status
+                      }}
+                      className="btn btn-primary w-full"
+                      style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', color: 'black', fontWeight: 'bold' }}
+                    >
+                      Go to Map
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveModal(null);
+                        setPaymentStatus(null);
+                      }}
+                      className="btn btn-secondary w-full"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="modal-header" style={{ color: 'var(--error)' }}>❌ Payment Failed</h3>
+                  <p style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    Your payment was not successful. Please try again or contact support if the problem persists.
+                  </p>
+                  <div className="modal-actions" style={{ flexDirection: 'column', gap: '12px' }}>
+                    <button
+                      onClick={() => {
+                        setActiveModal('upgrade');
+                        setPaymentStatus(null);
+                      }}
+                      className="btn btn-primary w-full"
+                    >
+                      Try Again
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveModal(null);
+                        setPaymentStatus(null);
+                      }}
+                      className="btn btn-secondary w-full"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )
