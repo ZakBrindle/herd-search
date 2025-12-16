@@ -2381,10 +2381,18 @@ export default function App() {
                   <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
                 )}
 
-                {/* Case 2.5: Reciprocity Check - If I am not in their friend list, offer to add friend again */}
+                {/* Case 2.5: Reciprocity Check - If I am not in their friend list, offer to remove friend to fix sync */}
                 {selectedMember.uid !== userData?.uid && (!selectedMember.friends || !selectedMember.friends.includes(userData?.uid || "")) && (
-                  <button onClick={() => { setSelectedMember(null); handleSendFriendRequest(selectedMember.uid); }} className="btn btn-primary w-full mt-4" style={{ background: 'var(--secondary)', color: 'black' }}>
-                    Add Friend
+                  <button onClick={() => {
+                    showConfirm(`This connection is out of sync. Remove ${selectedMember.displayName} so you can add them again?`, async () => {
+                      try {
+                        await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
+                        setSelectedMember(null);
+                        showAlert("Friend removed. You can now search and add them again.");
+                      } catch (e) { console.error(e); }
+                    });
+                  }} className="btn btn-primary w-full mt-4" style={{ background: 'var(--error)', color: 'white', border: '1px solid var(--error)' }}>
+                    Fix Connection (Remove)
                   </button>
                 )}
 
