@@ -97,7 +97,11 @@ export default function App() {
   const [incomingFriendRequests, setIncomingFriendRequests] = useState<DocumentData[]>([]);
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
+  const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
 
+  useEffect(() => {
+    localStorage.setItem('useSandboxStripe', useSandboxStripe.toString());
+  }, [useSandboxStripe]);
   const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
 
@@ -262,7 +266,7 @@ export default function App() {
     if (!userData?.squadId || !userData?.uid) return;
 
     // Check Tier Limits
-    const myTier = userData.tier || 'free';
+    const myTier = hasActiveSubscription(userData) ? (userData.tier || 'free') : 'free';
     if (myTier === 'free') {
       showAlert("Free tier users cannot invite friends to a squad. Please upgrade to create a squad.");
       return;
@@ -817,18 +821,44 @@ export default function App() {
         setActiveModal(null);
         showAlert(`Plan updated to ${planId.toUpperCase()}!`);
       } else {
-        // Simulate Payment Delay or Process here if needed
-        await updateDoc(getUserDocRef(currentUser.uid), {
-          tier: planId,
-          subscriptionExpiry: Date.now() + (365 * 24 * 60 * 60 * 1000) // 1 year
-        });
-        showAlert("Upgrade successful! You now have access to better squad features.");
-        setActiveModal(null);
+        // STRIPE CHECKOUT FLOW
+        try {
+          const res = await fetch('/api/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tierId: planId,
+              userId: currentUser.uid,
+              sandboxMode: useSandboxStripe,
+              successUrl: window.location.origin, // Return to home on success
+              cancelUrl: window.location.origin,
+            })
+          });
+
+          const data = await res.json();
+          if (data.url) {
+            window.location.href = data.url; // Redirect to Stripe
+          } else {
+            console.error("No URL returned from checkout session creation", data);
+            showAlert("Failed to initialize checkout.");
+          }
+        } catch (err) {
+          console.error(err);
+          showAlert("Connection error initiating checkout.");
+        }
       }
     } catch (e) {
       console.error(e);
       showAlert("Upgrade failed.");
     }
+  };
+
+  /**
+   * Helper to check if user has an active paid subscription
+   */
+  const hasActiveSubscription = (user: UserData | null): boolean => {
+    if (!user || !user.subscriptionExpiry) return false;
+    return user.subscriptionExpiry > Date.now();
   };
 
   // Track previous invites count to notify on new ones
@@ -845,15 +875,12 @@ export default function App() {
     }
 
     if (incomingFriendRequests.length > prevFriendReqCount.current) {
-      setAlertMessage("New Friend Request received! 👥"); // Using setAlertMessage to show custom modal or reusing showAlert logic if it triggers a modal
+      setAlertMessage("New Friend Request received! 👥");
       setActiveModal('alert');
     }
     prevFriendReqCount.current = incomingFriendRequests.length;
 
-    if (incomingSquadInvites.length > prevSquadInvCount.current) {
-      setAlertMessage("New Squad Invite received! 📨");
-      setActiveModal('alert');
-    }
+    // Squad Invites - Update count but do NOT show modal, we show widget instead
     prevSquadInvCount.current = incomingSquadInvites.length;
   }, [incomingFriendRequests, incomingSquadInvites]);
 
@@ -1119,6 +1146,72 @@ export default function App() {
             </div>
           )}
 
+          {/* SQUAD INVITE NOTIFICATION WIDGET */}
+          {incomingSquadInvites.length > 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '60px', /* Below Header */
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 999,
+              width: '90%',
+              maxWidth: '400px',
+              backgroundColor: 'rgba(30,30,30,0.95)',
+              border: '1px solid var(--primary)',
+              borderRadius: '12px',
+              padding: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              animation: 'slideDown 0.3s ease-out'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 'bold', color: 'var(--primary)', fontSize: '0.9rem' }}>Squad Invite</span>
+                <span style={{ fontSize: '0.8rem', color: '#aaa' }}>{incomingSquadInvites.length > 1 ? `+${incomingSquadInvites.length - 1} more` : ''}</span>
+              </div>
+
+              {/* Show the first invite */}
+              {(() => {
+                const invite = incomingSquadInvites[0];
+                const senderName = getDisplayNameByUid(invite.from);
+                return (
+                  <div>
+                    <p style={{ margin: '0 0 8px 0', fontSize: '0.9rem' }}>
+                      <strong>{senderName}</strong> invited you to join their squad.
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => handleAcceptSquadInvite(invite)}
+                        className="btn btn-primary"
+                        style={{
+                          flex: 1,
+                          padding: '6px',
+                          fontSize: '0.9rem',
+                          background: 'linear-gradient(45deg, var(--primary), var(--secondary))'
+                        }}>
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => handleDeclineSquadInvite(invite)}
+                        className="btn"
+                        style={{
+                          flex: 1,
+                          padding: '6px',
+                          fontSize: '0.9rem',
+                          background: 'transparent',
+                          border: '1px solid var(--error)',
+                          color: 'var(--error)'
+                        }}>
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
           {/* Map */}
           <div className="map-container">
             <img
@@ -1353,7 +1446,8 @@ export default function App() {
                 <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Invite</span>
                 <span style={{ fontSize: '0.65rem' }}>
                   {(() => {
-                    const limit = TIER_LIMITS[userData.tier || 'free'];
+                    const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                    const limit = TIER_LIMITS[tier];
                     const currentMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
                     const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
                     const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
@@ -1526,7 +1620,7 @@ export default function App() {
 
 
     if (activeTab === 'profile') {
-      const tier = userData?.tier || 'free';
+      const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
       return (
         <>
           <header>
@@ -1623,8 +1717,29 @@ export default function App() {
                 }} />
               </div>
 
-              <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
             </div>
+
+            {/* Dev Settings */}
+            {currentUser?.email === 'z4kbrindle@gmail.com' && (
+              <div style={{ marginTop: '2rem', borderTop: '1px solid #333', paddingTop: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', color: '#888', marginBottom: '1rem' }}>Developer Settings</h3>
+                <div className="card" onClick={() => setUseSandboxStripe(!useSandboxStripe)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Use Sandbox Stripe Mode</span>
+                  <div style={{
+                    width: '40px', height: '20px', background: useSandboxStripe ? 'var(--primary)' : '#555',
+                    borderRadius: '10px', position: 'relative', transition: 'background 0.3s'
+                  }}>
+                    <div style={{
+                      width: '16px', height: '16px', background: 'white', borderRadius: '50%',
+                      position: 'absolute', top: '2px', left: useSandboxStripe ? '22px' : '2px',
+                      transition: 'left 0.3s'
+                    }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
           </div>
         </>
       )
@@ -1695,7 +1810,7 @@ export default function App() {
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <h3 className="modal-header">Squad Limit Reached 🛑</h3>
               <p className="text-center" style={{ marginBottom: '1.5rem' }}>
-                You have reached the limit of your <strong>{userData?.tier || 'free'}</strong> plan.
+                You have reached the limit of your <strong>{hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free'}</strong> plan.
                 <br />
                 Upgrade to invite more users!
               </p>
@@ -1777,7 +1892,7 @@ export default function App() {
                     <div style={{ margin: '8px 0', fontSize: '1.5rem', color: 'var(--primary)', letterSpacing: '4px' }}>
                       {plan.id === 'basic' && '👤👤'}
                       {plan.id === 'standard' && '👤👤👤👤'}
-                      {plan.id === 'premium' && '👤👤👤👤👤👤👤👤'}
+                      {plan.id === 'premium' && '👥👥👥👥'}
                       {plan.id === 'festival' && '🎪🎪🎪'}
                       {/* Or simpler representative icons */}
                     </div>
@@ -1880,7 +1995,8 @@ export default function App() {
                 <div>
                   {/* Upgrade Prompt if 0 spots - MOVED ABOVE TITLE */}
                   {(() => {
-                    const limit = TIER_LIMITS[userData.tier || 'free'];
+                    const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                    const limit = TIER_LIMITS[tier];
                     const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
                     const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
                     const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
@@ -1919,7 +2035,8 @@ export default function App() {
                       .map(friend => {
                         const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
                         // Recalculate spots for disable logic
-                        const limit = TIER_LIMITS[userData.tier || 'free'];
+                        const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                        const limit = TIER_LIMITS[tier];
                         const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
                         const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
                         const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
