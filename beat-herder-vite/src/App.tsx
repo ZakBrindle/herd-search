@@ -1030,6 +1030,31 @@ export default function App() {
     return () => unsubscribes.forEach(unsub => unsub());
   }, [userData?.friends]);
 
+  // --- Auto-remove Desynced Friends ---
+  useEffect(() => {
+    if (!selectedMember || !userData || !currentUser) return;
+
+    // Only apply if we are viewing them as a "Friend" (or checking if they are in our friend list)
+    const isMyFriend = userData.friends?.includes(selectedMember.uid);
+    if (!isMyFriend) return;
+
+    // Check Reciprocity
+    // Note: selectedMember.friends might be undefined if we can't read it, but usually we can read public/user profiles if friends.
+    // If we can't read it, we shouldn't delete immediately? 
+    // Wait, if we can read 'selectedMember' (it comes from friendsData usually), we have their doc.
+    const isReciprocal = selectedMember.friends?.includes(userData.uid);
+
+    if (isReciprocal === false) { // Explicitly false check to be sure we read the array and it was missing ID
+      console.log(`Auto-removing desynced friend: ${selectedMember.displayName}`);
+      updateDoc(getUserDocRef(currentUser.uid), { friends: arrayRemove(selectedMember.uid) })
+        .then(() => {
+          setSelectedMember(null);
+          showAlert(`Connection with ${selectedMember.displayName} was out of sync and has been reset. You can add them again.`);
+        })
+        .catch(console.error);
+    }
+  }, [selectedMember, userData, currentUser]);
+
   // --- Notifications ---
   useEffect(() => {
     if (!currentUser) return;
@@ -2381,20 +2406,7 @@ export default function App() {
                   <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
                 )}
 
-                {/* Case 2.5: Reciprocity Check - If I am not in their friend list, offer to remove friend to fix sync */}
-                {selectedMember.uid !== userData?.uid && (!selectedMember.friends || !selectedMember.friends.includes(userData?.uid || "")) && (
-                  <button onClick={() => {
-                    showConfirm(`This connection is out of sync. Remove ${selectedMember.displayName} so you can add them again?`, async () => {
-                      try {
-                        await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
-                        setSelectedMember(null);
-                        showAlert("Friend removed. You can now search and add them again.");
-                      } catch (e) { console.error(e); }
-                    });
-                  }} className="btn btn-primary w-full mt-4" style={{ background: 'var(--error)', color: 'white', border: '1px solid var(--error)' }}>
-                    Fix Connection (Remove)
-                  </button>
-                )}
+
 
                 {/* Case 3: I want to remove them from my friend list (always available if not self) - ONLY IN FRIEND CONTEXT */}
                 {selectedMember.uid !== userData?.uid && selectedMemberContext === 'friend' && (
