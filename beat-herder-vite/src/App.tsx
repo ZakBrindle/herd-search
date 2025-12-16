@@ -212,6 +212,7 @@ export default function App() {
   }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode]);
 
   const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
+  const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
@@ -2213,7 +2214,10 @@ export default function App() {
                 <button onClick={() => setActiveModal('locations')} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
                   Manage Locations
                 </button>
-                <button onClick={() => setActiveModal('calibrateGps')} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
+                <button onClick={() => {
+                  setTempCalibration(mapCalibration || { north: 0, south: 0, east: 0, west: 0 });
+                  setActiveModal('calibrateGps');
+                }} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
                   Calibrate Map GPS
                 </button>
 
@@ -2246,49 +2250,63 @@ export default function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-header">Calibrate Map GPS</h3>
             <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
-              Stand at the Top-Left corner of the map, click the NW button.
-              Then stand at the Bottom-Right corner, click the SE button.
+              Enter coordinates manually or use GPS helper buttons.
             </p>
 
-            <div style={{ marginBottom: '1rem' }}>
-              <p><strong>Configured Bounds:</strong></p>
-              {mapCalibration ? (
-                <ul style={{ fontSize: '0.8rem', paddingLeft: '20px' }}>
-                  <li>North: {mapCalibration.north.toFixed(6)}</li>
-                  <li>South: {mapCalibration.south.toFixed(6)}</li>
-                  <li>East: {mapCalibration.east.toFixed(6)}</li>
-                  <li>West: {mapCalibration.west.toFixed(6)}</li>
-                </ul>
-              ) : <p>Not Calibrated</p>}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
+              <div style={{ gridColumn: '1 / -1', fontWeight: 'bold' }}>Top-Left (North-West)</div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.7rem' }}>North (Lat)</label>
+                <input type="number" step="0.000001" className="input-field" value={tempCalibration.north}
+                  onChange={e => setTempCalibration({ ...tempCalibration, north: parseFloat(e.target.value) })} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.7rem' }}>West (Lon)</label>
+                <input type="number" step="0.000001" className="input-field" value={tempCalibration.west}
+                  onChange={e => setTempCalibration({ ...tempCalibration, west: parseFloat(e.target.value) })} />
+              </div>
+
+              <button onClick={() => {
+                if (!navigator.geolocation) return showAlert("GPS not supported");
+                navigator.geolocation.getCurrentPosition((pos) => {
+                  setTempCalibration(prev => ({ ...prev, north: pos.coords.latitude, west: pos.coords.longitude }));
+                }, (err) => showAlert("GPS Error: " + err.message));
+              }} className="btn btn-secondary" style={{ gridColumn: '1 / -1', fontSize: '0.8rem', padding: '4px' }}>
+                Get from GPS (Top-Left)
+              </button>
             </div>
 
-            <button onClick={() => {
-              if (!navigator.geolocation) return showAlert("GPS not supported");
-              navigator.geolocation.getCurrentPosition(async (pos) => {
-                const { latitude, longitude } = pos.coords;
-                const current = mapCalibration || { north: 0, south: 0, east: 0, west: 0 };
-                // Top Left = North West
-                const updated = { ...current, north: latitude, west: longitude };
-                await setDoc(doc(db, 'config', 'map'), updated);
-                showAlert(`Set Top-Left: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-              }, (err) => showAlert("GPS Error: " + err.message));
-            }} className="btn btn-primary w-full" style={{ marginBottom: '0.5rem' }}>
-              Set Top-Left (North-West)
-            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
+              <div style={{ gridColumn: '1 / -1', fontWeight: 'bold' }}>Bottom-Right (South-East)</div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.7rem' }}>South (Lat)</label>
+                <input type="number" step="0.000001" className="input-field" value={tempCalibration.south}
+                  onChange={e => setTempCalibration({ ...tempCalibration, south: parseFloat(e.target.value) })} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.7rem' }}>East (Lon)</label>
+                <input type="number" step="0.000001" className="input-field" value={tempCalibration.east}
+                  onChange={e => setTempCalibration({ ...tempCalibration, east: parseFloat(e.target.value) })} />
+              </div>
 
-            <button onClick={() => {
-              if (!navigator.geolocation) return showAlert("GPS not supported");
-              navigator.geolocation.getCurrentPosition(async (pos) => {
-                const { latitude, longitude } = pos.coords;
-                const current = mapCalibration || { north: 0, south: 0, east: 0, west: 0 };
-                // Bottom Right = South East
-                const updated = { ...current, south: latitude, east: longitude };
-                await setDoc(doc(db, 'config', 'map'), updated);
-                showAlert(`Set Bottom-Right: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-              }, (err) => showAlert("GPS Error: " + err.message));
-            }} className="btn btn-primary w-full" style={{ marginBottom: '1rem' }}>
-              Set Bottom-Right (South-East)
-            </button>
+              <button onClick={() => {
+                if (!navigator.geolocation) return showAlert("GPS not supported");
+                navigator.geolocation.getCurrentPosition((pos) => {
+                  setTempCalibration(prev => ({ ...prev, south: pos.coords.latitude, east: pos.coords.longitude }));
+                }, (err) => showAlert("GPS Error: " + err.message));
+              }} className="btn btn-secondary" style={{ gridColumn: '1 / -1', fontSize: '0.8rem', padding: '4px' }}>
+                Get from GPS (Bottom-Right)
+              </button>
+            </div>
+
+            <button onClick={async () => {
+              try {
+                await setDoc(doc(db, 'config', 'map'), tempCalibration);
+                setMapCalibration(tempCalibration); // Optimistic update
+                showAlert("Calibration Saved!");
+                setActiveModal(null);
+              } catch (e) { console.error(e); showAlert("Failed to save."); }
+            }} className="btn btn-primary w-full" style={{ marginBottom: '0.5rem' }}>Save Calibration</button>
 
             <button onClick={() => setActiveModal(null)} className="btn btn-secondary w-full">Close</button>
           </div>
