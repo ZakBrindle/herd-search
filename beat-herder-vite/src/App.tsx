@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, type User
@@ -9,7 +9,8 @@ import {
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection,
   query, where, getDocs, addDoc, deleteDoc, type DocumentData, arrayRemove
 } from "firebase/firestore";
-import { auth, db } from './firebase';
+import { auth, db, messaging } from './firebase';
+import { getToken, onMessage } from "firebase/messaging";
 
 // --- Type Definitions ---
 type Point = { x: number; y: number };
@@ -121,7 +122,7 @@ export default function App() {
     setActiveModal('confirm');
   };
 
-  const getPublicProfileCollection = () => collection(db, `public/user_profiles/users`);
+  const getPublicProfileCollection = () => collection(db, `public / user_profiles / users`);
   const getUserDocRef = (uid: string) => doc(db, 'users', uid);
 
   const isPointInPolygon = (point: Point, polygon: Point[]): boolean => {
@@ -225,7 +226,7 @@ export default function App() {
 
   const handleDeleteArea = async (areaId: string) => {
     const areaName = areas.find(a => a.id === areaId)?.name || 'the selected area';
-    showConfirm(`Are you sure you want to delete "${areaName}"?`, async () => {
+    showConfirm(`Are you sure you want to delete "${areaName}" ? `, async () => {
       try {
         await deleteDoc(doc(db, 'areas', areaId));
         showAlert("Area deleted successfully.");
@@ -394,7 +395,7 @@ export default function App() {
       const allVoted = squadMembers.every((uid: string) => updatedVotes[uid] !== undefined);
       const majorityReached = yesVotes > squadSize / 2 || noVotes > squadSize / 2;
 
-      let updateData: any = { [`activeVote.votes.${userData.uid}`]: voteVal };
+      let updateData: any = { [`activeVote.votes.${userData.uid} `]: voteVal };
 
       if ((allVoted || majorityReached) && !activeVote.completedAt) {
         updateData[`activeVote.completedAt`] = Date.now();
@@ -608,7 +609,7 @@ export default function App() {
   const handleKickMember = (member: UserData) => {
     setSelectedMember(null);
     showConfirm(
-      `Are you sure you want to kick '${member.displayName}' from the squad?`,
+      `Are you sure you want to kick '${member.displayName}' from the squad ? `,
       () => handleKickMemberConfirmed(member)
     );
   };
@@ -709,7 +710,7 @@ export default function App() {
         tier: planId,
         subscriptionExpiry: Date.now() + (365 * 24 * 60 * 60 * 1000) // 1 year
       });
-      showAlert(allowTierCycling ? `Dev Mode: Switched to ${planId}` : "Upgrade successful! You now have access to better squad features.");
+      showAlert(allowTierCycling ? `Dev Mode: Switched to ${planId} ` : "Upgrade successful! You now have access to better squad features.");
       setActiveModal(null);
     } catch (e) {
       console.error(e);
@@ -808,6 +809,40 @@ export default function App() {
     );
     return () => unsubscribes.forEach(unsub => unsub());
   }, [userData?.friends]);
+
+  // --- Notifications ---
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Request Permission & Get Token
+    const requestPermission = async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          // Note: In production you often need a VAPID key: getToken(messaging, { vapidKey: 'YOUR_KEY' });
+          const currentToken = await getToken(messaging);
+          if (currentToken) {
+            await updateDoc(getUserDocRef(currentUser.uid), {
+              fcmToken: currentToken
+            });
+          }
+        }
+      } catch (err) {
+        console.log('An error occurred while retrieving token. ', err);
+      }
+    };
+    requestPermission();
+
+    // Foreground Message Listener
+    const unsubscribe = onMessage(messaging, (payload) => {
+      if (payload.notification) {
+        setAlertMessage(`${payload.notification.title}: ${payload.notification.body}`);
+        setActiveModal('alert');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
 
   // Listen to Squad Data for activeVote
   useEffect(() => {
@@ -968,7 +1003,7 @@ export default function App() {
             />
 
             {userData?.location && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) && (
-              <div className="user-marker" style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%` }}>
+              <div className="user-marker" style={{ left: `${userData.location.x * 100}% `, top: `${userData.location.y * 100}% ` }}>
                 <img src={userData.photoURL || "/default-avatar.png"} className="marker-avatar" alt="Me" />
                 <div className="marker-label">You</div>
               </div>
@@ -977,7 +1012,7 @@ export default function App() {
             {friendsData
               .filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()))
               .map(u => (
-                <div key={u.uid} className="user-marker" style={{ left: `${u.location!.x * 100}%`, top: `${u.location!.y * 100}%` }}>
+                <div key={u.uid} className="user-marker" style={{ left: `${u.location!.x * 100}% `, top: `${u.location!.y * 100}% ` }}>
                   <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
                   {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                     <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
@@ -1028,7 +1063,7 @@ export default function App() {
                 }}
               >
                 <FaMapMarkerAlt size={22} />
-                {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
+                {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name} ` : `Check In`}
               </button>
             )}
           </div>
@@ -1043,7 +1078,7 @@ export default function App() {
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
                 .map(member => (
-                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start', position: 'relative', gap: '4px' }}>
+                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start', position: 'relative', gap: '4px' }}>
                     {member.uid === currentUser.uid && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setActiveModal('updateStatus'); }}
@@ -1109,26 +1144,55 @@ export default function App() {
 
             {(() => {
               const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
-              return pendingInvites.map(invite => (
-                <div key={invite.id} className="card" style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start', position: 'relative', opacity: 0.8, borderStyle: 'dashed' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div className="avatar" style={{ background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</div>
-                    <div>
-                      <span>{getDisplayNameByUid(invite.to)}</span>
+              return pendingInvites.map(invite => {
+                const friend = friendsData.find(f => f.uid === invite.to);
+                return (
+                  <div key={invite.id} className="card" style={{
+                    minWidth: '200px',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    opacity: 0.9,
+                    border: '1px dashed #ffc107',
+                    background: 'rgba(255, 193, 7, 0.05)',
+                    padding: '12px'
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {friend?.photoURL ? (
+                          <img src={friend.photoURL} className="avatar" style={{ border: '1px solid #ffc107', width: '35px', height: '35px' }} alt="Avatar" />
+                        ) : (
+                          <div className="avatar" style={{ background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #ffc107', color: '#ffc107' }}>?</div>
+                        )}
+                        <span style={{ fontWeight: 'bold' }}>{friend?.displayName || getDisplayNameByUid(invite.to)}</span>
+                      </div>
+                      <p style={{ fontSize: '0.75rem', margin: 0, color: '#ffc107' }}>
+                        Invited...
+                      </p>
                     </div>
+
+                    <button
+                      className="btn btn-danger"
+                      style={{
+                        padding: '0',
+                        width: '40px',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'rgba(207, 102, 121, 0.2)',
+                        border: '1px solid var(--error)',
+                        borderRadius: '8px'
+                      }}
+                      onClick={(e) => { e.stopPropagation(); handleWithdrawSquadInvite(invite); }}
+                      title="Withdraw Invite"
+                    >
+                      <FaTimes size={16} />
+                    </button>
                   </div>
-                  <p style={{ fontSize: '0.8rem', marginTop: '0.2rem', marginBottom: '0', color: 'var(--text-muted)' }}>
-                    Invited...
-                  </p>
-                  <button
-                    className="btn btn-danger"
-                    style={{ padding: '2px 8px', fontSize: '10px', marginTop: '8px', width: '100%' }}
-                    onClick={(e) => { e.stopPropagation(); handleWithdrawSquadInvite(invite); }}
-                  >
-                    Withdraw
-                  </button>
-                </div>
-              ));
+                );
+              });
             })()}
 
             {/* Invite Button for Squad Leaders */}
@@ -1234,7 +1298,7 @@ export default function App() {
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
                 .map(member => (
-                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }}>
+                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }}>
                     <img src={member.photoURL!} className="avatar" alt="Avatar" />
                     <div>
                       <h3>
@@ -1422,16 +1486,16 @@ export default function App() {
       {renderContent()}
 
       <nav className="bottom-nav">
-        <button className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>
+        <button className={`nav - item ${activeTab === 'map' ? 'active' : ''} `} onClick={() => setActiveTab('map')}>
           <FaMap />
           <span>Map</span>
         </button>
-        <button className={`nav-item ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')}>
+        <button className={`nav - item ${activeTab === 'friends' ? 'active' : ''} `} onClick={() => setActiveTab('friends')}>
           <FaUserFriends />
           <span>Friends</span>
         </button>
 
-        <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
+        <button className={`nav - item ${activeTab === 'profile' ? 'active' : ''} `} onClick={() => setActiveTab('profile')}>
           <FaUser />
           <span>Profile</span>
         </button>
@@ -1816,7 +1880,7 @@ export default function App() {
               <div style={{ textAlign: 'center' }}>
                 <img src={selectedMember.photoURL!} alt="Avatar" className="avatar" style={{ width: 80, height: 80, marginBottom: '1rem' }} />
                 <h2>{selectedMember.displayName}</h2>
-                <p>{selectedMember.currentArea || "Unknown Location"}</p>
+                {selectedMemberContext !== 'friend' && <p>{selectedMember.currentArea || "Unknown Location"}</p>}
 
                 {/* Status Update for Self */}
                 {selectedMember.uid === userData?.uid && (
@@ -1871,7 +1935,7 @@ export default function App() {
                 {selectedMember.uid !== userData?.uid && selectedMemberContext === 'friend' && (
                   <button onClick={() => {
                     // Remove friend logic
-                    showConfirm(`Remove ${selectedMember.displayName} from friends?`, async () => {
+                    showConfirm(`Remove ${selectedMember.displayName} from friends ? `, async () => {
                       try {
                         await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
                         setSelectedMember(null);

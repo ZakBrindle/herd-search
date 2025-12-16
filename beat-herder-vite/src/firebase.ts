@@ -11,7 +11,10 @@ const firebaseConfig = {
     appId: "1:1071121982465:web:bca3e0808e0834e98e8c00"
 };
 
+import { getMessaging } from "firebase/messaging";
+
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
+export const messaging = getMessaging(app);
