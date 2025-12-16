@@ -1746,7 +1746,7 @@ export default function App() {
               {/* Admin Only: View All Tickets */}
               {userData?.isDev && (
                 <button
-                  onClick={() => setActiveModal('adminSupport')}
+                  onClick={() => window.location.href = '/admin/support'}
                   className="btn btn-secondary w-full"
                   style={{ marginBottom: '1rem', border: '1px solid var(--primary)', color: 'var(--primary)' }}
                 >
@@ -1765,7 +1765,7 @@ export default function App() {
           </div>
 
           {/* Support System Rendering */}
-          {(activeModal === 'support' || activeModal === 'adminSupport') && currentUser && (
+          {(activeModal === 'support') && currentUser && (
             <SupportSystem
               currentUser={{
                 uid: currentUser.uid,
@@ -1774,7 +1774,7 @@ export default function App() {
               }}
               visible={true}
               onClose={() => setActiveModal(null)}
-              isDev={activeModal === 'adminSupport'}
+              isDev={false}
             />
           )}
         </>
