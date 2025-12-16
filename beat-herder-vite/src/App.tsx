@@ -1380,7 +1380,7 @@ export default function App() {
                 }}
               >
                 <FaMapMarkerAlt size={22} />
-                {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name} ` : `Check In`}
+                {selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`}
               </button>
             )}
           </div>
