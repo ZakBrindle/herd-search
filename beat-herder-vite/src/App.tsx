@@ -1725,7 +1725,7 @@ export default function App() {
             <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
             <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
 
-            <div style={{ marginTop: '2rem', width: '100%', borderTop: '1px solid #333', paddingTop: '2rem' }}>
+            <div style={{ marginTop: '2rem', width: '100%', borderTop: '1px solid #3333334f', paddingTop: '2rem' }}>
               <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '1rem', width: '100%', boxSizing: 'border-box' }}>
                 <div
                   style={{
@@ -1761,9 +1761,7 @@ export default function App() {
                   <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', marginBottom: '1rem' }}>
                     Upgrade Plan ⚡
                   </button>
-                  <div style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
-                    <Link to="/terms" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
-                  </div>
+
 
                   <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
 
@@ -1857,7 +1855,7 @@ export default function App() {
                   >
                     <span>🛡️</span> Manage Support Tickets
                   </button>
-                  <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
+
                 </>
               )}
 
@@ -1866,6 +1864,9 @@ export default function App() {
 
 
             <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
+            <div style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
+              <Link to="/terms" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
+            </div>
             <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
             </div>
           </div>
@@ -1921,8 +1922,8 @@ export default function App() {
           {(incomingFriendRequests.length > 0 || incomingSquadInvites.length > 0) && (
             <div style={{
               position: 'absolute',
-              top: '5px',
-              right: '25px', // Adjust based on icon position
+              top: '2px', // Moved up
+              right: '30px', // Moved left
               width: '10px',
               height: '10px',
               backgroundColor: 'var(--error)',
@@ -2161,65 +2162,7 @@ export default function App() {
         )
       }
 
-      {
-        activeModal === 'settings' && (
-          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">Settings</h3>
 
-              {/* Developer Settings Section inside Modal */}
-              {userData?.isDev && (
-                <div style={{ marginBottom: '2rem' }}>
-                  <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Developer</h4>
-                  <div className="card" onClick={() => setUseSandboxStripe(!useSandboxStripe)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span>Use Sandbox Stripe Mode</span>
-                    <div style={{
-                      width: '40px', height: '20px', background: useSandboxStripe ? 'var(--primary)' : '#555',
-                      borderRadius: '10px', position: 'relative', transition: 'background 0.3s'
-                    }}>
-                      <div style={{
-                        width: '16px', height: '16px', background: 'white', borderRadius: '50%',
-                        position: 'absolute', top: '2px', left: useSandboxStripe ? '22px' : '2px',
-                        transition: 'left 0.3s'
-                      }} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Dev Settings Options */}
-              {userData?.isDev && (
-                <>
-                  {/* Manage Locations */}
-                  <div className="card" onClick={() => setActiveModal('locations')} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                    <span>Manage Locations</span>
-                    <span style={{ fontSize: '1.2rem' }}>📍</span>
-                  </div>
-
-                  {/* Toggle Zones */}
-                  <div className="card" onClick={() => setShowZones(!showZones)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                    <span>View Locations on map</span>
-                    <div style={{
-                      width: '40px', height: '20px', background: showZones ? 'var(--primary)' : '#555',
-                      borderRadius: '10px', position: 'relative', transition: 'background 0.3s'
-                    }}>
-                      <div style={{
-                        width: '16px', height: '16px', background: 'white', borderRadius: '50%',
-                        position: 'absolute', top: '2px', left: showZones ? '22px' : '2px',
-                        transition: 'left 0.3s'
-                      }} />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="modal-actions">
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
-              </div>
-            </div>
-          </div>
-        )
-      }
 
       {
         activeModal === 'upgrade' && (
