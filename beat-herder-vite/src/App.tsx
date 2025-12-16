@@ -563,7 +563,7 @@ export default function App() {
     pointerDownTimeRef.current = Date.now();
     pointerEventsRef.current = { x: e.clientX, y: e.clientY };
 
-    // Start 1.2s timer
+    // Start 1s timer
     longPressTimerRef.current = setTimeout(() => {
       isLongPressRef.current = true;
       // Trigger vote mode
@@ -578,8 +578,8 @@ export default function App() {
         // Vibrate if mobile?
         if (navigator.vibrate) navigator.vibrate(200);
       }
-    }, 1200); // 1.2 seconds requested
-    // "hold a place on the map for 1.2 seconds"
+    }, 1000); // 1 seconds requested
+    // "hold a place on the map for 1 seconds"
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -826,6 +826,32 @@ export default function App() {
       showAlert("Upgrade failed.");
     }
   };
+
+  // Track previous invites count to notify on new ones
+  const prevFriendReqCount = useRef(0);
+  const prevSquadInvCount = useRef(0);
+  const initialLoadDone = useRef(false);
+
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      prevFriendReqCount.current = incomingFriendRequests.length;
+      prevSquadInvCount.current = incomingSquadInvites.length;
+      initialLoadDone.current = true;
+      return;
+    }
+
+    if (incomingFriendRequests.length > prevFriendReqCount.current) {
+      setAlertMessage("New Friend Request received! 👥"); // Using setAlertMessage to show custom modal or reusing showAlert logic if it triggers a modal
+      setActiveModal('alert');
+    }
+    prevFriendReqCount.current = incomingFriendRequests.length;
+
+    if (incomingSquadInvites.length > prevSquadInvCount.current) {
+      setAlertMessage("New Squad Invite received! 📨");
+      setActiveModal('alert');
+    }
+    prevSquadInvCount.current = incomingSquadInvites.length;
+  }, [incomingFriendRequests, incomingSquadInvites]);
 
   // --- Subscriptions ---
   useEffect(() => {
@@ -1515,7 +1541,7 @@ export default function App() {
             <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
             <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
 
-            <div className="card" style={{ width: '100%', marginTop: '2rem', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <div className="card" style={{ marginTop: '2rem', flexDirection: 'column', alignItems: 'flex-start' }}>
               <div
                 style={{
                   display: 'flex',
@@ -1706,6 +1732,7 @@ export default function App() {
                       } catch (err) { console.error(err); showAlert("Error updating status. Check permissions/keys."); }
                     }
                   }}
+                  style={{ height: '44px', boxSizing: 'border-box' }}
                 />
                 <button onClick={async () => {
                   const input = document.getElementById('statusInputModal') as HTMLInputElement;
@@ -1718,7 +1745,7 @@ export default function App() {
                     setActiveModal(null);
                     showAlert("Status updated!");
                   } catch (e) { console.error(e); showAlert("Error updating status. Check permissions/keys."); }
-                }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>➜</button>
+                }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', height: '44px', boxSizing: 'border-box' }}>➜</button>
               </div>
               <div className="modal-actions">
                 <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
@@ -1747,6 +1774,12 @@ export default function App() {
                 {PLANS.filter(p => allowTierCycling || p.limit > TIER_LIMITS[userData?.tier || 'free']).map(plan => (
                   <div key={plan.id} className="pricing-card" onClick={() => handleUpgrade(plan.id as Tier)}>
                     <h3>{plan.name}</h3>
+                    <div style={{ margin: '8px 0', fontSize: '1.5rem', color: 'var(--primary)', letterSpacing: '4px' }}>
+                      {plan.id === 'basic' && '👤👤'}
+                      {plan.id === 'standard' && '👤👤👤👤'}
+                      {plan.id === 'premium' && '👤👤👤👤👤👤👤👤'}
+                      {/* Or simpler representative icons */}
+                    </div>
                     <p className="price">{plan.price}</p>
                     <ul>
                       <li>Max {plan.limit} Friends in Squad</li>
@@ -1877,6 +1910,13 @@ export default function App() {
 
                     {friendsData
                       .filter(f => f.squadId !== userData.squadId) // Only show friends NOT in my squad
+                      .sort((a, b) => {
+                        const aInvited = outgoingSquadInvites.some(inv => inv.to === a.uid);
+                        const bInvited = outgoingSquadInvites.some(inv => inv.to === b.uid);
+                        if (aInvited && !bInvited) return -1;
+                        if (!aInvited && bInvited) return 1;
+                        return 0;
+                      })
                       .map(friend => {
                         const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
                         // Recalculate spots for disable logic
