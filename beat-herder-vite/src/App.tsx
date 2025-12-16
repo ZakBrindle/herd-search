@@ -487,10 +487,10 @@ export default function App() {
 
     return (
       <div className="card" style={{
-        width: '100%',
         marginBottom: '1rem',
         backgroundColor: '#1f1f1f',
         border: '1px solid #444',
+        boxSizing: 'border-box',
         boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
         animation: 'slideIn 0.3s ease-out',
         display: 'flex',
@@ -1729,6 +1729,9 @@ export default function App() {
                     Upgrade Plan ⚡
                   </button>
                   <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
+                  <div style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
+                    <Link to="/terms" style={{ color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
+                  </div>
                 </>
               )}
 
@@ -1805,7 +1808,6 @@ export default function App() {
 
             <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
             <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
-              <Link to="/terms" style={{ color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
             </div>
           </div>
 
