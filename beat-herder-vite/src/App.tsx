@@ -1719,25 +1719,7 @@ export default function App() {
 
             </div>
 
-            {/* Dev Settings */}
-            {currentUser?.email === 'z4kbrindle@gmail.com' && (
-              <div style={{ marginTop: '2rem', borderTop: '1px solid #333', paddingTop: '1rem' }}>
-                <h3 style={{ fontSize: '1rem', color: '#888', marginBottom: '1rem' }}>Developer Settings</h3>
-                <div className="card" onClick={() => setUseSandboxStripe(!useSandboxStripe)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Use Sandbox Stripe Mode</span>
-                  <div style={{
-                    width: '40px', height: '20px', background: useSandboxStripe ? 'var(--primary)' : '#555',
-                    borderRadius: '10px', position: 'relative', transition: 'background 0.3s'
-                  }}>
-                    <div style={{
-                      width: '16px', height: '16px', background: 'white', borderRadius: '50%',
-                      position: 'absolute', top: '2px', left: useSandboxStripe ? '22px' : '2px',
-                      transition: 'left 0.3s'
-                    }} />
-                  </div>
-                </div>
-              </div>
-            )}
+
 
             <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
           </div>
@@ -1864,6 +1846,40 @@ export default function App() {
                   } catch (e) { console.error(e); showAlert("Error updating status. Check permissions/keys."); }
                 }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', height: '44px', boxSizing: 'border-box' }}>➜</button>
               </div>
+              <div className="modal-actions">
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {
+        activeModal === 'settings' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">Settings</h3>
+
+              {/* Developer Settings Section inside Modal */}
+              {currentUser?.email === 'z4kbrindle@gmail.com' && (
+                <div style={{ marginBottom: '2rem' }}>
+                  <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Developer</h4>
+                  <div className="card" onClick={() => setUseSandboxStripe(!useSandboxStripe)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Use Sandbox Stripe Mode</span>
+                    <div style={{
+                      width: '40px', height: '20px', background: useSandboxStripe ? 'var(--primary)' : '#555',
+                      borderRadius: '10px', position: 'relative', transition: 'background 0.3s'
+                    }}>
+                      <div style={{
+                        width: '16px', height: '16px', background: 'white', borderRadius: '50%',
+                        position: 'absolute', top: '2px', left: useSandboxStripe ? '22px' : '2px',
+                        transition: 'left 0.3s'
+                      }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="modal-actions">
                 <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
               </div>
