@@ -148,10 +148,7 @@ export default function App() {
   const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
   const [showSplash, setShowSplash] = useState(true);
   const [gpsRefreshButtonText, setGpsRefreshButtonText] = useState<string | null>(null);
-  const [gpsRefreshInterval, setGpsRefreshInterval] = useState(() => {
-    const saved = localStorage.getItem('gpsRefreshInterval');
-    return saved ? parseInt(saved) : 5;
-  });
+  const [gpsRefreshInterval, setGpsRefreshInterval] = useState(5); // Default 5 seconds
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500);
@@ -162,9 +159,15 @@ export default function App() {
     localStorage.setItem('useSandboxStripe', useSandboxStripe.toString());
   }, [useSandboxStripe]);
 
+  // Fetch GPS refresh interval from Firestore config
   useEffect(() => {
-    localStorage.setItem('gpsRefreshInterval', gpsRefreshInterval.toString());
-  }, [gpsRefreshInterval]);
+    const unsub = onSnapshot(doc(db, "config", "gps"), (doc) => {
+      if (doc.exists() && doc.data().refreshInterval) {
+        setGpsRefreshInterval(doc.data().refreshInterval);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
