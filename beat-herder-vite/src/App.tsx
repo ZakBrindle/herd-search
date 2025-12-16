@@ -1134,6 +1134,7 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <img src="/logo-main.png" alt="Herd Search" style={{ width: '150px', height: 'auto', marginBottom: '1rem', borderRadius: '20px' }} />
         <h1 className="logo" style={{ fontSize: '3rem', marginBottom: '2rem' }}>Herd Search</h1>
         <button
           onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
@@ -1693,7 +1694,7 @@ export default function App() {
                   <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', marginBottom: '1rem' }}>
                     Upgrade Plan ⚡
                   </button>
-                  <hr style={{ borderColor: '#333', margin: '1rem 0', width: '100%' }} />
+                  <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
                 </>
               )}
 
@@ -1739,7 +1740,7 @@ export default function App() {
                   border: '1px solid #555'
                 }} />
               </div>
-              <hr style={{ borderColor: '#333', margin: '1rem 0', width: '100%' }} />
+              <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
 
               {/* Support Buttons */}
               <button
@@ -1760,7 +1761,7 @@ export default function App() {
                   >
                     <span>🛡️</span> Manage Support Tickets
                   </button>
-                  <hr style={{ borderColor: '#333', margin: '1rem 0', width: '100%' }} />
+                  <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
                 </>
               )}
 
