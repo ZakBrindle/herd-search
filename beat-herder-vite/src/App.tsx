@@ -112,7 +112,7 @@ export default function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 1000);
+    }, 2500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -902,7 +902,9 @@ export default function App() {
         const publicProfileRef = doc(getPublicProfileCollection(), user.uid);
         const userDoc = await getDoc(userRef);
 
-        const isDev = user.email === 'z4kbrindle@gmail.com';
+        const ADMIN_EMAIL = (import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS || 'z4kbrindle@gmail.com').toLowerCase();
+        const isDev = user.email?.toLowerCase() === ADMIN_EMAIL;
+        console.log("User logged in:", user.email, "Is Dev:", isDev);
 
         if (!userDoc.exists()) {
           const profileData = {
@@ -1640,7 +1642,7 @@ export default function App() {
         <>
           <header>
             <div className="logo">Profile</div>
-            {userData?.isDev && (
+            {(userData?.isDev || currentUser?.email?.toLowerCase() === (import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS || 'z4kbrindle@gmail.com').toLowerCase()) && (
               <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
                 <FaCog size={24} color="var(--text-muted)" />
               </div>
@@ -1753,12 +1755,12 @@ export default function App() {
           left: 0,
           width: '100%',
           height: '100%',
-          backgroundColor: '#000',
+          backgroundColor: '#121212',
           zIndex: 9999,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          animation: 'fadeOut 0.5s ease-out 0.5s forwards' // Fades out not just vanishes
+          animation: 'fadeOut 0.5s ease-out 2s forwards' // Fades out not just vanishes
         }}>
           <img src="/logo-flash.png" alt="Splash" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
         </div>
