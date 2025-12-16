@@ -151,7 +151,9 @@ export default function App() {
   const [gpsRefreshInterval, setGpsRefreshInterval] = useState(5); // Default 5 seconds
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [gpsTimeoutCount, setGpsTimeoutCount] = useState(0);
+  void gpsTimeoutCount; // Used via functional state update in GPS error handler
   const [showShareLink, setShowShareLink] = useState(false);
+  const [gpsHasLocation, setGpsHasLocation] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500);
@@ -197,6 +199,7 @@ export default function App() {
     if (areas.length === 0) { console.log("GPS: Waiting for areas to load"); return; }
 
     console.log(`GPS: Starting live location tracking (every ${gpsRefreshInterval} seconds)`);
+    setGpsHasLocation(false); // Reset when starting GPS tracking
 
     const updateGpsLocation = async () => {
       // Double-check areas are still loaded
@@ -255,6 +258,7 @@ export default function App() {
             await updateDoc(getUserDocRef(userData.uid), updateData);
             console.log("GPS: Firestore update successful");
             setGpsTimeoutCount(0); // Reset timeout counter on success
+            setGpsHasLocation(true); // Mark that we have a GPS location
           } catch (e) { console.error("Error updating GPS location", e); }
         },
         async (err) => {
@@ -1641,7 +1645,7 @@ export default function App() {
               >
                 <FaMapMarkerAlt size={22} />
                 {gpsRefreshButtonText || (userData?.useGps
-                  ? "Using Live GPS"
+                  ? (gpsHasLocation ? "Using Live GPS" : "Searching for GPS...")
                   : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
               </button>
             )}
@@ -2050,6 +2054,9 @@ export default function App() {
                   if (newValue) {
                     setGpsError(null); // Clear error when turning GPS back on
                     setGpsTimeoutCount(0); // Reset timeout counter
+                    setGpsHasLocation(false); // Reset location flag
+                  } else {
+                    setGpsHasLocation(false); // Clear location flag when turning off
                   }
                   await handleGpsToggle(newValue);
                 }}
