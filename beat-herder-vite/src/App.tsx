@@ -1728,10 +1728,12 @@ export default function App() {
                   <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', marginBottom: '1rem' }}>
                     Upgrade Plan ⚡
                   </button>
-                  <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
                   <div style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
                     <Link to="/terms" style={{ color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
                   </div>
+
+                  <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
+
                 </>
               )}
 
