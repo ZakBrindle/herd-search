@@ -147,6 +147,7 @@ export default function App() {
   const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
   const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
   const [showSplash, setShowSplash] = useState(true);
+  const [gpsRefreshButtonText, setGpsRefreshButtonText] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500);
@@ -1523,10 +1524,12 @@ export default function App() {
                         }
 
                         await updateDoc(getUserDocRef(userData!.uid), updateData);
-                        showAlert(`GPS Refreshed! Location: ${areaName}`);
+                        setGpsRefreshButtonText('GPS Location Refreshed!');
+                        setTimeout(() => setGpsRefreshButtonText(null), 1200);
                       } catch (e) {
                         console.error(e);
-                        showAlert("Failed to update GPS location.");
+                        setGpsRefreshButtonText('Failed to update');
+                        setTimeout(() => setGpsRefreshButtonText(null), 1200);
                       }
                     }, (err) => showAlert("GPS Error: " + err.message), { enableHighAccuracy: true });
                   } else {
@@ -1548,9 +1551,9 @@ export default function App() {
                 }}
               >
                 <FaMapMarkerAlt size={22} />
-                {userData?.useGps
-                  ? "Refresh my GPS"
-                  : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`)}
+                {gpsRefreshButtonText || (userData?.useGps
+                  ? "Using Live GPS"
+                  : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
               </button>
             )}
           </div>
