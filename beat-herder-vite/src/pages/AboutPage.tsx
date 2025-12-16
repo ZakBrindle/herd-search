@@ -40,7 +40,7 @@ export default function AboutPage() {
                     <div>
                         <h4 style={{ margin: 0 }}>The Map</h4>
                         <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                            See where your friends are in real-time. tap on the map to see who is where.
+                            See where your friends are in real-time. Tap on the map to see who is where. Long press on a location to start a Squad Vote.
                         </p>
                     </div>
                 </div>

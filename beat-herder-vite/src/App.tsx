@@ -695,7 +695,9 @@ export default function App() {
   useEffect(() => {
     const inviteUids = [
       ...incomingSquadInvites.map(inv => inv.from),
-      ...outgoingSquadInvites.map(inv => inv.to)
+      ...outgoingSquadInvites.map(inv => inv.to),
+      ...incomingFriendRequests.map(req => req.from),
+      ...outgoingFriendRequests.map(req => req.to)
     ].filter(uid =>
       uid !== userData?.uid &&
       !friendsData.some(f => f.uid === uid) &&
@@ -715,7 +717,7 @@ export default function App() {
         }
       } catch (e) { }
     });
-  }, [incomingSquadInvites, outgoingSquadInvites, friendsData, userData, publicProfileCache]);
+  }, [incomingSquadInvites, outgoingSquadInvites, incomingFriendRequests, outgoingFriendRequests, friendsData, userData, publicProfileCache]);
 
   const handleKickMemberConfirmed = async (member: UserData) => {
     if (!userData || !userData.squadId || !member.uid) return;
@@ -1922,10 +1924,10 @@ export default function App() {
           {(incomingFriendRequests.length > 0 || incomingSquadInvites.length > 0) && (
             <div style={{
               position: 'absolute',
-              top: '2px', // Moved up
-              right: '30px', // Moved left
-              width: '10px',
-              height: '10px',
+              top: '8px',
+              left: 'calc(50% - 14px)',
+              width: '8px',
+              height: '8px',
               backgroundColor: 'var(--error)',
               borderRadius: '50%',
               border: '1px solid #121212'
