@@ -181,7 +181,7 @@ export default function App() {
     if (!navigator.geolocation) { console.log("GPS: Not supported"); return; }
     if (areas.length === 0) { console.log("GPS: Waiting for areas to load"); return; }
 
-    console.log("GPS: Starting automatic updates (every 2 minutes)");
+    console.log("GPS: Starting automatic updates (every 30 seconds)");
 
     const updateGpsLocation = async () => {
       // Double-check areas are still loaded
@@ -249,8 +249,8 @@ export default function App() {
     // Update immediately on mount
     updateGpsLocation();
 
-    // Then update every 2 minutes (120000ms)
-    const intervalId = setInterval(updateGpsLocation, 120000);
+    // Then update every 30 seconds (30000ms)
+    const intervalId = setInterval(updateGpsLocation, 30000);
 
     return () => clearInterval(intervalId);
   }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode, areas]);
@@ -1497,12 +1497,33 @@ export default function App() {
                       console.log("-------------------------");
 
                       const newPoint = { x, y };
+
+                      // Determine which area the user is in
+                      let foundArea: Area | null = null;
+                      for (const area of areas) {
+                        if (isPointInPolygon(newPoint, area.polygon)) {
+                          foundArea = area;
+                          break;
+                        }
+                      }
+
+                      const areaName = foundArea ? foundArea.name : 'The Wilds';
+                      console.log(`Detected area: ${areaName}`);
+
                       try {
-                        await updateDoc(getUserDocRef(userData!.uid), {
+                        const updateData: any = {
                           location: newPoint,
-                          lastUpdate: Date.now()
-                        });
-                        showAlert("GPS Location Refreshed!");
+                          lastUpdate: Date.now(),
+                          currentArea: areaName
+                        };
+
+                        // Update lastKnownArea if not in The Wilds
+                        if (areaName !== 'The Wilds') {
+                          updateData.lastKnownArea = areaName;
+                        }
+
+                        await updateDoc(getUserDocRef(userData!.uid), updateData);
+                        showAlert(`GPS Refreshed! Location: ${areaName}`);
                       } catch (e) {
                         console.error(e);
                         showAlert("Failed to update GPS location.");
@@ -1955,7 +1976,7 @@ export default function App() {
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
                     {(userData?.useGps ?? true)
-                      ? "Active: Your location updates every 2 minutes."
+                      ? "Active: Your location updates every 30 seconds."
                       : "Tap to enable automatic GPS tracking."}
                   </p>
                 </div>
