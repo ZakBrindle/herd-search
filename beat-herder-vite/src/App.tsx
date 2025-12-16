@@ -939,8 +939,8 @@ export default function App() {
         const publicProfileRef = doc(getPublicProfileCollection(), user.uid);
         const userDoc = await getDoc(userRef);
 
-        const ADMIN_EMAIL = (import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS || 'z4kbrindle@gmail.com').toLowerCase();
-        const isDev = user.email?.toLowerCase() === ADMIN_EMAIL;
+        const envEmail = import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS?.toLowerCase();
+        const isDev = user.email?.toLowerCase() === 'z4kbrindle@gmail.com' || (envEmail && user.email?.toLowerCase() === envEmail);
         console.log("User logged in:", user.email, "Is Dev:", isDev);
 
         if (!userDoc.exists()) {
@@ -2348,6 +2348,7 @@ export default function App() {
                                 statusTimestamp: Date.now()
                               });
                               showAlert("Status updated!");
+                              setSelectedMember(null);
                             } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
                           }
                         }}
@@ -2361,6 +2362,7 @@ export default function App() {
                             statusTimestamp: Date.now()
                           });
                           showAlert("Status updated!");
+                          setSelectedMember(null);
                         } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
                       }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>➜</button>
                     </div>
@@ -2375,6 +2377,13 @@ export default function App() {
                 {/* Case 2: Friend is NOT in MY squad (could be no squad or other squad) and I have capacity -> Invite */}
                 {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (userData.tier !== 'free') && (
                   <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
+                )}
+
+                {/* Case 2.5: Reciprocity Check - If I am not in their friend list, offer to add friend again */}
+                {selectedMember.uid !== userData?.uid && (!selectedMember.friends || !selectedMember.friends.includes(userData?.uid || "")) && (
+                  <button onClick={() => { setSelectedMember(null); handleSendFriendRequest(selectedMember.uid); }} className="btn btn-primary w-full mt-4" style={{ background: 'var(--secondary)', color: 'black' }}>
+                    Add Friend
+                  </button>
                 )}
 
                 {/* Case 3: I want to remove them from my friend list (always available if not self) - ONLY IN FRIEND CONTEXT */}
