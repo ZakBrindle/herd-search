@@ -18,6 +18,12 @@ import { getToken, onMessage } from "firebase/messaging";
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
 type Tier = 'free' | 'basic' | 'standard' | 'premium' | 'festival';
+type GPSBounds = {
+  north: number; // Max Lat
+  south: number; // Min Lat
+  east: number;  // Max Lon
+  west: number;  // Min Lon
+};
 
 type Vote = {
   id: string;
@@ -144,6 +150,59 @@ export default function App() {
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
+  const [mapCalibration, setMapCalibration] = useState<GPSBounds | null>(null);
+
+  useEffect(() => {
+    // Fetch Map Calibration
+    const unsub = onSnapshot(doc(db, "config", "map"), (doc) => {
+      if (doc.exists()) {
+        setMapCalibration(doc.data() as GPSBounds);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // GPS Tracking Logic
+  useEffect(() => {
+    if (!userData?.useGps || !mapCalibration || !userData?.uid) return;
+    if (!navigator.geolocation) return;
+
+    const id = navigator.geolocation.watchPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const { north, south, east, west } = mapCalibration;
+
+        // Map (Lat, Lon) to (x, y) 0-1 range
+        // X: (lon - west) / (east - west)
+        // Y: (north - lat) / (north - south) (Lat decreases South)
+
+        let x = (longitude - west) / (east - west);
+        let y = (north - latitude) / (north - south);
+
+        // Clamp to 0-1? Maybe not, user might be outside map bounds.
+        // But for display, we might want to clamp or handling outside.
+        // Checking in to 'Unknown' area handling is done elsewhere by polygon check.
+
+        const newPoint = { x, y };
+
+        // Update Firestore? Only if changed significantly? 
+        // For now update every change (throttling handled by watchPosition somewhat, but could be noisy)
+        // We can add a throttle or distance check if needed.
+        // Also check if we are in Ghost Mode
+        if (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) return;
+
+        try {
+          await updateDoc(getUserDocRef(userData.uid), {
+            location: newPoint,
+            lastUpdate: Date.now()
+          });
+        } catch (e) { console.error("Error updating GPS location", e); }
+      },
+      (err) => console.error(err),
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode]);
 
   const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
   const [showSplash, setShowSplash] = useState(true);
@@ -2106,6 +2165,9 @@ export default function App() {
                 <button onClick={() => setActiveModal('locations')} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
                   Manage Locations
                 </button>
+                <button onClick={() => setActiveModal('calibrateGps')} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
+                  Calibrate Map GPS
+                </button>
 
                 <div style={{ marginBottom: '1rem' }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary)' }}>Override Tier</label>
@@ -2130,6 +2192,61 @@ export default function App() {
         </div>
       )
       }
+
+      {activeModal === 'calibrateGps' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-header">Calibrate Map GPS</h3>
+            <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '1rem' }}>
+              Stand at the Top-Left corner of the map, click the NW button.
+              Then stand at the Bottom-Right corner, click the SE button.
+            </p>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <p><strong>Configured Bounds:</strong></p>
+              {mapCalibration ? (
+                <ul style={{ fontSize: '0.8rem', paddingLeft: '20px' }}>
+                  <li>North: {mapCalibration.north.toFixed(6)}</li>
+                  <li>South: {mapCalibration.south.toFixed(6)}</li>
+                  <li>East: {mapCalibration.east.toFixed(6)}</li>
+                  <li>West: {mapCalibration.west.toFixed(6)}</li>
+                </ul>
+              ) : <p>Not Calibrated</p>}
+            </div>
+
+            <button onClick={() => {
+              if (!navigator.geolocation) return showAlert("GPS not supported");
+              navigator.geolocation.getCurrentPosition(async (pos) => {
+                const { latitude, longitude } = pos.coords;
+                const current = mapCalibration || { north: 0, south: 0, east: 0, west: 0 };
+                // Top Left = North West
+                const updated = { ...current, north: latitude, west: longitude };
+                await setDoc(doc(db, 'config', 'map'), updated);
+                showAlert(`Set Top-Left: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+              }, (err) => showAlert("GPS Error: " + err.message));
+            }} className="btn btn-primary w-full" style={{ marginBottom: '0.5rem' }}>
+              Set Top-Left (North-West)
+            </button>
+
+            <button onClick={() => {
+              if (!navigator.geolocation) return showAlert("GPS not supported");
+              navigator.geolocation.getCurrentPosition(async (pos) => {
+                const { latitude, longitude } = pos.coords;
+                const current = mapCalibration || { north: 0, south: 0, east: 0, west: 0 };
+                // Bottom Right = South East
+                const updated = { ...current, south: latitude, east: longitude };
+                await setDoc(doc(db, 'config', 'map'), updated);
+                showAlert(`Set Bottom-Right: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+              }, (err) => showAlert("GPS Error: " + err.message));
+            }} className="btn btn-primary w-full" style={{ marginBottom: '1rem' }}>
+              Set Bottom-Right (South-East)
+            </button>
+
+            <button onClick={() => setActiveModal(null)} className="btn btn-secondary w-full">Close</button>
+          </div>
+        </div>
+      )}
+
 
       {
         activeModal === 'limitReached' && (
