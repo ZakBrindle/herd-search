@@ -1430,7 +1430,31 @@ export default function App() {
               </button>
             ) : (
               <button
-                onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')}
+                onClick={() => {
+                  if (userData?.useGps) {
+                    if (!mapCalibration) return showAlert("Map not calibrated yet.");
+                    if (!navigator.geolocation) return showAlert("GPS not supported.");
+                    navigator.geolocation.getCurrentPosition(async (pos) => {
+                      const { latitude, longitude } = pos.coords;
+                      const { north, south, east, west } = mapCalibration;
+                      let x = (longitude - west) / (east - west);
+                      let y = (north - latitude) / (north - south);
+                      const newPoint = { x, y };
+                      try {
+                        await updateDoc(getUserDocRef(userData!.uid), {
+                          location: newPoint,
+                          lastUpdate: Date.now()
+                        });
+                        showAlert("GPS Location Refreshed!");
+                      } catch (e) {
+                        console.error(e);
+                        showAlert("Failed to update GPS location.");
+                      }
+                    }, (err) => showAlert("GPS Error: " + err.message), { enableHighAccuracy: true });
+                  } else {
+                    selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
+                  }
+                }}
                 className="btn btn-primary w-full"
                 style={{
                   background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
@@ -1446,7 +1470,9 @@ export default function App() {
                 }}
               >
                 <FaMapMarkerAlt size={22} />
-                {selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`}
+                {userData?.useGps
+                  ? "Using GPS. Click to refresh"
+                  : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`)}
               </button>
             )}
           </div>
