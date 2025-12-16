@@ -1727,7 +1727,7 @@ export default function App() {
             <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
             <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
 
-            <div style={{ marginTop: '2rem', width: '100%', borderTop: '1px solid #3333334f', paddingTop: '0.2rem' }}>
+            <div style={{ marginTop: '2rem', width: '50%', borderTop: '1px solid #33333310', paddingTop: '1rem' }}>
               <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '1rem', width: '100%', boxSizing: 'border-box' }}>
                 <div
                   style={{
@@ -1769,7 +1769,7 @@ export default function App() {
 
                 </>
               )}
-
+              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '50%' }} />
               {/* Ghost Mode Toggle */}
               {(() => {
                 const isGhostActive = userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now();
@@ -1836,7 +1836,7 @@ export default function App() {
                   </div>
                 );
               })()}
-              <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
+              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '50%' }} />
 
               {/* Support Buttons */}
               <button
@@ -1867,7 +1867,7 @@ export default function App() {
 
             <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
             <div style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
-              <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
+              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
               <Link to="/terms" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
             </div>
             <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
