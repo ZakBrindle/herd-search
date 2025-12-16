@@ -1212,7 +1212,7 @@ export default function App() {
       return (
         <>
           <header>
-            <div className="logo">Herd Search</div>
+            <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
             <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
               {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
             </div>
@@ -1552,7 +1552,7 @@ export default function App() {
       return (
         <>
           <header>
-            <div className="logo">Herd Search</div>
+            <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
             <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
               {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
             </div>

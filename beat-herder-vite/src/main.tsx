@@ -5,6 +5,7 @@ import './index.css'
 import App from './App'
 import TermsOfService from './pages/TermsOfService'
 import AdminSupportPage from './pages/AdminSupportPage'
+import AboutPage from './pages/AboutPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -12,6 +13,7 @@ createRoot(document.getElementById('root')!).render(
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/admin/support" element={<AdminSupportPage />} />
       </Routes>
     </BrowserRouter>
