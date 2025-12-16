@@ -2327,10 +2327,16 @@ export default function App() {
                     min="1"
                     max="60"
                     value={gpsRefreshInterval}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const val = parseInt(e.target.value);
                       if (val >= 1 && val <= 60) {
                         setGpsRefreshInterval(val);
+                        try {
+                          await setDoc(doc(db, 'config', 'gps'), { refreshInterval: val });
+                          console.log(`GPS refresh interval updated to ${val} seconds`);
+                        } catch (err) {
+                          console.error("Failed to save GPS interval:", err);
+                        }
                       }
                     }}
                     className="input-field"
