@@ -273,6 +273,8 @@ export default function App() {
               if (newCount >= 3) {
                 console.log("GPS: 3 consecutive timeouts, auto-disabling GPS");
                 setGpsError("Live location was disabled due to repeated GPS timeouts");
+                setGpsRefreshButtonText('GPS failed to connect');
+                setTimeout(() => setGpsRefreshButtonText(null), 2000);
                 handleGpsToggle(false).catch(e => console.error("Failed to disable GPS:", e));
                 return 0; // Reset counter
               }
@@ -284,6 +286,8 @@ export default function App() {
           else if (err.message && err.message.includes("network service")) {
             console.log("GPS: Network service failed, auto-disabling GPS");
             setGpsError("Live location was disabled as app failed to grab GPS");
+            setGpsRefreshButtonText('GPS failed to connect');
+            setTimeout(() => setGpsRefreshButtonText(null), 2000);
             setGpsTimeoutCount(0); // Reset counter
             try {
               await handleGpsToggle(false);
@@ -2173,6 +2177,14 @@ export default function App() {
 
               {/* Support Buttons */}
               <button
+                onClick={() => setActiveModal('install')}
+                className="btn btn-secondary w-full"
+                style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
+              >
+                <span>📱</span> Install App
+              </button>
+
+              <button
                 onClick={() => navigate('/about')}
                 className="btn btn-secondary w-full"
                 style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
@@ -2920,6 +2932,48 @@ export default function App() {
               <div className="modal-actions">
                 <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Cancel</button>
                 <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); }} className="btn btn-danger">Confirm</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Install Instructions Modal */}
+      {
+        activeModal === 'install' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">Install App</h3>
+
+              <p style={{ textAlign: 'center', marginBottom: '30px', color: '#ccc' }}>
+                Install Herd Search to your home screen for the best experience, including full-screen map and easier access.
+              </p>
+
+              <div style={{ marginBottom: '30px' }}>
+                <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '15px' }}>
+                  <span style={{ fontSize: '1.5rem' }}>🍎</span> iOS (iPhone/iPad)
+                </h4>
+                <ol style={{ lineHeight: '1.8', paddingLeft: '20px' }}>
+                  <li>Tap the <strong>Share</strong> button 📤 in Safari's toolbar.</li>
+                  <li>Scroll down the share sheet.</li>
+                  <li>Tap <strong>Add to Home Screen</strong>.</li>
+                  <li>Tap <strong>Add</strong> in the top right corner.</li>
+                </ol>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '15px' }}>
+                  <span style={{ fontSize: '1.5rem', color: '#3ddc84' }}>🤖</span> Android (Chrome)
+                </h4>
+                <ol style={{ lineHeight: '1.8', paddingLeft: '20px' }}>
+                  <li>Tap the <strong>Menu</strong> button ⋮ (three dots) in Chrome.</li>
+                  <li>Tap <strong>Install App</strong> or <strong>Add to Home screen</strong>.</li>
+                  <li>Follow the on-screen prompts to install.</li>
+                </ol>
+              </div>
+
+              <div className="modal-actions">
+                <button onClick={() => setActiveModal(null)} className="btn btn-primary">Done</button>
               </div>
             </div>
           </div>
