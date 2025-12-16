@@ -2388,11 +2388,11 @@ export default function App() {
                 </div>
               )}
 
-              <div className="modal-actions" style={{ marginTop: '1rem' }}>
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
-                {friendsData.filter(f => f.squadId !== userData?.squadId).length === 0 && (
+              <div className="modal-actions" style={{ marginTop: '1rem', justifyContent: 'space-between' }}>
+                {friendsData.filter(f => f.squadId !== userData?.squadId).length === 0 ? (
                   <button onClick={() => setActiveModal('addFriend')} className="btn btn-primary">Invite a Friend +</button>
-                )}
+                ) : <div />}
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
               </div>
             </div>
           </div>
@@ -2407,29 +2407,29 @@ export default function App() {
               <div className="mt-4">
                 <h4>Search User by Email</h4>
                 <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
-                <button onClick={async () => {
-                  if (!friendEmail || !currentUser) return;
-                  try {
-                    if (friendEmail.toLowerCase() === currentUser.email?.toLowerCase()) return;
-                    const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
-                    const querySnapshot = await getDocs(q);
-                    if (querySnapshot.empty) { showConfirm("User not found!", () => { }); return; }
-                    const friendUid = querySnapshot.docs[0].id;
+                <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
+                  <button onClick={() => setActiveModal(null)} className="btn btn-secondary" style={{ flex: '0 0 auto' }}>Close</button>
+                  <button onClick={async () => {
+                    if (!friendEmail || !currentUser) return;
+                    try {
+                      if (friendEmail.toLowerCase() === currentUser.email?.toLowerCase()) return;
+                      const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
+                      const querySnapshot = await getDocs(q);
+                      if (querySnapshot.empty) { showConfirm("User not found!", () => { }); return; }
+                      const friendUid = querySnapshot.docs[0].id;
 
-                    // Check if already friends
-                    const userFriends = userData?.friends || [];
-                    if (userFriends.includes(friendUid)) {
-                      showAlert("You are already friends with this user!");
-                      setFriendEmail('');
-                    } else {
-                      // Send Friend Request
-                      await handleSendFriendRequest(friendUid);
-                    }
-                  } catch (e) { console.error(e); }
-                }} className="btn btn-primary w-full">Send Friend Request</button>
-              </div>
-              <div className="modal-actions" style={{ marginTop: '1rem' }}>
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
+                      // Check if already friends
+                      const userFriends = userData?.friends || [];
+                      if (userFriends.includes(friendUid)) {
+                        showAlert("You are already friends with this user!");
+                        setFriendEmail('');
+                      } else {
+                        // Send Friend Request
+                        await handleSendFriendRequest(friendUid);
+                      }
+                    } catch (e) { console.error(e); }
+                  }} className="btn btn-primary" style={{ flex: 1 }}>Send Friend Request</button>
+                </div>
               </div>
             </div>
           </div>
