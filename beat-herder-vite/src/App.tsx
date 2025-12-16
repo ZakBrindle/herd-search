@@ -149,6 +149,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [gpsRefreshButtonText, setGpsRefreshButtonText] = useState<string | null>(null);
   const [gpsRefreshInterval, setGpsRefreshInterval] = useState(5); // Default 5 seconds
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500);
@@ -253,7 +254,19 @@ export default function App() {
             console.log("GPS: Firestore update successful");
           } catch (e) { console.error("Error updating GPS location", e); }
         },
-        (err) => console.error("GPS Error:", err),
+        async (err) => {
+          console.error("GPS Error:", err);
+          // If it's a network location query failure, auto-disable GPS
+          if (err.message && err.message.includes("network service")) {
+            console.log("GPS: Network service failed, auto-disabling GPS");
+            setGpsError("Live location was disabled as app failed to grab GPS");
+            try {
+              await handleGpsToggle(false);
+            } catch (e) {
+              console.error("Failed to disable GPS:", e);
+            }
+          }
+        },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
       );
     };
@@ -1994,6 +2007,9 @@ export default function App() {
                 className="card"
                 onClick={async () => {
                   const newValue = !(userData?.useGps ?? true);
+                  if (newValue) {
+                    setGpsError(null); // Clear error when turning GPS back on
+                  }
                   await handleGpsToggle(newValue);
                 }}
                 style={{
@@ -2018,6 +2034,11 @@ export default function App() {
                       ? "Active: Your location updates live as you move."
                       : "Tap to enable automatic GPS tracking."}
                   </p>
+                  {gpsError && !userData?.useGps && (
+                    <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#ff6b6b' }}>
+                      {gpsError}
+                    </p>
+                  )}
                 </div>
                 <div style={{
                   width: '20px', height: '20px', borderRadius: '50%',
