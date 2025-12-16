@@ -16,6 +16,18 @@ type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
 type Tier = 'free' | 'basic' | 'standard' | 'premium';
 
+type Vote = {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  targetAreaId: string;
+  targetAreaName: string;
+  createdAt: number;
+  votes: { [uid: string]: 'yes' | 'no' };
+  completedAt?: number;
+};
+
+
 type UserData = DocumentData & {
   uid: string;
   location?: Point;
@@ -61,6 +73,7 @@ export default function App() {
   // --- State Management ---
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [squadData, setSquadData] = useState<DocumentData | null>(null);
   const [friendsData, setFriendsData] = useState<UserData[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -80,12 +93,22 @@ export default function App() {
   const [outgoingSquadInvites, setOutgoingSquadInvites] = useState<DocumentData[]>([]);
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
 
+  const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
+  const [activeVote, setActiveVote] = useState<Vote | null>(null);
+
   const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const currentPolygonPoints = useRef<Point[]>([]);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPressRef = useRef(false);
+  const pointerDownTimeRef = useRef(0);
+  const pointerEventsRef = useRef<{ x: number, y: number } | null>(null);
+
+  // Voting Widget (Appears on top of content if there is an active vote)
+
 
   // --- Utility & Helper Functions ---
   const showAlert = (message: string) => {
@@ -326,17 +349,193 @@ export default function App() {
   };
 
   const handleGpsToggle = async (useGps: boolean) => {
-    if (!currentUser) return;
-    if (useGps) {
-      setSelectedAreaForCheckIn(null);
-    }
-    setUserData(prev => prev ? { ...prev, useGps } : prev);
     try {
+      if (!currentUser) return;
       await updateDoc(getUserDocRef(currentUser.uid), { useGps });
-    } catch (error) {
-      setUserData(prev => prev ? { ...prev, useGps: !useGps } : prev);
-      console.error("Error updating GPS preference:", error);
-      showAlert("Could not save setting.");
+    } catch (e) {
+      console.error(e);
+      showAlert("Error updating GPS setting.");
+    }
+  };
+
+  const startVote = async (area: Area) => {
+    if (!userData || !userData.squadId) return;
+    const newVote: Vote = {
+      id: Date.now().toString(),
+      creatorId: userData.uid,
+      creatorName: userData.displayName || 'Unknown',
+      targetAreaId: area.id,
+      targetAreaName: area.name,
+      createdAt: Date.now(),
+      votes: { [userData.uid]: 'yes' }, // Creator votes yes automatically? Or wait. 'Vote we go to...' implies intent.
+    };
+    try {
+      await updateDoc(doc(db, "squads", userData.squadId), { activeVote: newVote });
+      setSelectedAreaForVote(null); // Reset selection
+      showAlert(`Vote started for ${area.name}!`);
+    } catch (e) {
+      console.error(e);
+      showAlert("Failed to start vote.");
+    }
+  };
+
+  const castVote = async (voteVal: 'yes' | 'no') => {
+    if (!userData?.squadId || !activeVote) return;
+    try {
+      const updatedVotes = { ...activeVote.votes, [userData.uid]: voteVal };
+      const squadRef = doc(db, "squads", userData.squadId);
+
+      // Check if everyone has voted OR majority reached
+      const squadMembers = (squadData?.members) || [userData.uid, ...(friendsData.filter(f => f.squadId === userData.squadId).map(f => f.uid))];
+      const squadSize = squadMembers.length;
+
+      const yesVotes = Object.values(updatedVotes).filter(v => v === 'yes').length;
+      const noVotes = Object.values(updatedVotes).filter(v => v === 'no').length;
+      const allVoted = squadMembers.every((uid: string) => updatedVotes[uid] !== undefined);
+      const majorityReached = yesVotes > squadSize / 2 || noVotes > squadSize / 2;
+
+      let updateData: any = { [`activeVote.votes.${userData.uid}`]: voteVal };
+
+      if ((allVoted || majorityReached) && !activeVote.completedAt) {
+        updateData[`activeVote.completedAt`] = Date.now();
+      }
+
+      await updateDoc(squadRef, updateData);
+    } catch (e) { console.error(e); }
+  };
+
+  const endVote = async () => {
+    if (!userData?.squadId) return;
+    try {
+      await updateDoc(doc(db, "squads", userData.squadId), { activeVote: null });
+    } catch (e) { console.error(e); }
+  };
+
+
+  // Voting Widget (Appears on top of content if there is an active vote)
+  const renderVoteWidget = () => {
+    if (!activeVote || !userData) return null;
+
+    // Check expiry
+    if (activeVote.completedAt && (Date.now() - activeVote.completedAt > 30 * 60 * 1000)) return null;
+
+    const myVote = activeVote.votes[userData.uid];
+    const isOwner = activeVote.creatorId === userData.uid;
+    const totalVotes = Object.keys(activeVote.votes).length;
+
+    // Squad members count (me + friends in squad)
+    const squadMembers = (squadData?.members) || [userData.uid, ...(friendsData.filter(f => f.squadId === userData.squadId).map(f => f.uid))];
+    const squadSize = squadMembers.length;
+
+    const yesCount = Object.values(activeVote.votes).filter(v => v === 'yes').length;
+    const noCount = Object.values(activeVote.votes).filter(v => v === 'no').length;
+    const isCompleted = activeVote.completedAt || (totalVotes >= squadSize && squadSize > 1) || (yesCount > squadSize / 2) || (noCount > squadSize / 2);
+
+    return (
+      <div className="card" style={{
+        position: 'fixed',
+        left: '20px', right: '20px',
+        bottom: activeTab === 'map' ? '200px' : '90px', // Adjust position based on tab
+        zIndex: 2000,
+        backgroundColor: '#1f1f1f',
+        border: '1px solid #444',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+        animation: 'slideUp 0.3s ease-out'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <strong style={{ color: 'var(--primary)' }}>Squad Vote 🗳️</strong>
+          {isOwner && !isCompleted && <button onClick={endVote} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '0.8rem' }}>Ends</button>}
+          {isOwner && isCompleted && <button onClick={endVote} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '0.8rem' }}>Close</button>}
+        </div>
+        <h4 style={{ margin: '0 0 12px 0' }}>Go to {activeVote.targetAreaName}?</h4>
+
+        {!isCompleted ? (
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => castVote('yes')}
+              className="btn"
+              style={{ flex: 1, background: myVote === 'yes' ? 'var(--primary)' : '#333', opacity: myVote && myVote !== 'yes' ? 0.3 : 1 }}
+            >Lets Go</button>
+            <button
+              onClick={() => castVote('no')}
+              className="btn"
+              style={{ flex: 1, background: myVote === 'no' ? 'var(--error)' : '#333', opacity: myVote && myVote !== 'no' ? 0.3 : 1 }}
+            >F*** That</button>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.2rem', marginBottom: '8px' }}>
+              Vote Completed!
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+              <span style={{ color: 'var(--primary)' }}>Lets Go: {yesCount}</span>
+              <span style={{ color: 'var(--error)' }}>No: {noCount}</span>
+            </div>
+            {yesCount > noCount ? <p style={{ color: 'var(--primary)', fontWeight: 'bold', marginTop: '8px' }}>Decision: LETS GO! 🏃</p> : <p style={{ color: 'var(--error)', fontWeight: 'bold', marginTop: '8px' }}>Decision: NOPE 🙅</p>}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isDevMode) return;
+    isLongPressRef.current = false;
+    pointerDownTimeRef.current = Date.now();
+    pointerEventsRef.current = { x: e.clientX, y: e.clientY };
+
+    // Start 3s timer
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      // Trigger vote mode
+      const rect = canvasRef.current!.getBoundingClientRect();
+      const x = (pointerEventsRef.current!.x - rect.left) / rect.width;
+      const y = (pointerEventsRef.current!.y - rect.top) / rect.height;
+
+      const clickedArea = areas.find(area => isPointInPolygon({ x, y }, area.polygon));
+      if (clickedArea) {
+        setSelectedAreaForVote(clickedArea);
+        setSelectedAreaForCheckIn(null); // Clear check-in if long press
+        // Vibrate if mobile?
+        if (navigator.vibrate) navigator.vibrate(200);
+      }
+    }, 3000); // 3 seconds requested... changing to 1s for better UX testing? User said 3s. I should stick to 3s but 3s is VERY long for UI. 
+    // "hold a place on the map for 3 seconds" -> Okay, sticking to 3000ms.
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    if (isDevMode) return;
+
+    // If it wasn't a long press, treat as click check-in
+    if (!isLongPressRef.current) {
+      // handle click
+      handleCanvasClick(e as any);
+      // Also reset vote selection on normal click?
+      setSelectedAreaForVote(null);
+    }
+  };
+
+  const handlePointerLeave = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // If moved significantly, cancel long press
+    if (longPressTimerRef.current && pointerEventsRef.current) {
+      const dx = Math.abs(e.clientX - pointerEventsRef.current.x);
+      const dy = Math.abs(e.clientY - pointerEventsRef.current.y);
+      if (dx > 10 || dy > 10) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
     }
   };
 
@@ -605,6 +804,27 @@ export default function App() {
     return () => unsubscribes.forEach(unsub => unsub());
   }, [userData?.friends]);
 
+  // Listen to Squad Data for activeVote
+  useEffect(() => {
+    if (!userData?.squadId) return;
+    const unsubSquad = onSnapshot(doc(db, "squads", userData.squadId), (docSnap) => {
+      if (docSnap.exists()) {
+        setSquadData(docSnap.data());
+        const data = docSnap.data();
+        if (data.activeVote) {
+          // Check expiry
+          if (data.activeVote.completedAt && (Date.now() - data.activeVote.completedAt > 30 * 60 * 1000)) {
+            // Expired locally, maybe clean up later or just hide
+          }
+          setActiveVote(data.activeVote);
+        } else {
+          setActiveVote(null);
+        }
+      }
+    });
+    return () => unsubSquad();
+  }, [userData?.squadId]);
+
   const [incomingFriendRequests, setIncomingFriendRequests] = useState<DocumentData[]>([]);
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
 
@@ -734,11 +954,15 @@ export default function App() {
             <canvas
               ref={canvasRef}
               className="map-canvas"
-              onClick={handleCanvasClick}
+              onPointerDown={handlePointerDown}
+              onPointerUp={handlePointerUp}
+              onPointerMove={handlePointerMove}
+              onPointerLeave={handlePointerLeave}
+              // onClick={handleCanvasClick} // Removed in favor of Pointer events
               style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }}
             />
 
-            {userData?.location && (
+            {userData?.location && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) && (
               <div className="user-marker" style={{ left: `${userData.location.x * 100}%`, top: `${userData.location.y * 100}%` }}>
                 <img src={userData.photoURL || "/default-avatar.png"} className="marker-avatar" alt="Me" />
                 <div className="marker-label">You</div>
@@ -758,27 +982,50 @@ export default function App() {
               ))}
           </div>
 
-          {/* Check In Button (Moved) */}
+          {/* Check In / Vote Button */}
           <div style={{ padding: '0 4px', marginBottom: '1rem' }}>
-            <button
-              onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')}
-              className="btn btn-primary w-full"
-              style={{
-                background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                padding: '16px',
-                fontSize: '1.2rem',
-                fontWeight: 'bold',
-                borderRadius: '12px',
-                boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px'
-              }}
-            >
-              <FaMapMarkerAlt size={22} />
-              {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
-            </button>
+            {selectedAreaForVote ? (
+              <button
+                onClick={() => startVote(selectedAreaForVote)}
+                className="btn w-full"
+                style={{
+                  background: 'linear-gradient(45deg, #ff0080, #7928ca)', // Different color for vote
+                  padding: '16px',
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                  color: 'white'
+                }}
+              >
+                <FaUserFriends size={22} />
+                Vote we go to {selectedAreaForVote.name}
+              </button>
+            ) : (
+              <button
+                onClick={() => selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn')}
+                className="btn btn-primary w-full"
+                style={{
+                  background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                  padding: '16px',
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px'
+                }}
+              >
+                <FaMapMarkerAlt size={22} />
+                {selectedAreaForCheckIn ? `Check into ${selectedAreaForCheckIn.name}` : `Check In`}
+              </button>
+            )}
           </div>
 
           <h2 className="section-title">My Squad</h2>
@@ -819,17 +1066,33 @@ export default function App() {
                         <span>{leaderUid === member.uid && '👑 '}{member.displayName}</span>
                       </div>
                     </div>
-                    <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                    <p style={{ fontSize: '0.8rem', marginTop: '0.2rem', marginBottom: '0' }}>
                       {(member.ghostMode && member.ghostModeExpiry && member.ghostModeExpiry > Date.now() && member.uid !== userData.uid) ?
                         <span style={{ color: 'var(--text-muted)' }}>Ghost Mode 👻</span> :
                         (member.currentArea === 'The Wilds' ?
-                          <>Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span></> :
-                          <>Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span></>
+                          <>
+                            Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
+                              ({(() => {
+                                const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
+                                if (diff < 90) return `${Math.floor(diff)}m ago`;
+                                return `${Math.floor(diff / 60)}h ago`;
+                              })()})
+                            </span>
+                          </> :
+                          <>
+                            Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
+                              ({(() => {
+                                const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
+                                if (diff < 90) return `${Math.floor(diff)}m ago`;
+                                return `${Math.floor(diff / 60)}h ago`;
+                              })()})
+                            </span>
+                          </>
                         )
                       }
                     </p>
-                    {member.statusMessage && (
-                      <p style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0.2rem', fontStyle: 'italic', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < 12 * 60 * 60 * 1000) && (
+                      <p style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0', fontStyle: 'italic', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         "{member.statusMessage}"
                       </p>
                     )}
@@ -858,9 +1121,11 @@ export default function App() {
                 <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Invite</span>
                 <span style={{ fontSize: '0.65rem' }}>
                   {(() => {
-                    const limit = TIER_LIMITS[userData?.tier || 'free'];
-                    const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
-                    const remaining = Math.max(0, limit - currentCount);
+                    const limit = TIER_LIMITS[userData.tier || 'free'];
+                    const currentMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+                    const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
+                    const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
+                    const remaining = Math.max(0, limit - usedFriendSpots);
                     return `${remaining} left`;
                   })()}
                 </span>
@@ -880,6 +1145,12 @@ export default function App() {
     if (activeTab === 'friends') {
       return (
         <>
+          <header>
+            <div className="logo">Herd Search</div>
+            <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
+              {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
+            </div>
+          </header>
           <h2 className="section-title">Requests</h2>
           {/* Incoming Requests */}
           {incomingFriendRequests.map(req => (
@@ -939,17 +1210,33 @@ export default function App() {
                         {leaderUid === member.uid && '👑 '}
                         {member.displayName}
                       </h3>
-                      <p>
+                      <p style={{ fontSize: '0.8rem', marginTop: '0.2rem', marginBottom: '0' }}>
                         {(member.ghostMode && member.ghostModeExpiry && member.ghostModeExpiry > Date.now()) ?
                           <span style={{ color: 'var(--text-muted)' }}>Ghost Mode 👻</span> :
                           (member.currentArea === 'The Wilds' ?
-                            <>Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span></> :
-                            <>Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span></>
+                            <>
+                              Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
+                                ({(() => {
+                                  const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
+                                  if (diff < 90) return `${Math.floor(diff)}m ago`;
+                                  return `${Math.floor(diff / 60)}h ago`;
+                                })()})
+                              </span>
+                            </> :
+                            <>
+                              Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
+                                ({(() => {
+                                  const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
+                                  if (diff < 90) return `${Math.floor(diff)}m ago`;
+                                  return `${Math.floor(diff / 60)}h ago`;
+                                })()})
+                              </span>
+                            </>
                           )
                         }
                       </p>
-                      {member.statusMessage && (
-                        <p style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.2rem', fontStyle: 'italic' }}>
+                      {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < 12 * 60 * 60 * 1000) && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0', fontStyle: 'italic' }}>
                           "{member.statusMessage}" <span style={{ color: '#666' }}>
                             ({(() => {
                               const diff = (Date.now() - (member.statusTimestamp || 0)) / 60000;
@@ -993,7 +1280,7 @@ export default function App() {
               </div>
             ))}
             {/* Reuse the Invite Friends modal logic to add new friends via email */}
-            <div className="card" onClick={() => setActiveModal('inviteToSquad')} style={{ cursor: 'pointer', justifyContent: 'center', marginTop: '1rem', borderStyle: 'dashed' }}>
+            <div className="card" onClick={() => setActiveModal('addFriend')} style={{ cursor: 'pointer', justifyContent: 'center', marginTop: '1rem', borderStyle: 'dashed' }}>
               <p>+ Add Friend by Email</p>
             </div>
           </div>
@@ -1096,11 +1383,13 @@ export default function App() {
         </>
       )
     }
-  }
+  } // End renderContent
+
 
   return (
     <div className="app-container">
       {renderContent()}
+      {renderVoteWidget()}
 
       <nav className="bottom-nav">
         <button className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>
@@ -1336,26 +1625,21 @@ export default function App() {
         activeModal === 'inviteToSquad' && (
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">Invite / Add Friend</h3>
+              <h3 className="modal-header">Invite to Squad</h3>
 
-              {incomingSquadInvites.length > 0 && (
-                <div>
-                  <h4>Squad Invites</h4>
-                  {incomingSquadInvites.map(invite => (
-                    <div key={invite.id} className="card">
-                      <span>{getDisplayNameByUid(invite.from)}</span>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => handleAcceptSquadInvite(invite)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
-                        <button onClick={() => handleDeclineSquadInvite(invite)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Quick Invite Friends Section */}
               {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
-                <div className="mt-4">
+                <div>
+                  <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#ccc' }}>
+                    You have <strong>{(() => {
+                      const limit = TIER_LIMITS[userData.tier || 'free'];
+                      const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
+                      const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
+                      return Math.max(0, limit - (currentCount + pendingCount));
+                    })()}</strong> spots left.
+                    <br />
+                    <span style={{ fontSize: '0.8rem', color: '#888' }}>(Pending invites reserve a spot)</span>
+                  </p>
+
                   <h4>Invite from Friends List</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
                     {friendsData.filter(f => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
@@ -1382,11 +1666,23 @@ export default function App() {
                 </div>
               )}
 
+              <div className="modal-actions" style={{ marginTop: '1rem' }}>
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {
+        activeModal === 'addFriend' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">Add Friend</h3>
               <div className="mt-4">
                 <h4>Search User by Email</h4>
                 <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
                 <button onClick={async () => {
-                  // Logic for email invite...
                   if (!friendEmail || !currentUser) return;
                   try {
                     if (friendEmail.toLowerCase() === currentUser.email?.toLowerCase()) return;
@@ -1398,7 +1694,6 @@ export default function App() {
                     // Check if already friends
                     const userFriends = userData?.friends || [];
                     if (userFriends.includes(friendUid)) {
-                      // If already friend, do NOT invite to squad per request. Just say already friends.
                       showAlert("You are already friends with this user!");
                       setFriendEmail('');
                     } else {
@@ -1406,12 +1701,16 @@ export default function App() {
                       await handleSendFriendRequest(friendUid);
                     }
                   } catch (e) { console.error(e); }
-                }} className="btn btn-primary w-full">Send Friend Request / Invite</button>
+                }} className="btn btn-primary w-full">Send Friend Request</button>
+              </div>
+              <div className="modal-actions" style={{ marginTop: '1rem' }}>
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
               </div>
             </div>
           </div>
         )
       }
+
 
       {
         activeModal === 'alert' && (
