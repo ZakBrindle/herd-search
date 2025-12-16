@@ -15,6 +15,8 @@ import { auth, db, messaging } from './firebase';
 import { getToken, onMessage } from "firebase/messaging";
 
 // --- Type Definitions ---
+import LocationPicker from './components/LocationPicker';
+
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
 type Tier = 'free' | 'basic' | 'standard' | 'premium' | 'festival';
@@ -141,6 +143,10 @@ export default function App() {
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
   const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
+  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
+  const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
+  const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     localStorage.setItem('useSandboxStripe', useSandboxStripe.toString());
@@ -211,17 +217,9 @@ export default function App() {
     return () => navigator.geolocation.clearWatch(id);
   }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode]);
 
-  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
-  const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
-  const [showSplash, setShowSplash] = useState(true);
+  // ... (skip lines) ...
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, []);
-
+  // --- Main Component ---
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2266,14 +2264,19 @@ export default function App() {
                   onChange={e => setTempCalibration({ ...tempCalibration, west: parseFloat(e.target.value) })} />
               </div>
 
-              <button onClick={() => {
-                if (!navigator.geolocation) return showAlert("GPS not supported");
-                navigator.geolocation.getCurrentPosition((pos) => {
-                  setTempCalibration(prev => ({ ...prev, north: pos.coords.latitude, west: pos.coords.longitude }));
-                }, (err) => showAlert("GPS Error: " + err.message));
-              }} className="btn btn-secondary" style={{ gridColumn: '1 / -1', fontSize: '0.8rem', padding: '4px' }}>
-                Get from GPS (Top-Left)
-              </button>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button onClick={() => {
+                  if (!navigator.geolocation) return showAlert("GPS not supported");
+                  navigator.geolocation.getCurrentPosition((pos) => {
+                    setTempCalibration(prev => ({ ...prev, north: pos.coords.latitude, west: pos.coords.longitude }));
+                  }, (err) => showAlert("GPS Error: " + err.message));
+                }} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px' }}>
+                  Get from Device GPS
+                </button>
+                <button onClick={() => setPickingLocationFor('NW')} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px', background: 'var(--primary)', color: 'black' }}>
+                  Pick on Map 📍
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
@@ -2289,14 +2292,19 @@ export default function App() {
                   onChange={e => setTempCalibration({ ...tempCalibration, east: parseFloat(e.target.value) })} />
               </div>
 
-              <button onClick={() => {
-                if (!navigator.geolocation) return showAlert("GPS not supported");
-                navigator.geolocation.getCurrentPosition((pos) => {
-                  setTempCalibration(prev => ({ ...prev, south: pos.coords.latitude, east: pos.coords.longitude }));
-                }, (err) => showAlert("GPS Error: " + err.message));
-              }} className="btn btn-secondary" style={{ gridColumn: '1 / -1', fontSize: '0.8rem', padding: '4px' }}>
-                Get from GPS (Bottom-Right)
-              </button>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button onClick={() => {
+                  if (!navigator.geolocation) return showAlert("GPS not supported");
+                  navigator.geolocation.getCurrentPosition((pos) => {
+                    setTempCalibration(prev => ({ ...prev, south: pos.coords.latitude, east: pos.coords.longitude }));
+                  }, (err) => showAlert("GPS Error: " + err.message));
+                }} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px' }}>
+                  Get from Device GPS
+                </button>
+                <button onClick={() => setPickingLocationFor('SE')} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px', background: 'var(--primary)', color: 'black' }}>
+                  Pick on Map 📍
+                </button>
+              </div>
             </div>
 
             <button onClick={async () => {
@@ -2311,6 +2319,22 @@ export default function App() {
             <button onClick={() => setActiveModal(null)} className="btn btn-secondary w-full">Close</button>
           </div>
         </div>
+      )}
+
+      {pickingLocationFor && (
+        <LocationPicker
+          initialLat={pickingLocationFor === 'NW' ? (tempCalibration.north || 53.9) : (tempCalibration.south || 53.9)}
+          initialLon={pickingLocationFor === 'NW' ? (tempCalibration.west || -2.3) : (tempCalibration.east || -2.3)}
+          onCancel={() => setPickingLocationFor(null)}
+          onPick={(lat, lon) => {
+            if (pickingLocationFor === 'NW') {
+              setTempCalibration(prev => ({ ...prev, north: lat, west: lon }));
+            } else {
+              setTempCalibration(prev => ({ ...prev, south: lat, east: lon }));
+            }
+            setPickingLocationFor(null);
+          }}
+        />
       )}
 
 
