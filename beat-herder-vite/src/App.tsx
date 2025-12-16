@@ -17,7 +17,7 @@ import { getToken, onMessage } from "firebase/messaging";
 // --- Type Definitions ---
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
-type Tier = 'free' | 'basic' | 'standard' | 'premium';
+type Tier = 'free' | 'basic' | 'standard' | 'premium' | 'festival';
 
 type Vote = {
   id: string;
@@ -1767,7 +1767,7 @@ export default function App() {
                 </p>
               </div>
 
-              {tier !== 'premium' && (
+              {tier !== 'festival' && (
                 <>
                   <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', marginBottom: '1rem' }}>
                     Upgrade Plan ⚡
@@ -1804,37 +1804,45 @@ export default function App() {
                         return showAlert(`Ghost mode is cooling down. Try again in ${Math.ceil(cooldownRemaining / 60000)} minutes.`);
                       }
 
-                      setTempDisableGhostBtn(true);
-                      setTimeout(() => setTempDisableGhostBtn(false), 5000);
-
-                      try {
-                        if (!isGhostActive) {
-                          // Enable
-                          await updateDoc(getUserDocRef(currentUser!.uid), {
-                            ghostMode: true,
-                            ghostModeExpiry: now + 3600000,
-                            ghostModeCooldown: null
-                          });
-                        } else {
-                          // Disable
+                      if (!isGhostActive) {
+                        // Turning ON
+                        setTempDisableGhostBtn(true);
+                        // Delay actual activation by 5 seconds
+                        setTimeout(async () => {
+                          try {
+                            await updateDoc(getUserDocRef(currentUser!.uid), {
+                              ghostMode: true,
+                              ghostModeExpiry: Date.now() + 3600000,
+                              ghostModeCooldown: null
+                            });
+                            setTempDisableGhostBtn(false);
+                          } catch (err) { console.error(err); setTempDisableGhostBtn(false); }
+                        }, 5000);
+                      } else {
+                        // Turning OFF -> Immediate disable + Cooldown
+                        setTempDisableGhostBtn(true); // Short disable preventing double tap
+                        try {
                           await updateDoc(getUserDocRef(currentUser!.uid), {
                             ghostMode: false,
                             ghostModeExpiry: null,
                             ghostModeCooldown: now + 600000 // 10 mins
                           });
-                        }
-                      } catch (err) { console.error(err); }
+                          setTimeout(() => setTempDisableGhostBtn(false), 1000);
+                        } catch (err) { console.error(err); setTempDisableGhostBtn(false); }
+                      }
                     }}
                   >
                     <div style={{ marginRight: '1rem', fontSize: '1.5rem' }}>👻</div>
                     <div style={{ flex: 1 }}>
                       <h3 style={{ margin: 0, color: isGhostActive ? '#03dac6' : 'white' }}>
-                        {isInCooldown ? `Cooldown (${Math.ceil(cooldownRemaining / 60000)}m)` : 'Ghost Mode'}
+                        {tempDisableGhostBtn && !isGhostActive ? 'Turning on Ghost Mode...' : (isInCooldown ? `Cooldown (${Math.ceil(cooldownRemaining / 60000)}m)` : 'Ghost Mode')}
                       </h3>
                       <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                        {isInCooldown
-                          ? "Waiting for implementation recharge..."
-                          : (isGhostActive ? "Active: You are hidden from the map." : "Tap to mask your location for 1 hour.")}
+                        {tempDisableGhostBtn && !isGhostActive
+                          ? "Activating..."
+                          : (isInCooldown
+                            ? "Recharging..."
+                            : (isGhostActive ? "Active: You are hidden from the map." : "Tap to mask your location for 1 hour."))}
                       </p>
                     </div>
                     <div style={{
