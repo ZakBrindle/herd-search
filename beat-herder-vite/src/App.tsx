@@ -1576,7 +1576,7 @@ export default function App() {
                         }
 
                         await updateDoc(getUserDocRef(userData!.uid), updateData);
-                        setGpsRefreshButtonText('GPS Location Refreshed!');
+                        setGpsRefreshButtonText('GPS Location Updated');
                         setTimeout(() => setGpsRefreshButtonText(null), 1200);
                       } catch (e) {
                         console.error(e);
