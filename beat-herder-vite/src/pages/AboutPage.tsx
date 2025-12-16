@@ -40,7 +40,7 @@ export default function AboutPage() {
                     <div>
                         <h4 style={{ margin: 0 }}>The Map</h4>
                         <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                            See where your friends are in real-time. Tap on the map to see who is where. Long press on a location to start a Squad Vote.
+                            See where your friends are in real-time. Long press on a location to start a Squad Vote.
                         </p>
                     </div>
                 </div>
@@ -50,7 +50,7 @@ export default function AboutPage() {
                     <div>
                         <h4 style={{ margin: 0 }}>Squads</h4>
                         <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                            Create a Squad to group up for an event. Squad members share location with each other. Invite friends from the "My Squad" section.
+                            Create a Squad and share your live location with each other.
                         </p>
                     </div>
                 </div>
@@ -60,7 +60,7 @@ export default function AboutPage() {
                     <div>
                         <h4 style={{ margin: 0 }}>Ghost Mode</h4>
                         <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                            Want some privacy? Enable Ghost Mode in your profile to hide your location for an hour.
+                            Want some privacy? Enable Ghost Mode in your profile to hide your location.
                         </p>
                     </div>
                 </div>
@@ -70,14 +70,14 @@ export default function AboutPage() {
                     <div>
                         <h4 style={{ margin: 0 }}>Check In</h4>
                         <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                            GPS Acting up? Manually Check In to a festival area to update your location for your squad.
+                            GPS Acting up? Manually Check In to a festival area to update your location.
                         </p>
                     </div>
                 </div>
 
                 <div style={{ marginTop: '3rem', textAlign: 'center', color: '#666', fontSize: '0.8rem' }}>
                     <p>Herd Search &copy; 2025</p>
-                    <p>Version 1.0.0 (Beta)</p>
+                    <p>Version 1.0.1 (Beta)</p>
                 </div>
 
                 <button
