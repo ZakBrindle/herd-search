@@ -164,9 +164,12 @@ export default function App() {
 
   // GPS Tracking Logic
   useEffect(() => {
-    if (!userData?.useGps || !mapCalibration || !userData?.uid) return;
-    if (!navigator.geolocation) return;
+    if (!userData?.uid) return;
+    if (userData?.useGps === false) { console.log("GPS: Disabled by user settings"); return; }
+    if (!mapCalibration) { console.log("GPS: Waiting for Map Calibration"); return; }
+    if (!navigator.geolocation) { console.log("GPS: Not supported"); return; }
 
+    console.log("GPS: Starting Watch Position");
     const id = navigator.geolocation.watchPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -189,8 +192,12 @@ export default function App() {
         // For now update every change (throttling handled by watchPosition somewhat, but could be noisy)
         // We can add a throttle or distance check if needed.
         // Also check if we are in Ghost Mode
-        if (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) return;
+        if (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) {
+          console.log("GPS: Ghost Mode Active, skipping update");
+          return;
+        }
 
+        console.log("GPS: Update", { latitude, longitude, x, y });
         try {
           await updateDoc(getUserDocRef(userData.uid), {
             location: newPoint,
@@ -198,7 +205,7 @@ export default function App() {
           });
         } catch (e) { console.error("Error updating GPS location", e); }
       },
-      (err) => console.error(err),
+      (err) => console.error("GPS Watch Error:", err),
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
     );
     return () => navigator.geolocation.clearWatch(id);
