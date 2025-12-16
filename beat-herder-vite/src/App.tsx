@@ -824,14 +824,14 @@ export default function App() {
     }
   };
 
-  const handleUpgrade = async (planId: Tier) => {
+  const handleUpgrade = async (planId: Tier, forceOverride = false) => {
     // If Admin Dev Mode for Cycling is on, just switch instantly without payment simulation logic (conceptually)
     // Here we just use the same logic but the user perception of "payment" is bypassed by intent.
     // In a real app, successful payment callback would trigger this.
 
     if (!currentUser) return;
     try {
-      if (useSandboxStripe && userData?.isDev) {
+      if ((useSandboxStripe || forceOverride) && userData?.isDev) {
         // Just set it directly
         if (planId === 'free') {
           // Reset Logic: Remove everyone from squad, cancel invites
@@ -2096,7 +2096,7 @@ export default function App() {
                   <select
                     className="input-field"
                     value={userData?.tier || 'free'}
-                    onChange={(e) => handleUpgrade(e.target.value as Tier)}
+                    onChange={(e) => handleUpgrade(e.target.value as Tier, true)}
                   >
                     <option value="free">Free</option>
                     {PLANS.map(p => (
@@ -2390,6 +2390,9 @@ export default function App() {
 
               <div className="modal-actions" style={{ marginTop: '1rem' }}>
                 <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
+                {friendsData.filter(f => f.squadId !== userData?.squadId).length === 0 && (
+                  <button onClick={() => setActiveModal('addFriend')} className="btn btn-primary">Invite a Friend +</button>
+                )}
               </div>
             </div>
           </div>
