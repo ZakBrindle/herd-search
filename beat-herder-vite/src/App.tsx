@@ -731,8 +731,8 @@ export default function App() {
         // Vibrate if mobile?
         if (navigator.vibrate) navigator.vibrate(200);
       }
-    }, 1000); // 1 seconds requested
-    // "hold a place on the map for 1 seconds"
+    }, 800); // 0.8 seconds requested
+    // "hold a place on the map for 0.8 seconds"
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -1917,6 +1917,44 @@ export default function App() {
                 </>
               )}
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
+
+              {/* Live Location Toggle */}
+              <div
+                className="card"
+                onClick={async () => {
+                  const newValue = !(userData?.useGps ?? true);
+                  await handleGpsToggle(newValue);
+                }}
+                style={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                  background: (userData?.useGps ?? true) ? 'rgba(3, 218, 198, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                  border: (userData?.useGps ?? true) ? '1px solid rgba(3, 218, 198, 0.3)' : '1px solid #333',
+                  borderRadius: '12px',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                <div style={{ marginRight: '1rem', fontSize: '1.5rem' }}>📍</div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: 0, color: (userData?.useGps ?? true) ? '#03dac6' : 'white' }}>
+                    Live Location
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                    {(userData?.useGps ?? true)
+                      ? "Active: Your location updates every 2 minutes."
+                      : "Tap to enable automatic GPS tracking."}
+                  </p>
+                </div>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '50%',
+                  backgroundColor: (userData?.useGps ?? true) ? '#03dac6' : '#333',
+                  border: '1px solid #555'
+                }} />
+              </div>
+
               {/* Ghost Mode Toggle */}
               {(() => {
                 const isGhostActive = userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now();
@@ -2222,14 +2260,6 @@ export default function App() {
                       position: 'absolute', top: '2px', left: useSandboxStripe ? '22px' : '2px',
                       transition: 'left 0.3s'
                     }} />
-                  </div>
-                </div>
-
-                {/* GPS Toggle */}
-                <div className="card" onClick={() => handleGpsToggle(!(userData?.useGps ?? true))} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span>Use Real Device GPS</span>
-                  <div style={{ width: '40px', height: '20px', background: (userData?.useGps ?? true) ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
-                    <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: (userData?.useGps ?? true) ? '22px' : '2px', transition: 'left 0.3s' }} />
                   </div>
                 </div>
 
