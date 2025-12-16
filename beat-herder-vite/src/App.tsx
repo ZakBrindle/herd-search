@@ -1680,7 +1680,7 @@ export default function App() {
         <>
           <header>
             <div className="logo">Profile</div>
-            {(userData?.isDev || currentUser?.email?.toLowerCase() === (import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS || 'z4kbrindle@gmail.com').toLowerCase()) && (
+            {userData?.isDev && (
               <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
                 <FaCog size={24} color="var(--text-muted)" />
               </div>
@@ -1873,7 +1873,7 @@ export default function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-header">Settings</h3>
 
-            {(userData?.isDev || currentUser?.email?.toLowerCase() === (import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS || 'z4kbrindle@gmail.com').toLowerCase()) && (
+            {userData?.isDev && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <span>Use GPS (Simulated)</span>
