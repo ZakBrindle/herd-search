@@ -1729,7 +1729,7 @@ export default function App() {
                     Upgrade Plan ⚡
                   </button>
                   <div style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
-                    <Link to="/terms" style={{ color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
+                    <Link to="/terms" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
                   </div>
 
                   <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
