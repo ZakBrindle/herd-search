@@ -820,7 +820,7 @@ export default function App() {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
           // Note: In production you often need a VAPID key: getToken(messaging, { vapidKey: 'YOUR_KEY' });
-          const currentToken = await getToken(messaging);
+          const currentToken = await getToken(messaging, { vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY });
           if (currentToken) {
             await updateDoc(getUserDocRef(currentUser.uid), {
               fcmToken: currentToken
