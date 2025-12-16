@@ -1970,7 +1970,7 @@ export default function App() {
                         id="statusInputSelf"
                         placeholder="What's on your mind?"
                         className="input-field"
-                        style={{ flex: 1 }}
+                        style={{ flex: 1, height: '44px', boxSizing: 'border-box' }}
                         defaultValue={userData?.statusMessage || ''}
                         onKeyDown={async (e) => {
                           if (e.key === 'Enter') {
@@ -1997,7 +1997,7 @@ export default function App() {
                           showAlert("Status updated!");
                           setSelectedMember(null);
                         } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
-                      }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>➜</button>
+                      }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', height: '44px', boxSizing: 'border-box' }}>➜</button>
                     </div>
                   </div>
                 )}
