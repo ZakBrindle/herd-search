@@ -46,6 +46,7 @@ type UserData = DocumentData & {
   email?: string;
   ghostMode?: boolean;
   ghostModeExpiry?: number;
+  isDev?: boolean;
   statusMessage?: string;
   statusTimestamp?: number;
 };
@@ -106,6 +107,14 @@ export default function App() {
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
 
   const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // --- Refs ---
   const mapImageRef = useRef<HTMLImageElement>(null);
@@ -781,7 +790,7 @@ export default function App() {
 
     if (!currentUser) return;
     try {
-      if (allowTierCycling && currentUser.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS) {
+      if (allowTierCycling && userData?.isDev) {
         // Just set it directly
         if (planId === 'free') {
           // Reset Logic: Remove everyone from squad, cancel invites
@@ -893,13 +902,16 @@ export default function App() {
         const publicProfileRef = doc(getPublicProfileCollection(), user.uid);
         const userDoc = await getDoc(userRef);
 
+        const isDev = user.email === 'z4kbrindle@gmail.com';
+
         if (!userDoc.exists()) {
           const profileData = {
             uid: user.uid,
             displayName: user.displayName,
             email: user.email?.toLowerCase(),
             photoURL: user.photoURL,
-            tier: 'free'
+            tier: 'free',
+            isDev
           };
           await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
           await setDoc(publicProfileRef, profileData);
@@ -915,6 +927,9 @@ export default function App() {
             squadOwnerId: user.uid,
           });
         } else {
+          if (isDev) {
+            await updateDoc(userRef, { isDev: true });
+          }
           const data = userDoc.data();
           if (!data?.squadId) {
             const squadDoc = await addDoc(collection(db, "squads"), {
@@ -1625,7 +1640,7 @@ export default function App() {
         <>
           <header>
             <div className="logo">Profile</div>
-            {currentUser?.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS && (
+            {userData?.isDev && (
               <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
                 <FaCog size={24} color="var(--text-muted)" />
               </div>
@@ -1731,6 +1746,23 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {showSplash && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: '#000',
+          zIndex: 9999,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          animation: 'fadeOut 0.5s ease-out 0.5s forwards' // Fades out not just vanishes
+        }}>
+          <img src="/logo-flash.png" alt="Splash" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
+        </div>
+      )}
       {renderContent()}
 
       <nav className="bottom-nav">
@@ -1755,7 +1787,7 @@ export default function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-header">Settings</h3>
 
-            {currentUser?.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS && (
+            {userData?.isDev && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <span>Use GPS (Simulated)</span>
@@ -1861,7 +1893,7 @@ export default function App() {
               <h3 className="modal-header">Settings</h3>
 
               {/* Developer Settings Section inside Modal */}
-              {currentUser?.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS && (
+              {userData?.isDev && (
                 <div style={{ marginBottom: '2rem' }}>
                   <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Developer</h4>
                   <div className="card" onClick={() => setUseSandboxStripe(!useSandboxStripe)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1881,7 +1913,7 @@ export default function App() {
               )}
 
               {/* Dev Settings Options */}
-              {currentUser?.email === import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS && (
+              {userData?.isDev && (
                 <>
                   {/* Manage Locations */}
                   <div className="card" onClick={() => setActiveModal('locations')} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
