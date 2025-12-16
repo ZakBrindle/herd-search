@@ -151,6 +151,7 @@ export default function App() {
   const [gpsRefreshInterval, setGpsRefreshInterval] = useState(5); // Default 5 seconds
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [gpsTimeoutCount, setGpsTimeoutCount] = useState(0);
+  const [showShareLink, setShowShareLink] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500);
@@ -317,14 +318,27 @@ export default function App() {
 
 
   // --- Utility & Helper Functions ---
-  const showAlert = (message: string) => {
+  const showAlert = (message: string, showShareButton = false) => {
     setAlertMessage(message);
+    setShowShareLink(showShareButton);
     setActiveModal('alert');
   };
 
   const showConfirm = (message: string, onConfirm: () => void) => {
     setConfirmAction({ message, onConfirm });
     setActiveModal('confirm');
+  };
+
+  const copyInviteLink = async () => {
+    if (!currentUser?.uid) return;
+    const inviteLink = `${window.location.origin}?invite=${currentUser.uid}`;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      showAlert("Invite link copied to clipboard!");
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      showAlert("Failed to copy link");
+    }
   };
 
   const getPublicProfileCollection = () => collection(db, 'public/user_profiles/users');
@@ -2850,7 +2864,7 @@ export default function App() {
                       if (friendEmail.toLowerCase() === currentUser.email?.toLowerCase()) return;
                       const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
                       const querySnapshot = await getDocs(q);
-                      if (querySnapshot.empty) { showConfirm("User not found!", () => { }); return; }
+                      if (querySnapshot.empty) { showAlert("User not found! Share your invite link to invite them.", true); return; }
                       const friendUid = querySnapshot.docs[0].id;
 
                       // Check if already friends
@@ -2878,9 +2892,12 @@ export default function App() {
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <p className="text-center">{alertMessage}</p>
               <div className="modal-actions" style={{ justifyContent: 'center', gap: '8px' }}>
-                <button onClick={() => { setActiveModal(null); setAlertIsUpgrade(false); }} className="btn btn-secondary">OK</button>
+                <button onClick={() => { setActiveModal(null); setAlertIsUpgrade(false); setShowShareLink(false); }} className="btn btn-secondary">OK</button>
                 {alertIsUpgrade && (
                   <button onClick={() => { setActiveModal('upgrade'); setAlertIsUpgrade(false); }} className="btn" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', color: 'black', fontWeight: 'bold' }}>Upgrade Plan ⚡</button>
+                )}
+                {showShareLink && (
+                  <button onClick={copyInviteLink} className="btn btn-primary">📋 Share Link</button>
                 )}
               </div>
             </div>
