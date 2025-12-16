@@ -200,8 +200,11 @@ export default function App() {
 
         // Determine which area the user is in
         let foundArea: Area | null = null;
+        console.log(`GPS: Checking ${areas.length} areas for point (${x.toFixed(4)}, ${y.toFixed(4)})`);
         for (const area of areas) {
-          if (isPointInPolygon(newPoint, area.polygon)) {
+          const isInside = isPointInPolygon(newPoint, area.polygon);
+          console.log(`GPS: Area "${area.name}" - ${isInside ? 'INSIDE' : 'outside'}`);
+          if (isInside) {
             foundArea = area;
             break;
           }
@@ -209,7 +212,7 @@ export default function App() {
 
         const areaName = foundArea ? foundArea.name : 'The Wilds';
 
-        console.log("GPS: Update", { latitude, longitude, x, y, area: areaName });
+        console.log("GPS: Update", { latitude, longitude, x, y, area: areaName, foundArea: !!foundArea });
 
         try {
           const updateData: any = {
@@ -223,7 +226,9 @@ export default function App() {
             updateData.lastKnownArea = areaName;
           }
 
+          console.log("GPS: Updating Firestore with:", updateData);
           await updateDoc(getUserDocRef(userData.uid), updateData);
+          console.log("GPS: Firestore update successful");
         } catch (e) { console.error("Error updating GPS location", e); }
       },
       (err) => console.error("GPS Watch Error:", err),
