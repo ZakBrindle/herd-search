@@ -148,6 +148,10 @@ export default function App() {
   const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
   const [showSplash, setShowSplash] = useState(true);
   const [gpsRefreshButtonText, setGpsRefreshButtonText] = useState<string | null>(null);
+  const [gpsRefreshInterval, setGpsRefreshInterval] = useState(() => {
+    const saved = localStorage.getItem('gpsRefreshInterval');
+    return saved ? parseInt(saved) : 5;
+  });
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2500);
@@ -157,6 +161,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('useSandboxStripe', useSandboxStripe.toString());
   }, [useSandboxStripe]);
+
+  useEffect(() => {
+    localStorage.setItem('gpsRefreshInterval', gpsRefreshInterval.toString());
+  }, [gpsRefreshInterval]);
 
   const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
@@ -182,7 +190,7 @@ export default function App() {
     if (!navigator.geolocation) { console.log("GPS: Not supported"); return; }
     if (areas.length === 0) { console.log("GPS: Waiting for areas to load"); return; }
 
-    console.log("GPS: Starting live location tracking (every 10 seconds)");
+    console.log(`GPS: Starting live location tracking (every ${gpsRefreshInterval} seconds)`);
 
     const updateGpsLocation = async () => {
       // Double-check areas are still loaded
@@ -250,11 +258,11 @@ export default function App() {
     // Update immediately on mount
     updateGpsLocation();
 
-    // Then update every 10 seconds
-    const intervalId = setInterval(updateGpsLocation, 10000);
+    // Then update every X seconds based on setting
+    const intervalId = setInterval(updateGpsLocation, gpsRefreshInterval * 1000);
 
     return () => clearInterval(intervalId);
-  }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode, areas]);
+  }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode, areas, gpsRefreshInterval]);
 
   // ... (skip lines) ...
 
@@ -2304,6 +2312,30 @@ export default function App() {
                   <div style={{ width: '40px', height: '20px', background: showZones ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
                     <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: showZones ? '22px' : '2px', transition: 'left 0.3s' }} />
                   </div>
+                </div>
+
+                {/* GPS Refresh Interval */}
+                <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '0.5rem', padding: '1rem' }}>
+                  <label style={{ fontSize: '0.9rem', marginBottom: '0.5rem', display: 'block' }}>
+                    GPS Refresh Interval (seconds)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={gpsRefreshInterval}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val >= 1 && val <= 60) {
+                        setGpsRefreshInterval(val);
+                      }
+                    }}
+                    className="input-field"
+                    style={{ width: '100%' }}
+                  />
+                  <small style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '0.75rem' }}>
+                    How often to update GPS location (1-60 seconds). Lower = more frequent updates.
+                  </small>
                 </div>
 
                 <button onClick={() => setActiveModal('locations')} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
