@@ -1386,7 +1386,10 @@ export default function App() {
             />
 
             {userData?.location && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) && (
-              <div className="user-marker" style={{ left: `${userData.location.x * 100}% `, top: `${userData.location.y * 100}% ` }}>
+              <div className="user-marker" style={{
+                left: `${Math.max(0, Math.min(100, userData.location.x * 100))}%`,
+                top: `${Math.max(0, Math.min(100, userData.location.y * 100))}%`
+              }}>
                 <img src={userData.photoURL || "/default-avatar.png"} className="marker-avatar" alt="Me" />
                 <div className="marker-label">You</div>
               </div>
@@ -1395,7 +1398,10 @@ export default function App() {
             {friendsData
               .filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()))
               .map(u => (
-                <div key={u.uid} className="user-marker" style={{ left: `${u.location!.x * 100}% `, top: `${u.location!.y * 100}% ` }}>
+                <div key={u.uid} className="user-marker" style={{
+                  left: `${Math.max(0, Math.min(100, u.location!.x * 100))}%`,
+                  top: `${Math.max(0, Math.min(100, u.location!.y * 100))}%`
+                }}>
                   <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
                   {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                     <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
