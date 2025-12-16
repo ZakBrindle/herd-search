@@ -1939,6 +1939,92 @@ export default function App() {
       </nav>
 
       {/* Modals */}
+      {
+        selectedMember && (
+          <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <div style={{ textAlign: 'center' }}>
+                <img src={selectedMember.photoURL!} alt="Avatar" className="avatar" style={{ width: 80, height: 80, marginBottom: '1rem' }} />
+                <h2>{selectedMember.displayName}</h2>
+                {selectedMemberContext !== 'friend' && <p>{selectedMember.currentArea || "Unknown Location"}</p>}
+
+                {/* Status Update for Self */}
+                {selectedMember.uid === userData?.uid && (
+                  <div style={{ marginTop: '1rem', width: '100%' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+                      <input
+                        type="text"
+                        id="statusInputSelf"
+                        placeholder="What's on your mind?"
+                        className="input-field"
+                        style={{ flex: 1 }}
+                        defaultValue={userData?.statusMessage || ''}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            const val = (e.target as HTMLInputElement).value;
+                            try {
+                              await updateDoc(getUserDocRef(currentUser!.uid), {
+                                statusMessage: val,
+                                statusTimestamp: Date.now()
+                              });
+                              showAlert("Status updated!");
+                              setSelectedMember(null);
+                            } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
+                          }
+                        }}
+                      />
+                      <button onClick={async () => {
+                        const input = document.getElementById('statusInputSelf') as HTMLInputElement;
+                        const val = input.value;
+                        try {
+                          await updateDoc(getUserDocRef(currentUser!.uid), {
+                            statusMessage: val,
+                            statusTimestamp: Date.now()
+                          });
+                          showAlert("Status updated!");
+                          setSelectedMember(null);
+                        } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
+                      }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>➜</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Case 1: Friend is in MY squad and I am leader -> Kick */}
+                {getSquadLeaderUid() === userData?.uid && selectedMember.squadId === userData?.squadId && selectedMember.uid !== userData?.uid && (
+                  <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
+                )}
+
+                {/* Case 2: Friend is NOT in MY squad (could be no squad or other squad) and I have capacity -> Invite */}
+                {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (userData.tier !== 'free') && (
+                  <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
+                )}
+
+
+
+                {/* Case 3: I want to remove them from my friend list (always available if not self) - ONLY IN FRIEND CONTEXT */}
+                {selectedMember.uid !== userData?.uid && selectedMemberContext === 'friend' && (
+                  <button onClick={() => {
+                    // Remove friend logic
+                    showConfirm(`Remove ${selectedMember.displayName} from friends ? `, async () => {
+                      try {
+                        await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
+                        setSelectedMember(null);
+                        showAlert("Friend removed.");
+                      } catch (e) { console.error(e); }
+                    });
+                  }} className="btn btn-danger w-full mt-4" style={{ background: 'transparent', border: '1px solid var(--error)' }}>Remove Friend</button>
+                )}
+
+                {selectedMember.uid === userData?.uid && userData?.squadOwnerId !== userData?.uid && (
+                  <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4">Leave Squad</button>
+                )}
+                <button onClick={() => setSelectedMember(null)} className="btn btn-secondary w-full mt-4">Close</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
       {activeModal === 'settings' && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -2412,91 +2498,7 @@ export default function App() {
         )
       }
 
-      {
-        selectedMember && (
-          <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <div style={{ textAlign: 'center' }}>
-                <img src={selectedMember.photoURL!} alt="Avatar" className="avatar" style={{ width: 80, height: 80, marginBottom: '1rem' }} />
-                <h2>{selectedMember.displayName}</h2>
-                {selectedMemberContext !== 'friend' && <p>{selectedMember.currentArea || "Unknown Location"}</p>}
 
-                {/* Status Update for Self */}
-                {selectedMember.uid === userData?.uid && (
-                  <div style={{ marginTop: '1rem', width: '100%' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
-                      <input
-                        type="text"
-                        id="statusInputSelf"
-                        placeholder="What's on your mind?"
-                        className="input-field"
-                        style={{ flex: 1 }}
-                        defaultValue={userData?.statusMessage || ''}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter') {
-                            const val = (e.target as HTMLInputElement).value;
-                            try {
-                              await updateDoc(getUserDocRef(currentUser!.uid), {
-                                statusMessage: val,
-                                statusTimestamp: Date.now()
-                              });
-                              showAlert("Status updated!");
-                              setSelectedMember(null);
-                            } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
-                          }
-                        }}
-                      />
-                      <button onClick={async () => {
-                        const input = document.getElementById('statusInputSelf') as HTMLInputElement;
-                        const val = input.value;
-                        try {
-                          await updateDoc(getUserDocRef(currentUser!.uid), {
-                            statusMessage: val,
-                            statusTimestamp: Date.now()
-                          });
-                          showAlert("Status updated!");
-                          setSelectedMember(null);
-                        } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
-                      }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>➜</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Case 1: Friend is in MY squad and I am leader -> Kick */}
-                {getSquadLeaderUid() === userData?.uid && selectedMember.squadId === userData?.squadId && selectedMember.uid !== userData?.uid && (
-                  <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
-                )}
-
-                {/* Case 2: Friend is NOT in MY squad (could be no squad or other squad) and I have capacity -> Invite */}
-                {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (userData.tier !== 'free') && (
-                  <button onClick={() => { setSelectedMember(null); handleInviteToSquad(selectedMember.uid); }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
-                )}
-
-
-
-                {/* Case 3: I want to remove them from my friend list (always available if not self) - ONLY IN FRIEND CONTEXT */}
-                {selectedMember.uid !== userData?.uid && selectedMemberContext === 'friend' && (
-                  <button onClick={() => {
-                    // Remove friend logic
-                    showConfirm(`Remove ${selectedMember.displayName} from friends ? `, async () => {
-                      try {
-                        await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
-                        setSelectedMember(null);
-                        showAlert("Friend removed.");
-                      } catch (e) { console.error(e); }
-                    });
-                  }} className="btn btn-danger w-full mt-4" style={{ background: 'transparent', border: '1px solid var(--error)' }}>Remove Friend</button>
-                )}
-
-                {selectedMember.uid === userData?.uid && userData?.squadOwnerId !== userData?.uid && (
-                  <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4">Leave Squad</button>
-                )}
-                <button onClick={() => setSelectedMember(null)} className="btn btn-secondary w-full mt-4">Close</button>
-              </div>
-            </div>
-          </div>
-        )
-      }
     </div >
   );
 }
