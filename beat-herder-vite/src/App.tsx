@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes
 } from 'react-icons/fa';
@@ -75,6 +76,7 @@ const PLANS = [
 
 // --- Main Component ---
 export default function App() {
+  const navigate = useNavigate();
   // --- State Management ---
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -1687,10 +1689,14 @@ export default function App() {
               </div>
 
               {tier !== 'premium' && (
-                <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', marginBottom: '1rem' }}>
-                  Upgrade Plan ⚡
-                </button>
+                <>
+                  <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', marginBottom: '1rem' }}>
+                    Upgrade Plan ⚡
+                  </button>
+                  <hr style={{ borderColor: '#333', margin: '1rem 0', width: '100%' }} />
+                </>
               )}
+
               {/* Ghost Mode Toggle */}
               <div
                 className="card"
@@ -1733,6 +1739,7 @@ export default function App() {
                   border: '1px solid #555'
                 }} />
               </div>
+              <hr style={{ borderColor: '#333', margin: '1rem 0', width: '100%' }} />
 
               {/* Support Buttons */}
               <button
@@ -1745,13 +1752,16 @@ export default function App() {
 
               {/* Admin Only: View All Tickets */}
               {userData?.isDev && (
-                <button
-                  onClick={() => window.location.href = '/admin/support'}
-                  className="btn btn-secondary w-full"
-                  style={{ marginBottom: '1rem', border: '1px solid var(--primary)', color: 'var(--primary)' }}
-                >
-                  <span>🛡️</span> Manage Support Tickets
-                </button>
+                <>
+                  <button
+                    onClick={() => navigate('/admin/support')}
+                    className="btn btn-secondary w-full"
+                    style={{ marginBottom: '1rem', border: '1px solid var(--primary)', color: 'var(--primary)' }}
+                  >
+                    <span>🛡️</span> Manage Support Tickets
+                  </button>
+                  <hr style={{ borderColor: '#333', margin: '1rem 0', width: '100%' }} />
+                </>
               )}
 
             </div>
@@ -1760,7 +1770,7 @@ export default function App() {
 
             <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
             <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
-              <a href="/terms" style={{ color: '#888', textDecoration: 'none' }}>Terms of Service</a>
+              <Link to="/terms" style={{ color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
             </div>
           </div>
 

@@ -1,5 +1,15 @@
 {
     "buildCommand": "cd beat-herder-vite && npm install && npm run build",
     "outputDirectory": "beat-herder-vite/dist",
-    "framework": "vite"
+    "framework": "vite",
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "/api/$1"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ]
 }

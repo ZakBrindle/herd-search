@@ -87,6 +87,12 @@ const SupportSystem = ({ currentUser, isDev = false, visible, onClose, isModal =
     const handleCreateTicket = async () => {
         if (!newSubject.trim() || !newMessage.trim()) return alert('Please fill in fields.');
 
+        // Limit to 2 open tickets per user
+        const openTickets = tickets.filter(t => t.status === 'open');
+        if (openTickets.length >= 2) {
+            return alert('You already have 2 open tickets. Please resolve or close one before opening a new one.');
+        }
+
         const initialMsg: TicketMessage = {
             senderId: currentUser.uid,
             senderName: currentUser.displayName || currentUser.email || 'User',
