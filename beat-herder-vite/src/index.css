@@ -298,6 +298,10 @@ header {
   overflow-y: auto;
 }
 
+.modal-content.wide {
+  max-width: 650px;
+}
+
 @keyframes slideUp {
   from {
     transform: translateY(20px);
@@ -340,6 +344,20 @@ header {
   margin-top: 1.5rem;
 }
 
+/* Pricing Grid */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+/* Mobile responsive for pricing grid */
+@media (max-width: 500px) {
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Pricing Cards */
 .pricing-card {
   border: 1px solid var(--border);
@@ -347,8 +365,12 @@ header {
   padding: 1.5rem;
   text-align: center;
   background: #252525;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
+  /* Remove margin bottom as gap handles it */
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .pricing-card.selected {
@@ -398,7 +420,14 @@ header {
 
 .text-center {
   text-align: center;
-}@keyframes fadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
 }

@@ -2033,7 +2033,7 @@ export default function App() {
       {
         activeModal === 'upgrade' && (
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-content wide" onClick={e => e.stopPropagation()}>
               <h3 className="modal-header">Upgrade Plan</h3>
               <div className="pricing-grid">
                 {allowTierCycling && (
