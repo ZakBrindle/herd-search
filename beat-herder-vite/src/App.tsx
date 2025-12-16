@@ -789,7 +789,10 @@ export default function App() {
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (isDevMode) return;
+    if (isDevMode) {
+      // In dev mode, let clicks through for drawing
+      return;
+    }
     isLongPressRef.current = false;
     pointerDownTimeRef.current = Date.now();
     pointerEventsRef.current = { x: e.clientX, y: e.clientY };
@@ -819,7 +822,11 @@ export default function App() {
       longPressTimerRef.current = null;
     }
 
-    if (isDevMode) return;
+    if (isDevMode) {
+      // In dev mode, handle clicks for drawing
+      handleCanvasClick(e as any);
+      return;
+    }
 
     // If it wasn't a long press, treat as click check-in
     if (!isLongPressRef.current) {
