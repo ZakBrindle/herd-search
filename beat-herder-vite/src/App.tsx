@@ -180,61 +180,71 @@ export default function App() {
     if (!mapCalibration) { console.log("GPS: Waiting for Map Calibration"); return; }
     if (!navigator.geolocation) { console.log("GPS: Not supported"); return; }
 
-    console.log("GPS: Starting Watch Position");
-    const id = navigator.geolocation.watchPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const { north, south, east, west } = mapCalibration;
+    console.log("GPS: Starting automatic updates (every 2 minutes)");
 
-        // Map (Lat, Lon) to (x, y) 0-1 range
-        let x = (longitude - west) / (east - west);
-        let y = (north - latitude) / (north - south);
+    const updateGpsLocation = async () => {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const { north, south, east, west } = mapCalibration;
 
-        const newPoint = { x, y };
+          // Map (Lat, Lon) to (x, y) 0-1 range
+          let x = (longitude - west) / (east - west);
+          let y = (north - latitude) / (north - south);
 
-        // Check if we are in Ghost Mode
-        if (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) {
-          console.log("GPS: Ghost Mode Active, skipping update");
-          return;
-        }
+          const newPoint = { x, y };
 
-        // Determine which area the user is in
-        let foundArea: Area | null = null;
-        console.log(`GPS: Checking ${areas.length} areas for point (${x.toFixed(4)}, ${y.toFixed(4)})`);
-        for (const area of areas) {
-          const isInside = isPointInPolygon(newPoint, area.polygon);
-          console.log(`GPS: Area "${area.name}" - ${isInside ? 'INSIDE' : 'outside'}`);
-          if (isInside) {
-            foundArea = area;
-            break;
-          }
-        }
-
-        const areaName = foundArea ? foundArea.name : 'The Wilds';
-
-        console.log("GPS: Update", { latitude, longitude, x, y, area: areaName, foundArea: !!foundArea });
-
-        try {
-          const updateData: any = {
-            location: newPoint,
-            lastUpdate: Date.now(),
-            currentArea: areaName
-          };
-
-          // Update lastKnownArea if not in The Wilds
-          if (areaName !== 'The Wilds') {
-            updateData.lastKnownArea = areaName;
+          // Check if we are in Ghost Mode
+          if (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) {
+            console.log("GPS: Ghost Mode Active, skipping update");
+            return;
           }
 
-          console.log("GPS: Updating Firestore with:", updateData);
-          await updateDoc(getUserDocRef(userData.uid), updateData);
-          console.log("GPS: Firestore update successful");
-        } catch (e) { console.error("Error updating GPS location", e); }
-      },
-      (err) => console.error("GPS Watch Error:", err),
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
-    );
-    return () => navigator.geolocation.clearWatch(id);
+          // Determine which area the user is in
+          let foundArea: Area | null = null;
+          console.log(`GPS: Checking ${areas.length} areas for point (${x.toFixed(4)}, ${y.toFixed(4)})`);
+          for (const area of areas) {
+            const isInside = isPointInPolygon(newPoint, area.polygon);
+            console.log(`GPS: Area "${area.name}" - ${isInside ? 'INSIDE' : 'outside'}`);
+            if (isInside) {
+              foundArea = area;
+              break;
+            }
+          }
+
+          const areaName = foundArea ? foundArea.name : 'The Wilds';
+
+          console.log("GPS: Update", { latitude, longitude, x, y, area: areaName, foundArea: !!foundArea });
+
+          try {
+            const updateData: any = {
+              location: newPoint,
+              lastUpdate: Date.now(),
+              currentArea: areaName
+            };
+
+            // Update lastKnownArea if not in The Wilds
+            if (areaName !== 'The Wilds') {
+              updateData.lastKnownArea = areaName;
+            }
+
+            console.log("GPS: Updating Firestore with:", updateData);
+            await updateDoc(getUserDocRef(userData.uid), updateData);
+            console.log("GPS: Firestore update successful");
+          } catch (e) { console.error("Error updating GPS location", e); }
+        },
+        (err) => console.error("GPS Error:", err),
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+      );
+    };
+
+    // Update immediately on mount
+    updateGpsLocation();
+
+    // Then update every 2 minutes (120000ms)
+    const intervalId = setInterval(updateGpsLocation, 120000);
+
+    return () => clearInterval(intervalId);
   }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode, areas]);
 
   // ... (skip lines) ...
