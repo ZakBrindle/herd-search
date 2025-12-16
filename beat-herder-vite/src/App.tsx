@@ -5,6 +5,7 @@ import {
 import {
   GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, type User
 } from "firebase/auth";
+import SupportSystem from './components/SupportSystem';
 import {
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection,
   query, where, getDocs, addDoc, deleteDoc, type DocumentData, arrayRemove
@@ -1729,17 +1730,54 @@ export default function App() {
                 </div>
                 <div style={{
                   width: '20px', height: '20px', borderRadius: '50%',
-                  backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : '#333',
+                  backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : '333',
                   border: '1px solid #555'
                 }} />
               </div>
+
+              {/* Support Buttons */}
+              <button
+                onClick={() => setActiveModal('support')}
+                className="btn btn-secondary w-full"
+                style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
+              >
+                <span>💬</span> Contact Support
+              </button>
+
+              {/* Admin Only: View All Tickets */}
+              {userData?.isDev && (
+                <button
+                  onClick={() => setActiveModal('adminSupport')}
+                  className="btn btn-secondary w-full"
+                  style={{ marginBottom: '1rem', border: '1px solid var(--primary)', color: 'var(--primary)' }}
+                >
+                  <span>🛡️</span> Manage Support Tickets
+                </button>
+              )}
 
             </div>
 
 
 
             <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
+            <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
+              <a href="/terms" style={{ color: '#888', textDecoration: 'none' }}>Terms of Service</a>
+            </div>
           </div>
+
+          {/* Support System Rendering */}
+          {(activeModal === 'support' || activeModal === 'adminSupport') && currentUser && (
+            <SupportSystem
+              currentUser={{
+                uid: currentUser.uid,
+                email: currentUser.email || undefined,
+                displayName: currentUser.displayName || undefined
+              }}
+              visible={true}
+              onClose={() => setActiveModal(null)}
+              isDev={activeModal === 'adminSupport'}
+            />
+          )}
         </>
       )
     }
@@ -1762,7 +1800,7 @@ export default function App() {
           alignItems: 'center',
           animation: 'fadeOut 0.5s ease-out 2s forwards' // Fades out not just vanishes
         }}>
-          <img src="/logo-flash.png" alt="Splash" style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }} />
+          <img src="/logo-flash.png" alt="Splash" style={{ width: '120px', height: 'auto', objectFit: 'contain' }} />
         </div>
       )}
       {renderContent()}

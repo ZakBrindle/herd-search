@@ -169,5 +169,17 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if request.auth.uid == userId;
     }
+
+    // --- Support Tickets ---
+    match /support_tickets/{ticketId} {
+      // Users can see their own tickets, admins can see all
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || request.auth.uid in adminUids());
+      // Users can create tickets
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Users can update (send msg) their own tickets, Admins can update any
+      allow update: if request.auth != null && (resource.data.userId == request.auth.uid || request.auth.uid in adminUids());
+      // Only admins can delete tickets
+      allow delete: if request.auth != null && request.auth.uid in adminUids();
+    }
   }
 }
