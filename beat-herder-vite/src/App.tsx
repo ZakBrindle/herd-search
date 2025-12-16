@@ -1767,9 +1767,7 @@ export default function App() {
                   <div className="pricing-card" onClick={() => handleUpgrade('free')}>
                     <h3>Free</h3>
                     <p className="price">£0.00</p>
-                    <ul>
-                      <li>Max 0 Friends in Squad (Solo)</li>
-                    </ul>
+                    <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Max 0 Friends in Squad (Solo)</p>
                     <button className="btn btn-primary w-full">Select Free</button>
                   </div>
                 )}
@@ -1784,9 +1782,7 @@ export default function App() {
                       {/* Or simpler representative icons */}
                     </div>
                     <p className="price">{plan.price}</p>
-                    <ul>
-                      <li>Max {plan.limit} Friends in Squad</li>
-                    </ul>
+                    <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Max {plan.limit} Friends in Squad</p>
                     <button className="btn btn-primary w-full">Select</button>
                   </div>
                 ))}
