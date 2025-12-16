@@ -2176,21 +2176,23 @@ export default function App() {
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
               {/* Support Buttons */}
-              <button
-                onClick={() => setActiveModal('install')}
-                className="btn btn-secondary w-full"
-                style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
-              >
-                <span>📱</span> Install App
-              </button>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
+                <button
+                  onClick={() => setActiveModal('install')}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '8px' }}
+                >
+                  <span>📱</span> Install App
+                </button>
 
-              <button
-                onClick={() => navigate('/about')}
-                className="btn btn-secondary w-full"
-                style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
-              >
-                <span>ℹ️</span> About App
-              </button>
+                <button
+                  onClick={() => navigate('/about')}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '8px' }}
+                >
+                  <span>ℹ️</span> About App
+                </button>
+              </div>
 
               <button
                 onClick={() => setActiveModal('support')}
