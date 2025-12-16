@@ -373,7 +373,6 @@ export default function App() {
     try {
       await updateDoc(doc(db, "squads", userData.squadId), { activeVote: newVote });
       setSelectedAreaForVote(null); // Reset selection
-      showAlert(`Vote started for ${area.name}!`);
     } catch (e) {
       console.error(e);
       showAlert("Failed to start vote.");
@@ -439,45 +438,119 @@ export default function App() {
         backgroundColor: '#1f1f1f',
         border: '1px solid #444',
         boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-        animation: 'slideIn 0.3s ease-out'
+        animation: 'slideIn 0.3s ease-out',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '16px'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <strong style={{ color: 'var(--primary)' }}>Squad Vote 🗳️</strong>
-          {isOwner && !isCompleted && <button onClick={endVote} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '0.8rem' }}>Ends</button>}
-          {isOwner && isCompleted && <button onClick={endVote} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '0.8rem' }}>Close</button>}
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+          <strong style={{ color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Squad Vote</strong>
+          <span style={{ fontSize: '1rem' }}>🗳️</span>
         </div>
-        <h4 style={{ margin: '0 0 12px 0' }}>Go to {activeVote.targetAreaName}?</h4>
+
+        {/* Question */}
+        <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', fontSize: '1.3rem' }}>
+          Go to <span style={{ color: 'white' }}>{activeVote.targetAreaName}</span>?
+        </h3>
 
         {!isCompleted ? (
-          <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <button
-                onClick={() => castVote('yes')}
-                className="btn"
-                style={{ width: '100%', background: myVote === 'yes' ? 'var(--primary)' : '#333', opacity: myVote && myVote !== 'yes' ? 0.3 : 1 }}
-              >Lets Go</button>
-              <div style={{ fontSize: '0.8rem', textAlign: 'center', color: 'var(--primary)' }}>{yesCount} votes</div>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Buttons Row */}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              {/* Yes Button */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <button
+                  onClick={() => castVote('yes')}
+                  className="btn"
+                  style={{
+                    width: '100%',
+                    background: myVote === 'yes' ? 'linear-gradient(45deg, var(--primary), var(--secondary))' : '#333',
+                    color: myVote === 'yes' ? '#000' : 'white',
+                    opacity: myVote && myVote !== 'yes' ? 0.3 : 1,
+                    border: 'none',
+                    fontSize: '1rem',
+                    padding: '12px'
+                  }}
+                >Lets Go</button>
+                <div style={{ fontSize: '0.8rem', textAlign: 'center', color: 'var(--primary)' }}>{yesCount} votes</div>
+              </div>
+
+              {/* No Button */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <button
+                  onClick={() => castVote('no')}
+                  className="btn"
+                  style={{
+                    width: '100%',
+                    background: myVote === 'no' ? 'var(--error)' : '#333',
+                    opacity: myVote && myVote !== 'no' ? 0.3 : 1,
+                    border: '1px solid var(--error)',
+                    fontSize: '1rem',
+                    padding: '12px'
+                  }}
+                >F*** That</button>
+                <div style={{ fontSize: '0.8rem', textAlign: 'center', color: 'var(--error)' }}>{noCount} votes</div>
+              </div>
             </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+
+            {/* Cancel Button (Owner Only) */}
+            {isOwner && (
               <button
-                onClick={() => castVote('no')}
-                className="btn"
-                style={{ width: '100%', background: myVote === 'no' ? 'var(--error)' : '#333', opacity: myVote && myVote !== 'no' ? 0.3 : 1 }}
-              >F*** That</button>
-              <div style={{ fontSize: '0.8rem', textAlign: 'center', color: 'var(--error)' }}>{noCount} votes</div>
-            </div>
+                onClick={endVote}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#666',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  marginTop: '8px',
+                  textDecoration: 'underline'
+                }}
+              >
+                Cancel Vote
+              </button>
+            )}
           </div>
         ) : (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.2rem', marginBottom: '8px' }}>
+          <div style={{ textAlign: 'center', width: '100%' }}>
+            <div style={{ fontSize: '1.2rem', marginBottom: '12px', fontWeight: 'bold', color: 'white' }}>
               Vote Completed!
             </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '10px' }}>
-              <span style={{ color: 'var(--primary)' }}>Lets Go: {yesCount}</span>
-              <span style={{ color: 'var(--error)' }}>No: {noCount}</span>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginBottom: '16px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>{yesCount}</div>
+                <div style={{ fontSize: '0.8rem', color: '#aaa' }}>Lets Go</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--error)' }}>{noCount}</div>
+                <div style={{ fontSize: '0.8rem', color: '#aaa' }}>No</div>
+              </div>
             </div>
-            <hr style={{ borderColor: '#333', margin: '8px 0' }} />
-            {yesCount > noCount ? <p style={{ color: 'var(--primary)', fontWeight: 'bold', marginTop: '8px', fontSize: '1.2rem' }}>Decision: LETS GO! 🏃</p> : <p style={{ color: 'var(--error)', fontWeight: 'bold', marginTop: '8px', fontSize: '1.2rem' }}>Decision: NOPE 🙅</p>}
+
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
+              {yesCount > noCount
+                ? <div style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '1.1rem' }}>We are going! 🏃‍♂️</div>
+                : <div style={{ color: 'var(--error)', fontWeight: 'bold', fontSize: '1.1rem' }}>Screw that! 🙅‍♂️</div>}
+            </div>
+
+            {isOwner && (
+              <button
+                onClick={endVote}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#666',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  marginTop: '12px'
+                }}
+              >
+                Close Widget
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -702,16 +775,52 @@ export default function App() {
     try {
       if (allowTierCycling && currentUser.email === 'z4kbrindle@gmail.com') {
         // Just set it directly
+        if (planId === 'free') {
+          // Reset Logic: Remove everyone from squad, cancel invites
+          if (userData?.squadId) {
+            const squadRef = doc(db, "squads", userData.squadId);
+            const snap = await getDoc(squadRef);
+            if (snap.exists()) {
+              const members = snap.data().members || [];
+              // Reset all members
+              for (const memberUid of members) {
+                await updateDoc(getUserDocRef(memberUid), { squadId: null, squadOwnerId: null });
+              }
+              // Delete squad
+              await deleteDoc(squadRef);
+            }
+
+            // Delete invites
+            const invitesQ = query(collection(db, "squadInvites"), where("from", "==", currentUser.uid));
+            const invSnap = await getDocs(invitesQ);
+            invSnap.forEach(async (d) => {
+              await deleteDoc(d.ref);
+            });
+          }
+          await updateDoc(getUserDocRef(currentUser.uid), {
+            tier: 'free',
+            subscriptionExpiry: null,
+            squadId: null, // Ensure self is reset
+            squadOwnerId: null
+          });
+          setFriendsData(prev => prev.map(f => f.squadId === userData?.squadId ? { ...f, squadId: undefined } : f));
+        } else {
+          await updateDoc(getUserDocRef(currentUser.uid), {
+            tier: planId,
+            subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
+          });
+        }
+        setActiveModal(null);
+        showAlert(`Plan updated to ${planId.toUpperCase()}!`);
       } else {
         // Simulate Payment Delay or Process here if needed
+        await updateDoc(getUserDocRef(currentUser.uid), {
+          tier: planId,
+          subscriptionExpiry: Date.now() + (365 * 24 * 60 * 60 * 1000) // 1 year
+        });
+        showAlert("Upgrade successful! You now have access to better squad features.");
+        setActiveModal(null);
       }
-
-      await updateDoc(getUserDocRef(currentUser.uid), {
-        tier: planId,
-        subscriptionExpiry: Date.now() + (365 * 24 * 60 * 60 * 1000) // 1 year
-      });
-      showAlert(allowTierCycling ? `Dev Mode: Switched to ${planId} ` : "Upgrade successful! You now have access to better squad features.");
-      setActiveModal(null);
     } catch (e) {
       console.error(e);
       showAlert("Upgrade failed.");
@@ -1407,19 +1516,30 @@ export default function App() {
             <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
 
             <div className="card" style={{ width: '100%', marginTop: '2rem', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                <h3>Current Plan</h3>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1rem',
+                  width: '100%', // Full width
+                  boxSizing: 'border-box'
+                }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.2rem' }}>💎</span>
+                  <strong>Current Plan</strong>
+                </div>
                 <span style={{
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  background: tier === 'free' ? '#333' : 'var(--secondary)',
-                  color: tier === 'free' ? '#aaa' : '#000',
+                  background: 'rgba(187, 134, 252, 0.1)',
+                  color: 'var(--primary)',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
                   fontWeight: 'bold',
                   textTransform: 'uppercase',
                   fontSize: '0.8rem'
                 }}>{tier}</span>
               </div>
-              <p>
+              <p style={{ width: '100%', boxSizing: 'border-box' }}>
                 {tier === 'free' && "You are on the Free Tier. You can join squads but cannot create your own."}
                 {tier !== 'free' && `You can invite up to ${TIER_LIMITS[tier]} friends to your squad.`}
               </p>
@@ -1726,37 +1846,34 @@ export default function App() {
 
               {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
                 <div>
-                  <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#ccc' }}>
-                    You have <strong>{(() => {
-                      const limit = TIER_LIMITS[userData.tier || 'free'];
-                      const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
-                      const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
-                      return Math.max(0, limit - (currentCount + pendingCount));
-                    })()}</strong> spots left.
-                    <br />
-                    <span style={{ fontSize: '0.8rem', color: '#888' }}>(Pending invites reserve a spot)</span>
-                  </p>
+                  {/* Upgrade Prompt if 0 spots - MOVED ABOVE TITLE */}
+                  {(() => {
+                    const limit = TIER_LIMITS[userData.tier || 'free'];
+                    const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
+                    const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
+                    const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
+
+                    if (spotsLeft === 0) {
+                      return (
+                        <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '16px', border: '1px solid #333' }}>
+                          <p style={{ fontSize: '1rem', margin: '0 0 12px 0', fontWeight: 'bold' }}>You have 0 spots left.</p>
+                          <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>Upgrade Plan ⚡</button>
+                        </div>
+                      )
+                    } else {
+                      return (
+                        <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#ccc' }}>
+                          You have <strong>{spotsLeft}</strong> spots left.
+                          <br />
+                          <span style={{ fontSize: '0.8rem', color: '#888' }}>(Pending invites reserve a spot)</span>
+                        </p>
+                      )
+                    }
+                  })()}
 
                   <h4>Invite from Friends List</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '50vh', overflowY: 'auto' }}>
                     {friendsData.filter(f => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
-
-                    {/* Upgrade Prompt if 0 spots */}
-                    {(() => {
-                      const limit = TIER_LIMITS[userData.tier || 'free'];
-                      const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
-                      const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
-                      const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
-                      if (spotsLeft === 0) {
-                        return (
-                          <div style={{ textAlign: 'center', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '10px' }}>
-                            <p style={{ fontSize: '0.9rem', margin: '0 0 8px 0' }}>You have 0 spots left.</p>
-                            <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', padding: '6px 12px', fontSize: '0.8rem' }}>Upgrade Plan ⚡</button>
-                          </div>
-                        )
-                      }
-                      return null;
-                    })()}
 
                     {friendsData
                       .filter(f => f.squadId !== userData.squadId) // Only show friends NOT in my squad
