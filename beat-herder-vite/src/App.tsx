@@ -262,20 +262,19 @@ export default function App() {
 
           // Check for timeout errors (code 3)
           if (err.code === 3) {
-            const newCount = gpsTimeoutCount + 1;
-            setGpsTimeoutCount(newCount);
-            console.log(`GPS: Timeout error ${newCount}/3`);
+            setGpsTimeoutCount(prevCount => {
+              const newCount = prevCount + 1;
+              console.log(`GPS: Timeout error ${newCount}/3`);
 
-            if (newCount >= 3) {
-              console.log("GPS: 3 consecutive timeouts, auto-disabling GPS");
-              setGpsError("Live location was disabled due to repeated GPS timeouts");
-              setGpsTimeoutCount(0); // Reset counter
-              try {
-                await handleGpsToggle(false);
-              } catch (e) {
-                console.error("Failed to disable GPS:", e);
+              if (newCount >= 3) {
+                console.log("GPS: 3 consecutive timeouts, auto-disabling GPS");
+                setGpsError("Live location was disabled due to repeated GPS timeouts");
+                handleGpsToggle(false).catch(e => console.error("Failed to disable GPS:", e));
+                return 0; // Reset counter
               }
-            }
+
+              return newCount;
+            });
           }
           // Check for network service errors
           else if (err.message && err.message.includes("network service")) {
