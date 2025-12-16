@@ -156,7 +156,7 @@ export default function App() {
   const [gpsHasLocation, setGpsHasLocation] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2500);
+    const timer = setTimeout(() => setShowSplash(false), 1500);
     return () => clearTimeout(timer);
   }, []);
 
