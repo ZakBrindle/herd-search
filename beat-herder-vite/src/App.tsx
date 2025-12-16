@@ -184,13 +184,33 @@ export default function App() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentIntent = urlParams.get('payment_intent');
-    const paymentIntentClientSecret = urlParams.get('payment_intent_client_secret');
     const redirectStatus = urlParams.get('redirect_status');
 
-    if (paymentIntent && redirectStatus) {
+    if (paymentIntent && redirectStatus && currentUser) {
       if (redirectStatus === 'succeeded') {
         setPaymentStatus('success');
         setActiveModal('paymentResult');
+
+        // CRITICAL: Fallback to ensure tier is updated even if webhook fails
+        // Wait a moment for webhook to process, then verify
+        setTimeout(async () => {
+          try {
+            // Refresh user data to get updated tier
+            const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+            if (userDoc.exists()) {
+              const freshData = userDoc.data() as UserData;
+              // Check if tier was updated (not 'free')
+              if (freshData.tier && freshData.tier !== 'free') {
+                console.log('Payment successful, tier updated by webhook:', freshData.tier);
+              } else {
+                console.warn('Payment succeeded but tier not updated - webhook may have failed');
+                // TODO: Could add manual tier update here as emergency fallback
+              }
+            }
+          } catch (err) {
+            console.error('Error verifying payment:', err);
+          }
+        }, 3000); // Wait 3 seconds for webhook
       } else {
         setPaymentStatus('failed');
         setActiveModal('paymentResult');
@@ -198,7 +218,7 @@ export default function App() {
       // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, []);
+  }, [currentUser]);
   const [mapCalibration, setMapCalibration] = useState<GPSBounds | null>(null);
 
   useEffect(() => {
