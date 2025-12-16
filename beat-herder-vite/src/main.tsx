@@ -7,6 +7,8 @@ import TermsOfService from './pages/TermsOfService'
 import AdminSupportPage from './pages/AdminSupportPage'
 import AboutPage from './pages/AboutPage'
 
+import InstallInstructionsPage from './pages/InstallInstructionsPage'
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
@@ -14,6 +16,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/" element={<App />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/install" element={<InstallInstructionsPage />} />
         <Route path="/admin/support" element={<AdminSupportPage />} />
       </Routes>
     </BrowserRouter>

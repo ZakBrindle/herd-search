@@ -1,6 +1,6 @@
 
 import { useNavigate } from 'react-router-dom';
-import { FaMap, FaUserFriends, FaGhost, FaMapMarkerAlt, FaChevronLeft } from 'react-icons/fa';
+import { FaMap, FaUserFriends, FaGhost, FaMapMarkerAlt, FaChevronLeft, FaCloudDownloadAlt } from 'react-icons/fa';
 
 export default function AboutPage() {
     const navigate = useNavigate();
@@ -81,9 +81,17 @@ export default function AboutPage() {
                 </div>
 
                 <button
+                    onClick={() => navigate('/install')}
+                    className="btn btn-secondary w-full"
+                    style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                    How to Install <FaCloudDownloadAlt />
+                </button>
+
+                <button
                     onClick={() => navigate('/')}
                     className="btn btn-primary w-full"
-                    style={{ marginTop: '2rem' }}
+                    style={{ marginTop: '1rem' }}
                 >
                     Back to App
                 </button>
