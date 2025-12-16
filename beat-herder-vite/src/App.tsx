@@ -92,6 +92,8 @@ export default function App() {
   const [selectedMemberContext, setSelectedMemberContext] = useState<'squad' | 'friend' | null>(null);
   const [incomingSquadInvites, setIncomingSquadInvites] = useState<DocumentData[]>([]);
   const [outgoingSquadInvites, setOutgoingSquadInvites] = useState<DocumentData[]>([]);
+  const [incomingFriendRequests, setIncomingFriendRequests] = useState<DocumentData[]>([]);
+  const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
 
   const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
@@ -1000,8 +1002,6 @@ export default function App() {
     return () => unsubSquad();
   }, [userData?.squadId]);
 
-  const [incomingFriendRequests, setIncomingFriendRequests] = useState<DocumentData[]>([]);
-  const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
 
 
 
