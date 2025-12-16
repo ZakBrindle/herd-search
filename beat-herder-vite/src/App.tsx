@@ -1340,8 +1340,33 @@ export default function App() {
         <>
           <header>
             <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
-            <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
-              {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {!userData?.useGps && (
+                <button
+                  onClick={async () => {
+                    await handleGpsToggle(true);
+                  }}
+                  style={{
+                    background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    color: 'black',
+                    fontWeight: 'bold',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(3, 218, 198, 0.3)'
+                  }}
+                >
+                  📍 Turn on GPS
+                </button>
+              )}
+              <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
+                {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
+              </div>
             </div>
           </header>
 
