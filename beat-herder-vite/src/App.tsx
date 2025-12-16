@@ -142,6 +142,7 @@ export default function App() {
 
   const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
+  const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
   const [showSplash, setShowSplash] = useState(true);
@@ -1583,12 +1584,20 @@ export default function App() {
 
           {/* Outgoing Requests */}
           {outgoingFriendRequests.length > 0 && <h3 className="section-subtitle">Sent</h3>}
-          {outgoingFriendRequests.map(req => (
-            <div key={req.id} className="card" style={{ opacity: 0.7 }}>
-              <span>To {getDisplayNameByUid(req.to)} (Friend Request)</span>
-              <span style={{ fontSize: '0.8rem' }}>Pending</span>
-            </div>
-          ))}
+          {outgoingFriendRequests.map(req => {
+            const canRevoke = (Date.now() - (req.createdAt || 0)) > 30 * 60 * 1000;
+            return (
+              <div key={req.id} className="card" style={{ opacity: 0.7, flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                  <span>To {getDisplayNameByUid(req.to)} (Friend Request)</span>
+                  {canRevoke && (
+                    <button className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleDeclineFriendRequest(req)}>Revoke</button>
+                  )}
+                </div>
+                <span style={{ fontSize: '0.8rem' }}>Pending {canRevoke ? '' : '(Can revoke in 30m)'}</span>
+              </div>
+            );
+          })}
           {outgoingSquadInvites.map(invite => (
             <div key={invite.id} className="card" style={{ opacity: 0.7 }}>
               <span>To {getDisplayNameByUid(invite.to)} (Squad Invite)</span>
@@ -1762,47 +1771,71 @@ export default function App() {
               )}
 
               {/* Ghost Mode Toggle */}
-              <div
-                className="card"
-                style={{
-                  cursor: 'pointer',
-                  backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#333' : '#1e1e1e',
-                  border: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '2px solid #03dac6' : '1px solid #333',
-                  alignItems: 'center',
-                  marginBottom: '1rem'
-                }}
-                onClick={async () => {
-                  const isEnabled = !(userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now());
-                  try {
-                    if (isEnabled) {
-                      await updateDoc(getUserDocRef(currentUser!.uid), {
-                        ghostMode: true,
-                        ghostModeExpiry: Date.now() + 3600000 // 1 hour
-                      });
-                    } else {
-                      await updateDoc(getUserDocRef(currentUser!.uid), {
-                        ghostMode: false,
-                        ghostModeExpiry: null
-                      });
-                    }
-                  } catch (err) { console.error(err); }
-                }}
-              >
-                <div style={{ marginRight: '1rem', fontSize: '1.5rem' }}>👻</div>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: 0, color: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : 'white' }}>Ghost Mode</h3>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                    {(userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())
-                      ? "Active: You are hidden from the map."
-                      : "Tap to mask your location for 1 hour."}
-                  </p>
-                </div>
-                <div style={{
-                  width: '20px', height: '20px', borderRadius: '50%',
-                  backgroundColor: (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) ? '#03dac6' : '333',
-                  border: '1px solid #555'
-                }} />
-              </div>
+              {(() => {
+                const isGhostActive = userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now();
+                const cooldownRemaining = (userData?.ghostModeCooldown || 0) - Date.now();
+                const isInCooldown = !isGhostActive && cooldownRemaining > 0;
+
+                return (
+                  <div
+                    className="card"
+                    style={{
+                      cursor: (tempDisableGhostBtn || isInCooldown) ? 'not-allowed' : 'pointer',
+                      opacity: (tempDisableGhostBtn || isInCooldown) ? 0.6 : 1,
+                      backgroundColor: isGhostActive ? '#333' : '#1e1e1e',
+                      border: isGhostActive ? '2px solid #03dac6' : '1px solid #333',
+                      alignItems: 'center',
+                      marginBottom: '1rem'
+                    }}
+                    onClick={async () => {
+                      if (tempDisableGhostBtn) return;
+                      const now = Date.now();
+
+                      if (isInCooldown) {
+                        return showAlert(`Ghost mode is cooling down. Try again in ${Math.ceil(cooldownRemaining / 60000)} minutes.`);
+                      }
+
+                      setTempDisableGhostBtn(true);
+                      setTimeout(() => setTempDisableGhostBtn(false), 5000);
+
+                      try {
+                        if (!isGhostActive) {
+                          // Enable
+                          await updateDoc(getUserDocRef(currentUser!.uid), {
+                            ghostMode: true,
+                            ghostModeExpiry: now + 3600000,
+                            ghostModeCooldown: null
+                          });
+                        } else {
+                          // Disable
+                          await updateDoc(getUserDocRef(currentUser!.uid), {
+                            ghostMode: false,
+                            ghostModeExpiry: null,
+                            ghostModeCooldown: now + 600000 // 10 mins
+                          });
+                        }
+                      } catch (err) { console.error(err); }
+                    }}
+                  >
+                    <div style={{ marginRight: '1rem', fontSize: '1.5rem' }}>👻</div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: 0, color: isGhostActive ? '#03dac6' : 'white' }}>
+                        {isInCooldown ? `Cooldown (${Math.ceil(cooldownRemaining / 60000)}m)` : 'Ghost Mode'}
+                      </h3>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                        {isInCooldown
+                          ? "Waiting for implementation recharge..."
+                          : (isGhostActive ? "Active: You are hidden from the map." : "Tap to mask your location for 1 hour.")}
+                      </p>
+                    </div>
+                    <div style={{
+                      width: '20px', height: '20px', borderRadius: '50%',
+                      backgroundColor: isGhostActive ? '#03dac6' : '#333',
+                      border: '1px solid #555'
+                    }} />
+                  </div>
+                );
+              })()}
               <hr style={{ borderColor: '#33333327', margin: '1rem 0', width: '100%' }} />
 
               {/* Support Buttons */}
@@ -1882,9 +1915,21 @@ export default function App() {
           <FaMap />
           <span>Map</span>
         </button>
-        <button className={`nav-item ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')}>
+        <button className={`nav-item ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')} style={{ position: 'relative' }}>
           <FaUserFriends />
           <span>Friends</span>
+          {(incomingFriendRequests.length > 0 || incomingSquadInvites.length > 0) && (
+            <div style={{
+              position: 'absolute',
+              top: '5px',
+              right: '25px', // Adjust based on icon position
+              width: '10px',
+              height: '10px',
+              backgroundColor: 'var(--error)',
+              borderRadius: '50%',
+              border: '1px solid #121212'
+            }} />
+          )}
         </button>
 
         <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
