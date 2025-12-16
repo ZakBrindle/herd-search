@@ -433,14 +433,12 @@ export default function App() {
 
     return (
       <div className="card" style={{
-        position: 'fixed',
-        left: '20px', right: '20px',
-        bottom: activeTab === 'map' ? '200px' : '90px', // Adjust position based on tab
-        zIndex: 2000,
+        width: '100%',
+        marginBottom: '1rem',
         backgroundColor: '#1f1f1f',
         border: '1px solid #444',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-        animation: 'slideUp 0.3s ease-out'
+        boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+        animation: 'slideIn 0.3s ease-out'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <strong style={{ color: 'var(--primary)' }}>Squad Vote 🗳️</strong>
@@ -450,28 +448,35 @@ export default function App() {
         <h4 style={{ margin: '0 0 12px 0' }}>Go to {activeVote.targetAreaName}?</h4>
 
         {!isCompleted ? (
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              onClick={() => castVote('yes')}
-              className="btn"
-              style={{ flex: 1, background: myVote === 'yes' ? 'var(--primary)' : '#333', opacity: myVote && myVote !== 'yes' ? 0.3 : 1 }}
-            >Lets Go</button>
-            <button
-              onClick={() => castVote('no')}
-              className="btn"
-              style={{ flex: 1, background: myVote === 'no' ? 'var(--error)' : '#333', opacity: myVote && myVote !== 'no' ? 0.3 : 1 }}
-            >F*** That</button>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <button
+                onClick={() => castVote('yes')}
+                className="btn"
+                style={{ width: '100%', background: myVote === 'yes' ? 'var(--primary)' : '#333', opacity: myVote && myVote !== 'yes' ? 0.3 : 1 }}
+              >Lets Go</button>
+              <div style={{ fontSize: '0.8rem', textAlign: 'center', color: 'var(--primary)' }}>{yesCount} votes</div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <button
+                onClick={() => castVote('no')}
+                className="btn"
+                style={{ width: '100%', background: myVote === 'no' ? 'var(--error)' : '#333', opacity: myVote && myVote !== 'no' ? 0.3 : 1 }}
+              >F*** That</button>
+              <div style={{ fontSize: '0.8rem', textAlign: 'center', color: 'var(--error)' }}>{noCount} votes</div>
+            </div>
           </div>
         ) : (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '1.2rem', marginBottom: '8px' }}>
               Vote Completed!
             </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '10px' }}>
               <span style={{ color: 'var(--primary)' }}>Lets Go: {yesCount}</span>
               <span style={{ color: 'var(--error)' }}>No: {noCount}</span>
             </div>
-            {yesCount > noCount ? <p style={{ color: 'var(--primary)', fontWeight: 'bold', marginTop: '8px' }}>Decision: LETS GO! 🏃</p> : <p style={{ color: 'var(--error)', fontWeight: 'bold', marginTop: '8px' }}>Decision: NOPE 🙅</p>}
+            <hr style={{ borderColor: '#333', margin: '8px 0' }} />
+            {yesCount > noCount ? <p style={{ color: 'var(--primary)', fontWeight: 'bold', marginTop: '8px', fontSize: '1.2rem' }}>Decision: LETS GO! 🏃</p> : <p style={{ color: 'var(--error)', fontWeight: 'bold', marginTop: '8px', fontSize: '1.2rem' }}>Decision: NOPE 🙅</p>}
           </div>
         )}
       </div>
@@ -484,7 +489,7 @@ export default function App() {
     pointerDownTimeRef.current = Date.now();
     pointerEventsRef.current = { x: e.clientX, y: e.clientY };
 
-    // Start 3s timer
+    // Start 1.2s timer
     longPressTimerRef.current = setTimeout(() => {
       isLongPressRef.current = true;
       // Trigger vote mode
@@ -499,8 +504,8 @@ export default function App() {
         // Vibrate if mobile?
         if (navigator.vibrate) navigator.vibrate(200);
       }
-    }, 3000); // 3 seconds requested... changing to 1s for better UX testing? User said 3s. I should stick to 3s but 3s is VERY long for UI. 
-    // "hold a place on the map for 3 seconds" -> Okay, sticking to 3000ms.
+    }, 1200); // 1.2 seconds requested
+    // "hold a place on the map for 1.2 seconds"
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -1028,6 +1033,8 @@ export default function App() {
             )}
           </div>
 
+          {renderVoteWidget()}
+
           <h2 className="section-title">My Squad</h2>
           <div className="squad-list horizontal" style={{ display: 'flex', overflowX: 'auto', gap: '8px', paddingBottom: '8px' }}>
             {userData?.squadId && (() => {
@@ -1036,7 +1043,7 @@ export default function App() {
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
                 .map(member => (
-                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start', position: 'relative' }}>
+                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''}`} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start', position: 'relative', gap: '4px' }}>
                     {member.uid === currentUser.uid && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setActiveModal('updateStatus'); }}
@@ -1066,8 +1073,8 @@ export default function App() {
                         <span>{leaderUid === member.uid && '👑 '}{member.displayName}</span>
                       </div>
                     </div>
-                    <p style={{ fontSize: '0.8rem', marginTop: '0.2rem', marginBottom: '0' }}>
-                      {(member.ghostMode && member.ghostModeExpiry && member.ghostModeExpiry > Date.now() && member.uid !== userData.uid) ?
+                    <p style={{ fontSize: '0.8rem', marginTop: '-4px', marginBottom: '0' }}>
+                      {(member.ghostMode && member.ghostModeExpiry && member.ghostModeExpiry > Date.now()) ?
                         <span style={{ color: 'var(--text-muted)' }}>Ghost Mode 👻</span> :
                         (member.currentArea === 'The Wilds' ?
                           <>
@@ -1098,6 +1105,30 @@ export default function App() {
                     )}
                   </div>
                 ));
+            })()}
+
+            {(() => {
+              const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
+              return pendingInvites.map(invite => (
+                <div key={invite.id} className="card" style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start', position: 'relative', opacity: 0.8, borderStyle: 'dashed' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="avatar" style={{ background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</div>
+                    <div>
+                      <span>{getDisplayNameByUid(invite.to)}</span>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '0.8rem', marginTop: '0.2rem', marginBottom: '0', color: 'var(--text-muted)' }}>
+                    Invited...
+                  </p>
+                  <button
+                    className="btn btn-danger"
+                    style={{ padding: '2px 8px', fontSize: '10px', marginTop: '8px', width: '100%' }}
+                    onClick={(e) => { e.stopPropagation(); handleWithdrawSquadInvite(invite); }}
+                  >
+                    Withdraw
+                  </button>
+                </div>
+              ));
             })()}
 
             {/* Invite Button for Squad Leaders */}
@@ -1389,7 +1420,6 @@ export default function App() {
   return (
     <div className="app-container">
       {renderContent()}
-      {renderVoteWidget()}
 
       <nav className="bottom-nav">
         <button className={`nav-item ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>
@@ -1641,13 +1671,39 @@ export default function App() {
                   </p>
 
                   <h4>Invite from Friends List</h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '50vh', overflowY: 'auto' }}>
                     {friendsData.filter(f => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
+
+                    {/* Upgrade Prompt if 0 spots */}
+                    {(() => {
+                      const limit = TIER_LIMITS[userData.tier || 'free'];
+                      const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
+                      const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
+                      const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
+                      if (spotsLeft === 0) {
+                        return (
+                          <div style={{ textAlign: 'center', padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '10px' }}>
+                            <p style={{ fontSize: '0.9rem', margin: '0 0 8px 0' }}>You have 0 spots left.</p>
+                            <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', padding: '6px 12px', fontSize: '0.8rem' }}>Upgrade Plan ⚡</button>
+                          </div>
+                        )
+                      }
+                      return null;
+                    })()}
 
                     {friendsData
                       .filter(f => f.squadId !== userData.squadId) // Only show friends NOT in my squad
                       .map(friend => {
                         const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
+                        // Recalculate spots for disable logic
+                        const limit = TIER_LIMITS[userData.tier || 'free'];
+                        const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
+                        const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
+                        const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
+
+                        // Find the invite object if isInvited
+                        const inviteObj = outgoingSquadInvites.find(inv => inv.to === friend.uid && inv.from === currentUser.uid);
+
                         return (
                           <div key={friend.uid} className="card" style={{ justifyContent: 'space-between', padding: '0.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1655,9 +1711,22 @@ export default function App() {
                               <span>{friend.displayName}</span>
                             </div>
                             {isInvited ? (
-                              <span style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>Invited</span>
+                              <button
+                                onClick={() => inviteObj && handleWithdrawSquadInvite(inviteObj)}
+                                className="btn btn-danger"
+                                style={{ padding: '4px 8px', fontSize: '0.8rem', background: 'transparent', border: '1px solid var(--error)' }}
+                              >
+                                Withdraw
+                              </button>
                             ) : (
-                              <button onClick={() => handleInviteToSquad(friend.uid)} className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Invite</button>
+                              <button
+                                onClick={() => handleInviteToSquad(friend.uid)}
+                                className="btn btn-primary"
+                                disabled={spotsLeft <= 0}
+                                style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: spotsLeft <= 0 ? 0.5 : 1, cursor: spotsLeft <= 0 ? 'not-allowed' : 'pointer' }}
+                              >
+                                Invite
+                              </button>
                             )}
                           </div>
                         )
