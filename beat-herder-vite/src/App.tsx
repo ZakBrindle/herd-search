@@ -176,7 +176,7 @@ export default function App() {
     setActiveModal('confirm');
   };
 
-  const getPublicProfileCollection = () => collection(db, `public / user_profiles / users`);
+  const getPublicProfileCollection = () => collection(db, 'public/user_profiles/users');
   const getUserDocRef = (uid: string) => doc(db, 'users', uid);
 
   const isPointInPolygon = (point: Point, polygon: Point[]): boolean => {
