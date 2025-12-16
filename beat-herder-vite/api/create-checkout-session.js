@@ -1,4 +1,4 @@
-const Stripe = require('stripe');
+import Stripe from 'stripe';
 
 const PRICES = {
     'basic': { amount: 299, name: 'Just the 2 of us (Tier 1)' },
@@ -7,7 +7,7 @@ const PRICES = {
     'festival': { amount: 1599, name: 'Festival Group (Tier 4)' },
 };
 
-module.exports = async (req, res) => {
+export default async (req, res) => {
     if (req.method !== 'POST') {
         res.setHeader('Allow', 'POST');
         return res.status(405).end('Method Not Allowed');

@@ -26,9 +26,9 @@ function loadEnv() {
 
 loadEnv();
 
-// Import handlers
-const createCheckout = require('./create-checkout-session.js');
-const stripeWebhook = require('./webhooks/stripe.js');
+// Import handlers - REMOVED synchronous requires
+// const createCheckout = require('./create-checkout-session.js');
+// const stripeWebhook = require('./webhooks/stripe.js');
 
 const server = http.createServer(async (req, res) => {
     // CORS headers
@@ -57,6 +57,7 @@ const server = http.createServer(async (req, res) => {
                 try {
                     req.body = body ? JSON.parse(body) : {};
                     enhanceRes(res);
+                    const createCheckout = (await import('./create-checkout-session.js')).default;
                     await createCheckout(req, res);
                 } catch (e) {
                     console.error(e);
@@ -70,6 +71,7 @@ const server = http.createServer(async (req, res) => {
         }
     } else if (pathname === '/api/webhooks/stripe') {
         enhanceRes(res);
+        const stripeWebhook = (await import('./webhooks/stripe.js')).default;
         await stripeWebhook(req, res);
     } else {
         res.statusCode = 404;

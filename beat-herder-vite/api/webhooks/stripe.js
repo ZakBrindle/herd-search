@@ -1,6 +1,6 @@
-const { buffer } = require('micro');
-const Stripe = require('stripe');
-const admin = require('firebase-admin');
+import { buffer } from 'micro';
+import Stripe from 'stripe';
+import admin from 'firebase-admin';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -25,13 +25,13 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 
 // Disable Vercel's default body parsing so we can verify the signature
-module.exports.config = {
+export const config = {
     api: {
         bodyParser: false,
     },
 };
 
-module.exports = async (req, res) => {
+export default async (req, res) => {
     if (req.method !== 'POST') {
         res.setHeader('Allow', 'POST');
         return res.status(405).end('Method Not Allowed');
