@@ -118,7 +118,6 @@ export default function App() {
   const [friendsData, setFriendsData] = useState<UserData[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [allowTierCycling, setAllowTierCycling] = useState(false);
   const [isDevMode, setIsDevMode] = useState(false);
   const [friendEmail, setFriendEmail] = useState('');
   const [areaName, setAreaName] = useState('');
@@ -140,6 +139,7 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('useSandboxStripe', useSandboxStripe.toString());
   }, [useSandboxStripe]);
+
   const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
 
@@ -827,7 +827,7 @@ export default function App() {
 
     if (!currentUser) return;
     try {
-      if (allowTierCycling && userData?.isDev) {
+      if (useSandboxStripe && userData?.isDev) {
         // Just set it directly
         if (planId === 'free') {
           // Reset Logic: Remove everyone from squad, cancel invites
@@ -1153,7 +1153,6 @@ export default function App() {
       });
       showAlert("Friend request sent!");
       setFriendEmail('');
-      setActiveModal(null);
     } catch (e) {
       console.error(e);
       showAlert("Failed to send friend request.");
@@ -1901,24 +1900,46 @@ export default function App() {
             <h3 className="modal-header">Settings</h3>
 
             {userData?.isDev && (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <span>Use GPS (Simulated)</span>
-                  <input type="checkbox" checked={userData?.useGps ?? true} onChange={e => handleGpsToggle(e.target.checked)} />
+              <div style={{ marginBottom: '2rem' }}>
+                <h4 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Developer</h4>
+
+                {/* Sandbox Mode */}
+                <div className="card" onClick={() => setUseSandboxStripe(!useSandboxStripe)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Use Sandbox Stripe Mode</span>
+                  <div style={{
+                    width: '40px', height: '20px', background: useSandboxStripe ? 'var(--primary)' : '#555',
+                    borderRadius: '10px', position: 'relative', transition: 'background 0.3s'
+                  }}>
+                    <div style={{
+                      width: '16px', height: '16px', background: 'white', borderRadius: '50%',
+                      position: 'absolute', top: '2px', left: useSandboxStripe ? '22px' : '2px',
+                      transition: 'left 0.3s'
+                    }} />
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+
+                {/* GPS Toggle */}
+                <div className="card" onClick={() => handleGpsToggle(!(userData?.useGps ?? true))} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Use Real Device GPS</span>
+                  <div style={{ width: '40px', height: '20px', background: (userData?.useGps ?? true) ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
+                    <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: (userData?.useGps ?? true) ? '22px' : '2px', transition: 'left 0.3s' }} />
+                  </div>
+                </div>
+
+                {/* Show Zones */}
+                <div className="card" onClick={() => setShowZones(!showZones)} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span>Show Zones</span>
-                  <input type="checkbox" checked={showZones} onChange={e => setShowZones(e.target.checked)} />
+                  <div style={{ width: '40px', height: '20px', background: showZones ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
+                    <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: showZones ? '22px' : '2px', transition: 'left 0.3s' }} />
+                  </div>
                 </div>
+
                 <button onClick={() => setActiveModal('locations')} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
                   Manage Locations
                 </button>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <span>Dev Mode (Tier Cycling)</span>
-                  <input type="checkbox" checked={allowTierCycling} onChange={e => setAllowTierCycling(e.target.checked)} />
-                </div>
+
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary)' }}>Override Tier (Dev)</label>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--primary)' }}>Override Tier</label>
                   <select
                     className="input-field"
                     value={userData?.tier || 'free'}
@@ -1930,7 +1951,7 @@ export default function App() {
                     ))}
                   </select>
                 </div>
-              </>
+              </div>
             )}
 
             <div className="modal-actions">
@@ -2075,7 +2096,7 @@ export default function App() {
             <div className="modal-content wide" onClick={e => e.stopPropagation()}>
               <h3 className="modal-header">Upgrade Plan</h3>
               <div className="pricing-grid">
-                {allowTierCycling && (
+                {useSandboxStripe && (
                   <div className="pricing-card" onClick={() => handleUpgrade('free')}>
                     <h3>Free</h3>
                     <p className="price">£0.00</p>
@@ -2083,7 +2104,7 @@ export default function App() {
                     <button className="btn btn-primary w-full">Select Free</button>
                   </div>
                 )}
-                {PLANS.filter(p => allowTierCycling || p.limit > TIER_LIMITS[userData?.tier || 'free']).map(plan => (
+                {PLANS.filter(p => useSandboxStripe || p.limit > TIER_LIMITS[userData?.tier || 'free']).map(plan => (
                   <div key={plan.id} className="pricing-card" onClick={() => handleUpgrade(plan.id as Tier)}>
                     <h3>{plan.name}</h3>
                     <div style={{ margin: '8px 0', fontSize: '1.5rem', color: 'var(--primary)', letterSpacing: '4px' }}>

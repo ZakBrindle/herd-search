@@ -198,9 +198,9 @@ const SupportSystem = ({ currentUser, isDev = false, visible, onClose, isModal =
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                                 {tickets.map(t => (
                                     <div key={t.id} className="card" onClick={() => { setActiveTicket(t); setView('chat'); }} style={{ cursor: 'pointer', borderLeft: t.status === 'open' ? '4px solid var(--primary)' : '4px solid #555' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
                                             <strong>{t.subject}</strong>
-                                            <span style={{ fontSize: '0.8rem', color: t.status === 'open' ? 'var(--primary)' : '#666', textTransform: 'uppercase' }}>{t.status}</span>
+                                            <span style={{ fontSize: '0.8rem', color: t.status === 'open' ? 'var(--primary)' : '#666', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{t.status}</span>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '0.8rem', color: '#aaa' }}>
                                             <span>{new Date(t.lastUpdate).toLocaleDateString()}</span>
