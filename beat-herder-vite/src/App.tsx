@@ -1018,6 +1018,10 @@ export default function App() {
 
   useEffect(() => {
     const friendIds = userData?.friends || [];
+
+    // Immediately remove any friends from state that are no longer in the list
+    setFriendsData(prev => prev.filter(f => friendIds.includes(f.uid)));
+
     if (friendIds.length === 0) return;
     const unsubscribes = friendIds.map(friendId =>
       onSnapshot(getUserDocRef(friendId), (doc) => {
@@ -1925,8 +1929,8 @@ export default function App() {
           {(incomingFriendRequests.length > 0 || incomingSquadInvites.length > 0) && (
             <div style={{
               position: 'absolute',
-              top: '8px',
-              left: 'calc(50% - 14px)',
+              top: '3px',
+              left: 'calc(50% - 22px)',
               width: '8px',
               height: '8px',
               backgroundColor: 'var(--error)',
