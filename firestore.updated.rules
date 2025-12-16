@@ -40,7 +40,7 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
              'location', 'currentArea', 'lastKnownArea', 'useGps', 'lastUpdate',
             'squadId', 'squadOwnerId', 'friends', 'tier', 'subscriptionExpiry',
-            'statusMessage', 'statusTimestamp', 'ghostMode', 'ghostModeExpiry',
+            'statusMessage', 'statusTimestamp', 'ghostMode', 'ghostModeExpiry', 'ghostModeCooldown',
             'fcmToken', 'isDev'
           ])
         )
