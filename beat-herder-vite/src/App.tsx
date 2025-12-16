@@ -1871,7 +1871,7 @@ export default function App() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 className="modal-header">Settings</h3>
 
-            {userData?.isDev && (
+            {(userData?.isDev || currentUser?.email?.toLowerCase() === (import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS || 'z4kbrindle@gmail.com').toLowerCase()) && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <span>Use GPS (Simulated)</span>
