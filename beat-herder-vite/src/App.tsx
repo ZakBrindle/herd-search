@@ -1532,6 +1532,9 @@ export default function App() {
                   if (userData?.useGps) {
                     if (!mapCalibration) return showAlert("Map not calibrated yet.");
                     if (!navigator.geolocation) return showAlert("GPS not supported.");
+
+                    setGpsRefreshButtonText('Searching for GPS...');
+
                     navigator.geolocation.getCurrentPosition(async (pos) => {
                       const { latitude, longitude } = pos.coords;
                       const { north, south, east, west } = mapCalibration;
@@ -1580,7 +1583,10 @@ export default function App() {
                         setGpsRefreshButtonText('Failed to update');
                         setTimeout(() => setGpsRefreshButtonText(null), 1200);
                       }
-                    }, (err) => showAlert("GPS Error: " + err.message), { enableHighAccuracy: true });
+                    }, (err) => {
+                      showAlert("GPS Error: " + err.message);
+                      setGpsRefreshButtonText(null);
+                    }, { enableHighAccuracy: true });
                   } else {
                     selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
                   }
