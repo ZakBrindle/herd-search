@@ -158,6 +158,7 @@ export default function App() {
   void gpsTimeoutCount; // Used via functional state update in GPS error handler
   const [showShareLink, setShowShareLink] = useState(false);
   const [gpsHasLocation, setGpsHasLocation] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 1500);
@@ -1303,6 +1304,7 @@ export default function App() {
         setFriendsData([]);
         setIsDevMode(false);
       }
+      setAuthLoading(false);
     });
 
     const unsubscribeAreas = onSnapshot(collection(db, "areas"), (snapshot) => {
@@ -1507,6 +1509,24 @@ export default function App() {
   };
 
   // --- Render ---
+  if (authLoading) {
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#121212', color: 'white' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+          <div className="spinner" style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid rgba(255,255,255,0.1)',
+            borderTop: '4px solid var(--primary)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p>Restoring Session...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return (
       <div className="app-container" style={{ padding: '20px', overflowY: 'auto' }}>
