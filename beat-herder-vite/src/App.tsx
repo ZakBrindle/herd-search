@@ -19,7 +19,7 @@ import LocationPicker from './components/LocationPicker';
 
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
-type Tier = 'free' | 'basic' | 'standard' | 'premium' | 'festival';
+type Tier = 'free' | 'basic' | 'standard' | 'premium' | 'festival' | 'dev_tier_test';
 type GPSBounds = {
   north: number; // Max Lat
   south: number; // Min Lat
@@ -73,14 +73,16 @@ const TIER_LIMITS = {
   basic: 1,
   standard: 3,
   premium: 8,
-  festival: 20
+  festival: 20,
+  dev_tier_test: 3
 };
 
 const PLANS = [
   { id: 'basic', name: 'Just the 2 of us', price: '£2.99', limit: 1 },
   { id: 'standard', name: 'Squad of 4', price: '£4.99', limit: 3 },
   { id: 'premium', name: 'Full Squad', price: '£9.99', limit: 8 },
-  { id: 'festival', name: 'Festival Group', price: '£15.99', limit: 20 }
+  { id: 'festival', name: 'Festival Group', price: '£15.99', limit: 20 },
+  { id: 'dev_tier_test', name: 'Dev Test', price: '£0.10', limit: 3 } // Added for dev testing
 ];
 
 // --- Helper Components ---
@@ -2844,14 +2846,35 @@ export default function App() {
               <h3 className="modal-header">💎 Upgrade Plan</h3>
               <div className="pricing-grid">
                 {useSandboxStripe && (
-                  <div className="pricing-card" onClick={() => handleUpgrade('free')}>
+                  <div className="pricing-card" onClick={() => handleUpgrade('free' as Tier)}>
                     <h3>Free</h3>
                     <p className="price">£0.00</p>
                     <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Max 0 Friends in Squad (Solo)</p>
                     <button className="btn btn-primary w-full">Select Free</button>
                   </div>
+
                 )}
-                {PLANS.filter(p => useSandboxStripe || p.limit > TIER_LIMITS[userData?.tier || 'free']).map(plan => (
+
+                {/* Dev Test Plan - Only for Admin */}
+                {currentUser?.email === 'z4kbrindle@gmail.com' && (
+                  <div style={{ padding: '10px', border: '1px dashed cyan', marginBottom: '10px', borderRadius: '8px', background: 'rgba(0, 255, 255, 0.1)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <h4 style={{ margin: 0, color: 'cyan' }}>Dev Tier 🛠️</h4>
+                        <p style={{ margin: 0, fontSize: '0.8rem' }}>Test Plan (3 friends)</p>
+                      </div>
+                      <button
+                        onClick={() => handleUpgrade('dev_tier_test' as Tier)}
+                        className="btn btn-sm"
+                        style={{ background: 'cyan', color: 'black', fontWeight: 'bold' }}
+                      >
+                        £0.10
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {PLANS.filter(p => p.id !== 'dev_tier_test' && (useSandboxStripe || p.limit > TIER_LIMITS[userData?.tier || 'free'])).map(plan => (
                   <div key={plan.id} className="pricing-card" onClick={() => handleUpgrade(plan.id as Tier)}>
                     <h3>{plan.name}</h3>
                     <div style={{ margin: '8px 0', fontSize: '1.5rem', color: 'var(--primary)', letterSpacing: '4px' }}>
@@ -2874,6 +2897,7 @@ export default function App() {
           </div>
         )
       }
+
 
       {
         activeModal === 'checkIn' && (
