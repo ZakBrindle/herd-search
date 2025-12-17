@@ -82,7 +82,7 @@ const PLANS = [
   { id: 'standard', name: 'Squad of 4', price: '£4.99', limit: 3 },
   { id: 'premium', name: 'Full Squad', price: '£9.99', limit: 8 },
   { id: 'festival', name: 'Festival Group', price: '£15.99', limit: 20 },
-  { id: 'dev_tier_test', name: 'Dev Test', price: '£0.10', limit: 3 } // Added for dev testing
+  { id: 'dev_tier_test', name: 'Dev Test', price: '£0.50', limit: 3 } // Added for dev testing
 ];
 
 // --- Helper Components ---
@@ -2868,7 +2868,7 @@ export default function App() {
                         className="btn btn-sm"
                         style={{ background: 'cyan', color: 'black', fontWeight: 'bold' }}
                       >
-                        £0.10
+                        £0.50
                       </button>
                     </div>
                   </div>

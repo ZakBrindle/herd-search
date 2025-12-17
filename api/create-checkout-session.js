@@ -5,7 +5,7 @@ const PRICES = {
     'standard': { amount: 499, name: 'Squad of 4 (Tier 2)' },
     'premium': { amount: 999, name: 'Full Squad (Tier 3)' },
     'festival': { amount: 1599, name: 'Festival Group (Tier 4)' },
-    'dev_tier_test': { amount: 10, name: 'Dev Test Tier (10p)' }, // 10 pence
+    'dev_tier_test': { amount: 50, name: 'Dev Test Tier (50p)' }, // 50 pence
 };
 
 export default async (req, res) => {
