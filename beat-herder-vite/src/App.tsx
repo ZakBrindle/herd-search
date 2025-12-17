@@ -303,6 +303,39 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // --- Remote Payment Success Listener (Webhook Fail-safe) ---
+  // Watches for the tier to change while we are "pending payment". 
+  // This handles the case where the URL redirect parameters are missing/stripped,
+  // but the Stripe Webhook successfully updated the database in the background.
+  useEffect(() => {
+    if (!userData || !userData.isPaymentPending) return;
+
+    // We can check if the tier is no longer free (assuming upgrades are the only paid path)
+    // Or strictly check against pendingPlan if available
+    const pendingPlan = localStorage.getItem('pendingPlan');
+
+    // If tier is updated
+    if (userData.tier && userData.tier !== 'free') {
+      // If we recall what we were trying to buy, check it matches (optional safety)
+      if (pendingPlan && userData.tier !== pendingPlan) {
+        // Rare edge case: bought basic, but system says premium? 
+        // Accept it anyway, as it's a paid tier.
+      }
+
+      console.log("Remote Payment Confirmed via Firestore Change!");
+
+      // 1. Clear the pending flag on server to stop the spinner on other devices
+      updateDoc(doc(db, 'users', userData.uid), { isPaymentPending: false })
+        .catch(err => console.error("Error clearing pending flag:", err));
+
+      // 2. Show success and cleanup local storage
+      setPaymentStatus('success');
+      setActiveModal('paymentResult');
+      localStorage.removeItem('pendingPlan');
+      localStorage.removeItem('parkedStripeParams');
+    }
+  }, [userData?.tier, userData?.isPaymentPending, userData?.uid]);
+
 
 
   useEffect(() => {
@@ -2220,7 +2253,7 @@ export default function App() {
             )}
           </div>
 
-          <h2 className="section-title">All Friends</h2>
+          <h2 style={{ paddingTop: '1rem' }} className="section-title">All Friends</h2>
           <div className="squad-list">
             {friendsData.map(friend => (
               <div key={friend.uid} className="card" onClick={() => { setSelectedMember(friend); setSelectedMemberContext('friend'); }}>
