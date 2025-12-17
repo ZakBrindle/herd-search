@@ -192,6 +192,22 @@ export default function App() {
         setPaymentStatus('success');
         setActiveModal('paymentResult');
 
+        // Check for pending plan fallback (Client-side fail-safe)
+        const pendingPlan = localStorage.getItem('pendingPlan') as Tier | null;
+        if (pendingPlan) {
+          console.log("Applying pending plan fallback:", pendingPlan);
+          try {
+            // Optimistically update access immediately
+            // Note: Firestore rules might block this if securely configured, but for many apps this works.
+            // Ideally this should be server-side, but this is the requested emergency fallback.
+            updateDoc(doc(db, 'users', currentUser.uid), {
+              tier: pendingPlan,
+              subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 Days (matches dev logic)
+            }).catch(e => console.error("Fallback tier update failed (permissions?):", e));
+          } catch (e) { console.error(e); }
+          localStorage.removeItem('pendingPlan');
+        }
+
         // CRITICAL: Fallback to ensure tier is updated even if webhook fails
         // Wait a moment for webhook to process, then verify
         setTimeout(async () => {
@@ -205,7 +221,6 @@ export default function App() {
                 console.log('Payment successful, tier updated by webhook:', freshData.tier);
               } else {
                 console.warn('Payment succeeded but tier not updated - webhook may have failed');
-                // TODO: Could add manual tier update here as emergency fallback
               }
             }
           } catch (err) {
@@ -1117,6 +1132,7 @@ export default function App() {
 
           const data = await res.json();
           if (data.url) {
+            localStorage.setItem('pendingPlan', planId);
             window.location.href = data.url; // Redirect to Stripe
           } else {
             console.error("No URL returned from checkout session creation", data);
