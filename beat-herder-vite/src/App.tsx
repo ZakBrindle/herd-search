@@ -1885,7 +1885,7 @@ export default function App() {
                       const { north, south, east, west } = mapCalibration;
                       let x = (longitude - west) / (east - west);
                       let y = (north - latitude) / (north - south);
-                      const isInside = x >= 0 && x <= 1 && y >= 0 && y <= 1;
+
 
                       const newPoint = { x, y };
 
