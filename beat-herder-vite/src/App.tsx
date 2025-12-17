@@ -486,13 +486,13 @@ export default function App() {
   const isPointInPolygon = (point: Point, polygon: Point[], debug = false): boolean => {
     if (!polygon) return false;
     let isInside = false;
-    if (debug) console.log(`Testing point (${point.x.toFixed(4)}, ${point.y.toFixed(4)}) against ${polygon.length} edges`);
+    //if (debug) console.log(`Testing point (${point.x.toFixed(4)}, ${point.y.toFixed(4)}) against ${polygon.length} edges`);
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
       const xi = polygon[i].x, yi = polygon[i].y;
       const xj = polygon[j].x, yj = polygon[j].y;
       const intersect = ((yi > point.y) !== (yj > point.y)) && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
       if (debug) {
-        console.log(`Edge ${j}->${i}: (${xj.toFixed(4)},${yj.toFixed(4)}) to (${xi.toFixed(4)},${yi.toFixed(4)}) - intersect: ${intersect}`);
+        //console.log(`Edge ${j}->${i}: (${xj.toFixed(4)},${yj.toFixed(4)}) to (${xi.toFixed(4)},${yi.toFixed(4)}) - intersect: ${intersect}`);
       }
       if (intersect) isInside = !isInside;
     }
