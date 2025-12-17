@@ -2878,10 +2878,10 @@ export default function App() {
                   <div key={plan.id} className="pricing-card" onClick={() => handleUpgrade(plan.id as Tier)}>
                     <h3>{plan.name}</h3>
                     <div style={{ margin: '8px 0', fontSize: '1.5rem', color: 'var(--primary)', letterSpacing: '4px' }}>
-                      {plan.id === 'basic' && '👤👤'}
-                      {plan.id === 'standard' && '👤👤👤👤'}
-                      {plan.id === 'premium' && '👥👥👥👥'}
-                      {plan.id === 'festival' && '🎪🎪🎪'}
+                      {plan.id === 'basic' && <img src="/tier_2_people.png" alt="2 People" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />}
+                      {plan.id === 'standard' && <img src="/tier_4_people.png" alt="Squad of 4" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />}
+                      {plan.id === 'premium' && <img src="/tier_9_people.png" alt="Full Squad" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />}
+                      {plan.id === 'festival' && <img src="/tier_21_people.png" alt="Festival Group" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />}
                       {/* Or simpler representative icons */}
                     </div>
                     <p className="price">{plan.price}</p>
