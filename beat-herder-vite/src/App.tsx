@@ -202,6 +202,36 @@ export default function App() {
     return () => unsub();
   }, []);
 
+  // Dev Mode: Fetch all users for map overlay
+  useEffect(() => {
+    if (!devMapFilterDuration) {
+      setAllUsersOnMap([]);
+      return;
+    }
+
+    const fetchAllUsers = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        const now = Date.now();
+        let durationMs = 0;
+        switch (devMapFilterDuration) {
+          case '5m': durationMs = 5 * 60 * 1000; break;
+          case '30m': durationMs = 30 * 60 * 1000; break;
+          case '1h': durationMs = 60 * 60 * 1000; break;
+          case '24h': durationMs = 24 * 60 * 60 * 1000; break;
+        }
+
+        const active = snap.docs
+          .map(d => d.data() as UserData)
+          .filter(u => u.lastUpdate && (now - u.lastUpdate < durationMs));
+
+        setAllUsersOnMap(active);
+      } catch (e) { console.error("Dev Map Fetch Error:", e); }
+    };
+
+    fetchAllUsers();
+  }, [devMapFilterDuration]);
+
   const clearPendingPayment = async () => {
     if (!currentUser) return;
     try {
@@ -1660,13 +1690,7 @@ export default function App() {
       return (
         <>
           <header>
-            {activeModal === 'devStats' && (
-              <div className="modal-overlay" onClick={() => setActiveModal(null)} style={{ zIndex: 2000 }}>
-                <div className="modal-content wide" onClick={e => e.stopPropagation()}>
-                  <DevStats onClose={() => setActiveModal(null)} />
-                </div>
-              </div>
-            )}
+
             <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {!userData?.useGps && (
@@ -3370,7 +3394,11 @@ export default function App() {
 
       {showDevStats && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#121212', zIndex: 3000, overflowY: 'auto' }}>
-          <DevStats onClose={() => setShowDevStats(false)} />
+          <DevStats
+            onClose={() => setShowDevStats(false)}
+            currentMapFilter={devMapFilterDuration}
+            onSetMapFilter={setDevMapFilterDuration}
+          />
         </div>
       )}
 
