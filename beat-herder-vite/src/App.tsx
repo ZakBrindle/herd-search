@@ -357,10 +357,10 @@ export default function App() {
 
           // Determine which area the user is in
           let foundArea: Area | null = null;
-          console.log(`GPS: Checking ${areas.length} areas for point (${x.toFixed(4)}, ${y.toFixed(4)})`);
+          // console.log(`GPS: Checking ${areas.length} areas for point (${x.toFixed(4)}, ${y.toFixed(4)})`);
           console.log(`GPS: Point coordinates:`, newPoint);
           for (const area of areas) {
-            console.log(`GPS: Checking area "${area.name}" with ${area.polygon.length} polygon points:`, area.polygon);
+            // console.log(`GPS: Checking area "${area.name}" with ${area.polygon.length} polygon points:`, area.polygon);
             const isInside = isPointInPolygon(newPoint, area.polygon, true); // Enable debug
             console.log(`GPS: Area "${area.name}" - ${isInside ? 'INSIDE ✓' : 'outside ✗'}`);
             if (isInside) {
