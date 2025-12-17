@@ -59,6 +59,7 @@ type UserData = DocumentData & {
   isDev?: boolean;
   statusMessage?: string;
   statusTimestamp?: number;
+  isPaymentPending?: boolean;
 };
 
 
@@ -205,7 +206,8 @@ export default function App() {
             // Ideally this should be server-side, but this is the requested emergency fallback.
             updateDoc(doc(db, 'users', currentUser.uid), {
               tier: pendingPlan,
-              subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 Days (matches dev logic)
+              subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 Days (matches dev logic)
+              isPaymentPending: false // Clear pending flag
             }).catch(e => console.error("Fallback tier update failed (permissions?):", e));
           } catch (e) { console.error(e); }
           localStorage.removeItem('pendingPlan');
@@ -239,6 +241,17 @@ export default function App() {
       // We will clear URL when the user Closes the modal.
     }
   }, [currentUser]);
+
+  // Payment Pending Widget Logic
+  // If user has isPaymentPending but NO return parameters, it means they might have closed the tab or hit back.
+  // We need to give them a way to clear the "Checking Payment..." state if it gets stuck.
+  const clearPendingPayment = async () => {
+    if (!currentUser) return;
+    try {
+      await updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false });
+      showAlert("Payment check cancelled.");
+    } catch (e) { console.error(e); }
+  };
 
   useEffect(() => {
     setCurrentStatusInput(userData?.statusMessage || '');
@@ -1137,6 +1150,10 @@ export default function App() {
           const data = await res.json();
           if (data.url) {
             localStorage.setItem('pendingPlan', planId);
+
+            // Set pending flag in Firestore
+            await updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: true });
+
             window.location.href = data.url; // Redirect to Stripe
           } else {
             console.error("No URL returned from checkout session creation", data);
@@ -1783,6 +1800,44 @@ export default function App() {
             )}
           </div>
 
+
+
+          {/* Payment Pending Widget */}
+          {
+            userData?.isPaymentPending && !activeModal && (
+              <div style={{
+                position: 'absolute',
+                top: '70px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 1000,
+                backgroundColor: '#333',
+                border: '2px solid var(--primary)',
+                borderRadius: '12px',
+                padding: '16px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px',
+                width: '80%',
+                maxWidth: '300px'
+              }}>
+                <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                <span style={{ fontWeight: 'bold' }}>Checking Payment...</span>
+                <p style={{ fontSize: '0.8rem', color: '#aaa', textAlign: 'center', margin: 0 }}>
+                  Waiting for confirmation from payment provider.
+                </p>
+                {/* Only show cancel if WE are not currently processing a success url params flow, or if it's been a while? 
+                   Actually, if they are seeing this and NO success modal is up, they are stuck.
+               */}
+                <button onClick={clearPendingPayment} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px 12px' }}>
+                  Cancel / Close
+                </button>
+              </div>
+            )
+          }
+
           {renderVoteWidget()}
 
           <h2 className="section-title">My Squad</h2>
@@ -2373,7 +2428,7 @@ export default function App() {
         </>
       )
     }
-  } // End renderContent
+  }; // End renderContent
 
 
   return (
