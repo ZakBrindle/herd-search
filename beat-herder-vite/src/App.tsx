@@ -1191,6 +1191,10 @@ export default function App() {
   };
 
   const handleUpgrade = async (planId: Tier, forceOverride = false) => {
+    // Safety Check: Upgrades Disabled (except for Devs)
+    if (!upgradesEnabled && !userData?.isDev) {
+      return showAlert("Upgrades are currently paused by the developer.");
+    }
     // If Admin Dev Mode for Cycling is on, just switch instantly without payment simulation logic (conceptually)
     // Here we just use the same logic but the user perception of "payment" is bypassed by intent.
     // In a real app, successful payment callback would trigger this.
