@@ -141,6 +141,7 @@ export default function App() {
   const [outgoingSquadInvites, setOutgoingSquadInvites] = useState<DocumentData[]>([]);
   const [incomingFriendRequests, setIncomingFriendRequests] = useState<DocumentData[]>([]);
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
+  const [currentStatusInput, setCurrentStatusInput] = useState('');
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
   const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
   const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
@@ -219,6 +220,11 @@ export default function App() {
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    setCurrentStatusInput(userData?.statusMessage || '');
+  }, [userData?.statusMessage]);
+
   const [mapCalibration, setMapCalibration] = useState<GPSBounds | null>(null);
 
   useEffect(() => {
@@ -279,7 +285,7 @@ export default function App() {
             }
           }
 
-          const areaName = foundArea ? foundArea.name : 'The Wilds';
+          const areaName = foundArea ? foundArea.name : 'Out of bounds';
 
           console.log("GPS: Update", { latitude, longitude, x, y, area: areaName, foundArea: !!foundArea });
 
@@ -290,8 +296,8 @@ export default function App() {
               currentArea: areaName
             };
 
-            // Update lastKnownArea if not in The Wilds
-            if (areaName !== 'The Wilds') {
+            // Update lastKnownArea if not in Out of bounds
+            if (areaName !== 'Out of bounds') {
               updateData.lastKnownArea = areaName;
             }
 
@@ -378,6 +384,7 @@ export default function App() {
   };
 
   const copyInviteLink = async () => {
+    setFriendEmail('');
     if (!currentUser?.uid) return;
     const inviteLink = `${window.location.origin}?invite=${currentUser.uid}`;
     try {
@@ -1650,7 +1657,7 @@ export default function App() {
                         }
                       }
 
-                      const areaName = foundArea ? foundArea.name : 'The Wilds';
+                      const areaName = foundArea ? foundArea.name : 'Out of bounds';
                       console.log(`Detected area: ${areaName}`);
 
                       try {
@@ -1660,8 +1667,8 @@ export default function App() {
                           currentArea: areaName
                         };
 
-                        // Update lastKnownArea if not in The Wilds
-                        if (areaName !== 'The Wilds') {
+                        // Update lastKnownArea if not in Out of bounds
+                        if (areaName !== 'Out of bounds') {
                           updateData.lastKnownArea = areaName;
                         }
 
@@ -2365,7 +2372,8 @@ export default function App() {
                         placeholder="What's on your mind?"
                         className="input-field"
                         style={{ flex: 1, height: '44px', boxSizing: 'border-box' }}
-                        defaultValue={userData?.statusMessage || ''}
+                        value={currentStatusInput}
+                        onChange={(e) => setCurrentStatusInput(e.target.value)}
                         onKeyDown={async (e) => {
                           if (e.key === 'Enter') {
                             const val = (e.target as HTMLInputElement).value;
@@ -2381,8 +2389,7 @@ export default function App() {
                         }}
                       />
                       <button onClick={async () => {
-                        const input = document.getElementById('statusInputSelf') as HTMLInputElement;
-                        const val = input.value;
+                        const val = currentStatusInput;
                         try {
                           await updateDoc(getUserDocRef(currentUser!.uid), {
                             statusMessage: val,
@@ -2662,7 +2669,8 @@ export default function App() {
                   id="statusInputModal"
                   placeholder="What's happening?"
                   className="input-field"
-                  defaultValue={userData?.statusMessage || ''}
+                  value={currentStatusInput}
+                  onChange={(e) => setCurrentStatusInput(e.target.value)}
                   autoFocus
                   onKeyDown={async (e) => {
                     if (e.key === 'Enter') {
@@ -2680,8 +2688,7 @@ export default function App() {
                   style={{ height: '44px', boxSizing: 'border-box' }}
                 />
                 <button onClick={async () => {
-                  const input = document.getElementById('statusInputModal') as HTMLInputElement;
-                  const val = input.value;
+                  const val = currentStatusInput;
                   try {
                     await updateDoc(getUserDocRef(currentUser!.uid), {
                       statusMessage: val,
@@ -2706,7 +2713,7 @@ export default function App() {
         activeModal === 'upgrade' && (
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
             <div className="modal-content wide" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">Upgrade Plan</h3>
+              <h3 className="modal-header">💎 Upgrade Plan</h3>
               <div className="pricing-grid">
                 {useSandboxStripe && (
                   <div className="pricing-card" onClick={() => handleUpgrade('free')}>
@@ -2925,7 +2932,7 @@ export default function App() {
                 <h4>Search User by Email</h4>
                 <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
                 <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
-                  <button onClick={() => setActiveModal(null)} className="btn btn-secondary" style={{ flex: '0 0 auto' }}>Close</button>
+                  <button onClick={() => { setActiveModal(null); setFriendEmail(''); }} className="btn btn-secondary" style={{ flex: '0 0 auto' }}>Close</button>
                   <button onClick={async () => {
                     if (!friendEmail || !currentUser) return;
                     try {
