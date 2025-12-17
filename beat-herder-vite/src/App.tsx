@@ -166,6 +166,8 @@ export default function App() {
   // Dev Features
   const [devMapFilterDuration, setDevMapFilterDuration] = useState<'5m' | '30m' | '1h' | '24h' | null>(null);
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
+  const [showDevStats, setShowDevStats] = useState(false);
+  const [upgradesEnabled, setUpgradesEnabled] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 1500);
@@ -183,6 +185,20 @@ export default function App() {
         setGpsRefreshInterval(doc.data().refreshInterval);
       }
     });
+    return () => unsub();
+  }, []);
+
+  // Fetch Payment/Upgrade config
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "config", "payments"), (doc) => {
+      // If doc doesn't exist or field is missing, default to TRUE (allow upgrades)
+      if (doc.exists() && doc.data().upgradesEnabled !== undefined) {
+        setUpgradesEnabled(doc.data().upgradesEnabled);
+      } else {
+        setUpgradesEnabled(true);
+      }
+    });
+
     return () => unsub();
   }, []);
 
@@ -2372,8 +2388,17 @@ export default function App() {
 
               {tier !== 'festival' && (
                 <>
-                  <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', marginBottom: '1rem' }}>
-                    Upgrade Plan ⚡
+                  <button
+                    onClick={() => setActiveModal('upgrade')}
+                    className="btn btn-primary w-full"
+                    disabled={!upgradesEnabled && !userData?.isDev}
+                    style={{
+                      background: (!upgradesEnabled && !userData?.isDev) ? '#555' : 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                      marginBottom: '1rem',
+                      cursor: (!upgradesEnabled && !userData?.isDev) ? 'not-allowed' : 'pointer',
+                      opacity: (!upgradesEnabled && !userData?.isDev) ? 0.7 : 1
+                    }}>
+                    {(!upgradesEnabled && !userData?.isDev) ? "Upgrades Paused 🚧" : "Upgrade Plan ⚡"}
                   </button>
 
 
@@ -2758,6 +2783,20 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Upgrades Enabled Toggle */}
+                <div className="card" onClick={async () => {
+                  const newValue = !upgradesEnabled;
+                  setUpgradesEnabled(newValue); // Optimistic
+                  try {
+                    await setDoc(doc(db, 'config', 'payments'), { upgradesEnabled: newValue }, { merge: true });
+                  } catch (e) { console.error(e); }
+                }} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Users can Upgrade</span>
+                  <div style={{ width: '40px', height: '20px', background: upgradesEnabled ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
+                    <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: upgradesEnabled ? '22px' : '2px', transition: 'left 0.3s' }} />
+                  </div>
+                </div>
+
                 {/* GPS Refresh Interval */}
                 <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '0.5rem', padding: '1rem' }}>
                   <label style={{ fontSize: '0.9rem', marginBottom: '0.5rem', display: 'block' }}>
@@ -2796,6 +2835,10 @@ export default function App() {
                   setActiveModal('calibrateGps');
                 }} className="btn btn-secondary w-full" style={{ marginBottom: '1rem' }}>
                   Calibrate Map GPS
+                </button>
+
+                <button onClick={() => { setActiveModal(null); setShowDevStats(true); }} className="btn btn-secondary w-full" style={{ marginBottom: '1rem', background: '#333', border: '1px solid #555' }}>
+                  View Dev Stats 📊
                 </button>
 
                 <div style={{ marginBottom: '1rem' }}>
@@ -3034,7 +3077,9 @@ export default function App() {
                     </div>
                     <p className="price">{plan.price}</p>
                     <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Max {plan.limit} Friends in Squad</p>
-                    <button className="btn btn-primary w-full">Select</button>
+                    <button className="btn btn-primary w-full" disabled={!upgradesEnabled && !userData?.isDev}>
+                      {(!upgradesEnabled && !userData?.isDev) ? "Currently Unavailable" : "Select"}
+                    </button>
                   </div>
                 ))}
               </div>
@@ -3322,6 +3367,12 @@ export default function App() {
         />
       )}
 
+
+      {showDevStats && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#121212', zIndex: 3000, overflowY: 'auto' }}>
+          <DevStats onClose={() => setShowDevStats(false)} />
+        </div>
+      )}
 
     </div >
   );
