@@ -178,6 +178,17 @@ export default function App() {
     return () => unsub();
   }, []);
 
+  const clearPendingPayment = async () => {
+    if (!currentUser) return;
+    try {
+      await updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false });
+    } catch (e) {
+      console.error("Manual cancel failed (probably permissions). Forcing local reload.", e);
+      localStorage.removeItem('pendingPlan');
+      window.location.reload();
+    }
+  };
+
   const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
@@ -204,13 +215,18 @@ export default function App() {
           console.log("Applying pending plan fallback:", pendingPlan);
           try {
             // Optimistically update access immediately
-            // Note: Firestore rules might block this if securely configured, but for many apps this works.
-            // Ideally this should be server-side, but this is the requested emergency fallback.
+            console.log("Attempting CLIENT-SIDE UPDATE for plan:", pendingPlan);
             updateDoc(doc(db, 'users', currentUser.uid), {
               tier: pendingPlan,
-              subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 Days (matches dev logic)
-              isPaymentPending: false // Clear pending flag
-            }).catch(e => console.error("Fallback tier update failed (permissions?):", e));
+              subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
+              isPaymentPending: false
+            }).then(() => {
+              console.log("Client-side update SUCCESS!");
+            }).catch(e => {
+              console.error("Fallback tier update FAILED:", e);
+              // Alert the user so they know WHY it failed
+              alert("Payment Verification Error: " + e.message + "\n\nTry refreshing the page.");
+            });
           } catch (e) { console.error(e); }
           localStorage.removeItem('pendingPlan');
         }
@@ -244,16 +260,7 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Payment Pending Widget Logic
-  // If user has isPaymentPending but NO return parameters, it means they might have closed the tab or hit back.
-  // We need to give them a way to clear the "Checking Payment..." state if it gets stuck.
-  const clearPendingPayment = async () => {
-    if (!currentUser) return;
-    try {
-      await updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false });
-      showAlert("Payment check cancelled.");
-    } catch (e) { console.error(e); }
-  };
+
 
   useEffect(() => {
     setCurrentStatusInput(userData?.statusMessage || '');
