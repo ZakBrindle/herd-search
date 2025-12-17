@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, DocumentData } from 'firebase/firestore';
+import { collection, getDocs, type DocumentData } from 'firebase/firestore';
 import { db } from '../firebase';
 import { FaUserFriends, FaMapMarkerAlt } from 'react-icons/fa';
 
