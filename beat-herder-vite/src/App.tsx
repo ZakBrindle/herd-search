@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, type User
@@ -187,8 +187,11 @@ export default function App() {
     const paymentIntent = urlParams.get('payment_intent');
     const redirectStatus = urlParams.get('redirect_status');
 
+    console.log("Payment Debug: checking params", { paymentIntent, redirectStatus, hasUser: !!currentUser });
+
     if (paymentIntent && redirectStatus && currentUser) {
       if (redirectStatus === 'succeeded') {
+        console.log("Payment Debug: Status is succeeded");
         setPaymentStatus('success');
         setActiveModal('paymentResult');
 
@@ -231,8 +234,9 @@ export default function App() {
         setPaymentStatus('failed');
         setActiveModal('paymentResult');
       }
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
+      // Note: We do NOT clear history here anymore to prevent React Strict Mode content-flash issues
+      // where the params are wiped before the modal state is fully established/rendered.
+      // We will clear URL when the user Closes the modal.
     }
   }, [currentUser]);
 
@@ -1445,17 +1449,70 @@ export default function App() {
   // --- Render ---
   if (!currentUser) {
     return (
-      <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <img src="/logo-main.png" alt="Herd Search" style={{ width: '150px', height: 'auto', marginBottom: '1rem', borderRadius: '20px' }} />
-        <h1 className="logo" style={{ fontSize: '3rem', marginBottom: '2rem' }}>Herd Search</h1>
-        <button
-          onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
-          className="btn"
-          style={{ background: 'white', color: '#444', border: '1px solid #ccc', display: 'flex', alignItems: 'center', gap: '1rem' }}
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="24" />
-          Sign in with Google
-        </button>
+      <div className="app-container" style={{ padding: '20px', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2rem' }}>
+          <img src="/logo-main.png" alt="Herd Search" style={{ width: '150px', height: 'auto', marginBottom: '1rem', borderRadius: '20px' }} />
+          <h1 className="logo" style={{ fontSize: '3rem', marginBottom: '2rem' }}>Herd Search</h1>
+          <button
+            onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
+            className="btn"
+            style={{ background: 'white', color: '#444', border: '1px solid #ccc', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1.2rem', padding: '12px 24px' }}
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="24" />
+            Sign in with Google
+          </button>
+        </div>
+
+        <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+          <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '1rem', background: '#333' }}>
+            <h2 style={{ color: 'var(--primary)', marginTop: 0 }}>What is Herd Search?</h2>
+            <p>
+              Herd Search is the ultimate festival and event companion. Keep track of your friends (your "Herd"), create temporary squads, and never lose your group in the crowd again.
+            </p>
+          </div>
+
+          <h3 style={{ marginTop: '2rem', marginBottom: '1rem', textAlign: 'center' }}>Key Features</h3>
+
+          <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#03dac6' }}><FaMap /></div>
+            <div>
+              <h4 style={{ margin: 0 }}>The Map</h4>
+              <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                See where your friends are in real-time. Long press on a location to start a Squad Vote.
+              </p>
+            </div>
+          </div>
+
+          <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#bb86fc' }}><FaUserFriends /></div>
+            <div>
+              <h4 style={{ margin: 0 }}>Squads</h4>
+              <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                Create a Squad and share your live location with each other.
+              </p>
+            </div>
+          </div>
+
+          <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#cf6679' }}><FaGhost /></div>
+            <div>
+              <h4 style={{ margin: 0 }}>Ghost Mode</h4>
+              <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                Want some privacy? Enable Ghost Mode in your profile to hide your location.
+              </p>
+            </div>
+          </div>
+
+          <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#ffc107' }}><FaMapMarkerAlt /></div>
+            <div>
+              <h4 style={{ margin: 0 }}>Check In</h4>
+              <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                GPS Acting up? Manually Check In to a festival area to update your location.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -3056,7 +3113,7 @@ export default function App() {
       {/* Payment Result Modal */}
       {
         activeModal === 'paymentResult' && paymentStatus && (
-          <div className="modal-overlay" onClick={() => { setActiveModal(null); setPaymentStatus(null); }}>
+          <div className="modal-overlay" onClick={() => { setActiveModal(null); setPaymentStatus(null); window.history.replaceState({}, '', window.location.pathname); }}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               {paymentStatus === 'success' ? (
                 <>
@@ -3070,6 +3127,7 @@ export default function App() {
                         setActiveModal(null);
                         setPaymentStatus(null);
                         setActiveTab('map');
+                        window.history.replaceState({}, '', window.location.pathname);
                         window.location.reload(); // Force refresh to update subscription status
                       }}
                       className="btn btn-primary w-full"
@@ -3081,6 +3139,7 @@ export default function App() {
                       onClick={() => {
                         setActiveModal(null);
                         setPaymentStatus(null);
+                        window.history.replaceState({}, '', window.location.pathname);
                       }}
                       className="btn btn-secondary w-full"
                     >
@@ -3099,6 +3158,7 @@ export default function App() {
                       onClick={() => {
                         setActiveModal('upgrade');
                         setPaymentStatus(null);
+                        window.history.replaceState({}, '', window.location.pathname);
                       }}
                       className="btn btn-primary w-full"
                     >
