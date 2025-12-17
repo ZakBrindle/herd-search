@@ -198,10 +198,41 @@ export default function App() {
   // Check for payment return from Stripe
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const paymentIntent = urlParams.get('payment_intent');
-    const redirectStatus = urlParams.get('redirect_status');
+    // --- STRIPE PARAM PARKING STRATEGY ---
+    // 1. Check URL for params immediately
+    let paymentIntent = urlParams.get('payment_intent');
+    let redirectStatus = urlParams.get('redirect_status');
 
-    console.log("Payment Debug: checking params", { paymentIntent, redirectStatus, hasUser: !!currentUser });
+    // 2. If found, PARK them in localStorage to survive redirects/login-flow
+    if (paymentIntent && redirectStatus) {
+      console.log("Parking Stripe Params in LocalStorage:", { paymentIntent, redirectStatus });
+      localStorage.setItem('parkedStripeParams', JSON.stringify({ paymentIntent, redirectStatus, timestamp: Date.now() }));
+    }
+
+    // 3. If NOT in URL (because of redirect), try to RETRIEVE parked params
+    if (!paymentIntent || !redirectStatus) {
+      const parked = localStorage.getItem('parkedStripeParams');
+      if (parked) {
+        try {
+          const { paymentIntent: pi, redirectStatus: rs, timestamp } = JSON.parse(parked);
+          // Only valid for 5 minutes
+          if (Date.now() - timestamp < 5 * 60 * 1000) {
+            console.log("Restoring Parked Stripe Params:", pi, rs);
+            paymentIntent = pi;
+            redirectStatus = rs;
+          }
+        } catch (e) {
+          console.error("Failed to parse parked params", e);
+        }
+      }
+    }
+
+    console.log("Payment Debug: checking params", {
+      fullUrl: window.location.href,
+      paymentIntent,
+      redirectStatus,
+      hasUser: !!currentUser
+    });
 
     if (paymentIntent && redirectStatus && currentUser) {
       if (redirectStatus === 'succeeded') {
@@ -229,6 +260,9 @@ export default function App() {
             });
           } catch (e) { console.error(e); }
           localStorage.removeItem('pendingPlan');
+          localStorage.removeItem('parkedStripeParams'); // Cleanup parked params
+        } else {
+          localStorage.removeItem('parkedStripeParams'); // Cleanup even if no pending plan
         }
 
         // CRITICAL: Fallback to ensure tier is updated even if webhook fails
