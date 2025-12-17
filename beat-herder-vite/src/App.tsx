@@ -496,7 +496,7 @@ export default function App() {
       }
       if (intersect) isInside = !isInside;
     }
-    if (debug) console.log(`Final result: ${isInside ? 'INSIDE' : 'OUTSIDE'}`);
+    //  if (debug) console.log(`Final result: ${isInside ? 'INSIDE' : 'OUTSIDE'}`);
     return isInside;
   };
 
