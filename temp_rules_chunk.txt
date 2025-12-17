@@ -1,0 +1,9 @@
+﻿          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'location', 'currentArea', 'lastKnownArea', 'useGps', 'lastUpdate',
+            'squadId', 'squadOwnerId', 'friends',
+             // Added for Payment Flow Client-Side Fallback
+            'tier', 'subscriptionExpiry', 'isPaymentPending',
+             // Added for other profile features
+             'statusMessage', 'statusTimestamp', 'ghostMode', 'ghostModeExpiry', 'fcmToken', 'isDev'
+          ])
+        )
