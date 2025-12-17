@@ -197,109 +197,75 @@ export default function App() {
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | null>(null);
 
   // Check for payment return from Stripe
+  // --- TASK A: TRAP PARAMS (Run ONCE on mount) ---
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    // --- STRIPE PARAM PARKING STRATEGY ---
-    // 1. Check URL for params immediately
-    let paymentIntent = urlParams.get('payment_intent');
-    let redirectStatus = urlParams.get('redirect_status');
+    const paymentIntent = urlParams.get('payment_intent');
+    const redirectStatus = urlParams.get('redirect_status');
 
-    // 2. If found, PARK them in localStorage to survive redirects/login-flow
     if (paymentIntent && redirectStatus) {
-      console.log("Parking Stripe Params in LocalStorage:", { paymentIntent, redirectStatus });
-      localStorage.setItem('parkedStripeParams', JSON.stringify({ paymentIntent, redirectStatus, timestamp: Date.now() }));
+      console.log("Task A: TRAPPED Stripe Params from URL:", { paymentIntent, redirectStatus });
+      localStorage.setItem('parkedStripeParams', JSON.stringify({
+        paymentIntent,
+        redirectStatus,
+        timestamp: Date.now()
+      }));
+
+      // Clean URL to prevent re-triggering? Optional, but good practice.
+      // window.history.replaceState({}, document.title, window.location.pathname);
     } else {
-      console.log("No Stripe params in URL. Current URL:", window.location.href);
+      console.log("Task A: No Stripe params in URL to trap.");
     }
+  }, []); // <--- EMPTY DEPENDENCY ARRAY IS CRITICAL
 
-    // 3. If NOT in URL (because of redirect), try to RETRIEVE parked params
-    if (!paymentIntent || !redirectStatus) {
-      const parked = localStorage.getItem('parkedStripeParams');
-      if (parked) {
-        try {
-          const { paymentIntent: pi, redirectStatus: rs, timestamp } = JSON.parse(parked);
-          // Only valid for 60 minutes (extended for debugging)
-          const expiryTime = 60 * 60 * 1000;
-          const age = Date.now() - timestamp;
-          if (age < expiryTime) {
-            console.log("Restoring Parked Stripe Params:", pi, rs);
-            paymentIntent = pi;
-            redirectStatus = rs;
-          } else {
-            console.warn(`Parked params found but EXPIRED. Age: ${age / 1000}s. Limit: ${expiryTime / 1000}s`);
-          }
-        } catch (e) {
-          console.error("Failed to parse parked params", e);
+  // --- TASK B: PROCESS PARAMS (Run when User is Ready) ---
+  useEffect(() => {
+    if (!currentUser) return; // Wait for user
+
+    console.log("Task B: User ready, checking for parked params...");
+    const parked = localStorage.getItem('parkedStripeParams');
+
+    if (parked) {
+      try {
+        const { paymentIntent, redirectStatus, timestamp } = JSON.parse(parked);
+
+        // 60 minute expiry
+        if (Date.now() - timestamp > 60 * 60 * 1000) {
+          console.warn("Task B: Parked params EXPIRED.");
+          localStorage.removeItem('parkedStripeParams');
+          return;
         }
-      } else {
-        console.log("No parked params found in localStorage.");
-      }
-    }
 
-    console.log("Payment Debug: checking params", {
-      fullUrl: window.location.href,
-      paymentIntent,
-      redirectStatus,
-      hasUser: !!currentUser
-    });
+        console.log("Task B: PROCESSING Payment:", { paymentIntent, redirectStatus });
 
-    if (paymentIntent && redirectStatus && currentUser) {
-      if (redirectStatus === 'succeeded') {
-        console.log("Payment Debug: Status is succeeded");
-        setPaymentStatus('success');
-        setActiveModal('paymentResult');
+        if (redirectStatus === 'succeeded') {
+          setPaymentStatus('success');
+          setActiveModal('paymentResult');
 
-        // Check for pending plan fallback (Client-side fail-safe)
-        const pendingPlan = localStorage.getItem('pendingPlan') as Tier | null;
-        if (pendingPlan) {
-          console.log("Applying pending plan fallback:", pendingPlan);
-          try {
-            // Optimistically update access immediately
-            console.log("Attempting CLIENT-SIDE UPDATE for plan:", pendingPlan);
+          // Fallback Plan Update
+          const pendingPlan = localStorage.getItem('pendingPlan') as Tier | null;
+          if (pendingPlan) {
+            console.log("Task B: Applying pending plan:", pendingPlan);
             updateDoc(doc(db, 'users', currentUser.uid), {
               tier: pendingPlan,
               subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
               isPaymentPending: false
             }).then(() => {
-              console.log("Client-side update SUCCESS!");
-            }).catch(e => {
-              console.error("Fallback tier update FAILED:", e);
-              // Alert the user so they know WHY it failed
-              alert("Payment Verification Error: " + e.message + "\n\nTry refreshing the page.");
-            });
-          } catch (e) { console.error(e); }
+              console.log("Task B: Plan updated successfully.");
+            }).catch(e => console.error("Task B Update Error:", e));
+          }
+
           localStorage.removeItem('pendingPlan');
-          localStorage.removeItem('parkedStripeParams'); // Cleanup parked params
+          localStorage.removeItem('parkedStripeParams'); // Job Done
         } else {
-          localStorage.removeItem('parkedStripeParams'); // Cleanup even if no pending plan
+          setPaymentStatus('failed');
+          setActiveModal('paymentResult');
+          localStorage.removeItem('parkedStripeParams');
         }
 
-        // CRITICAL: Fallback to ensure tier is updated even if webhook fails
-        // Wait a moment for webhook to process, then verify
-        setTimeout(async () => {
-          try {
-            // Refresh user data to get updated tier
-            const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-            if (userDoc.exists()) {
-              const freshData = userDoc.data() as UserData;
-              // Check if tier was updated (not 'free')
-              if (freshData.tier && freshData.tier !== 'free') {
-                console.log('Payment successful, tier updated by webhook:', freshData.tier);
-              } else {
-                console.warn('Payment succeeded but tier not updated - webhook may have failed');
-              }
-            }
-          } catch (err) {
-            console.error('Error verifying payment:', err);
-          }
-        }, 3000); // Wait 3 seconds for webhook
-      } else {
-        setPaymentStatus('failed');
-        setActiveModal('paymentResult');
+      } catch (e) {
+        console.error("Task B Error parsing params:", e);
       }
-      // Note: We do NOT clear history here anymore to prevent React Strict Mode content-flash issues
-      // where the params are wiped before the modal state is fully established/rendered.
-      // We will clear URL when the user Closes the modal.
     }
   }, [currentUser]);
 
