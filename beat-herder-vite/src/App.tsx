@@ -16,6 +16,9 @@ import { getToken, onMessage } from "firebase/messaging";
 
 // --- Type Definitions ---
 import LocationPicker from './components/LocationPicker';
+import DevStats from './components/DevStats';
+import InstallModal from './components/modals/InstallModal';
+import PaymentResultModal from './components/modals/PaymentResultModal';
 
 type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
@@ -159,6 +162,10 @@ export default function App() {
   const [showShareLink, setShowShareLink] = useState(false);
   const [gpsHasLocation, setGpsHasLocation] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Dev Features
+  const [devMapFilterDuration, setDevMapFilterDuration] = useState<'5m' | '30m' | '1h' | '24h' | null>(null);
+  const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 1500);
@@ -1437,6 +1444,34 @@ export default function App() {
     return () => unsubSquad();
   }, [userData?.squadId]);
 
+  // --- DEV: Fetch All Users for Map ---
+  useEffect(() => {
+    if (!isDevMode || !devMapFilterDuration) {
+      setAllUsersOnMap([]);
+      return;
+    }
+
+    // Subscribe to ALL users (Costly, but only for dev mode)
+    const q = query(collection(db, 'users'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const users = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })) as UserData[];
+
+      const now = Date.now();
+      let durationMs = 0;
+      switch (devMapFilterDuration) {
+        case '5m': durationMs = 5 * 60 * 1000; break;
+        case '30m': durationMs = 30 * 60 * 1000; break;
+        case '1h': durationMs = 60 * 60 * 1000; break;
+        case '24h': durationMs = 24 * 60 * 60 * 1000; break;
+      }
+
+      const filtered = users.filter(u => u.lastUpdate && (now - u.lastUpdate < durationMs));
+      setAllUsersOnMap(filtered);
+    });
+
+    return () => unsub();
+  }, [isDevMode, devMapFilterDuration]);
+
 
 
 
@@ -1609,6 +1644,13 @@ export default function App() {
       return (
         <>
           <header>
+            {activeModal === 'devStats' && (
+              <div className="modal-overlay" onClick={() => setActiveModal(null)} style={{ zIndex: 2000 }}>
+                <div className="modal-content wide" onClick={e => e.stopPropagation()}>
+                  <DevStats onClose={() => setActiveModal(null)} />
+                </div>
+              </div>
+            )}
             <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {!userData?.useGps && (
@@ -1642,9 +1684,28 @@ export default function App() {
 
           {isDevMode && (
             <div className="dev-panel">
-              <h3>Developer Mode</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <h3>Developer Mode</h3>
+                <button onClick={() => setActiveModal('devStats')} className="btn" style={{ fontSize: '0.8rem', padding: '4px 8px', background: '#333' }}>📊 View Stats</button>
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px' }}>Show all users active in last:</label>
+                <select
+                  value={devMapFilterDuration || ''}
+                  onChange={(e) => setDevMapFilterDuration(e.target.value as any || null)}
+                  style={{ background: '#333', color: 'white', border: '1px solid #555', padding: '4px', borderRadius: '4px' }}
+                >
+                  <option value="">-- Only Friends (Default) --</option>
+                  <option value="5m">Last 5 Minutes</option>
+                  <option value="30m">Last 30 Minutes</option>
+                  <option value="1h">Last Hour</option>
+                  <option value="24h">Last 24 Hours</option>
+                </select>
+              </div>
+
               <p>Click on the map to draw areas.</p>
-              <button onClick={cancelDrawing} className="btn btn-danger" style={{ padding: '0.25rem 0.5rem' }}>Cancel</button>
+              <button onClick={cancelDrawing} className="btn btn-danger" style={{ padding: '0.25rem 0.5rem' }}>Cancel Drawing</button>
             </div>
           )}
 
@@ -1744,48 +1805,75 @@ export default function App() {
               </div>
             )}
 
-            {friendsData
-              .filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()))
-              .map(u => (
-                <div key={u.uid} className="user-marker" style={{
-                  left: `${Math.max(0, Math.min(100, u.location!.x * 100))}%`,
-                  top: `${Math.max(0, Math.min(100, u.location!.y * 100))}%`
-                }}>
-                  <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
-                  {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
-                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
-                  )}
-                  <div className="marker-label">{u.displayName?.split(' ')[0]}</div>
-                </div>
-              ))}
           </div>
+
+          {/* Friends Markers */}
+          {!devMapFilterDuration && friendsData
+            .filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()))
+            .map(u => (
+              <div key={u.uid} className="user-marker" style={{
+                left: `${Math.max(0, Math.min(100, u.location!.x * 100))}%`,
+                top: `${Math.max(0, Math.min(100, u.location!.y * 100))}%`
+              }}>
+                <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
+                {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
+                  <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
+                )}
+                <div className="marker-label">{u.displayName?.split(' ')[0]}</div>
+              </div>
+            ))}
+
+          {/* Dev Mode: All Users Markers */}
+          {devMapFilterDuration && allUsersOnMap.map(u => {
+            if (!u.location) return null;
+            const isFriend = friendsData.some(f => f.uid === u.uid);
+            const isMe = u.uid === userData?.uid;
+            let borderColor = '#999'; // Default
+            if (isMe) borderColor = 'var(--primary)';
+            else if (isFriend) borderColor = 'var(--secondary)';
+
+            return (
+              <div key={u.uid} className="user-marker" style={{
+                left: `${Math.max(0, Math.min(100, u.location.x * 100))}%`,
+                top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`
+              }}>
+                <img
+                  src={u.photoURL || "/default-avatar.png"}
+                  className="marker-avatar"
+                  alt={u.displayName}
+                  style={{ borderColor }}
+                />
+                <div className="marker-label" style={{ fontSize: '0.6rem' }}>{u.displayName?.split(' ')[0]}</div>
+              </div>
+            );
+          })}
+
 
           {/* Check In / Vote Button */}
           <div style={{ padding: '0 4px', marginBottom: '1rem' }}>
-            {selectedAreaForVote ? (
-              <button
-                onClick={() => startVote(selectedAreaForVote)}
-                className="btn w-full"
-                style={{
-                  background: 'linear-gradient(45deg, #ff0080, #7928ca)', // Different color for vote
-                  padding: '16px',
-                  fontSize: '1.2rem',
-                  fontWeight: 'bold',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  color: 'white'
-                }}
-              >
-                <FaUserFriends size={22} />
-                Vote we go to {selectedAreaForVote.name}
-              </button>
-            ) : (
-              <button
-                onClick={() => {
+            {
+              selectedAreaForVote ? (
+                <button onClick={() => startVote(selectedAreaForVote)}
+                  className="btn w-full"
+                  style={{
+                    background: 'linear-gradient(45deg, #ff0080, #7928ca)',
+                    padding: '16px',
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px',
+                    color: 'white'
+                  }}
+                >
+                  <FaUserFriends size={22} />
+                  Vote we go to {selectedAreaForVote.name}
+                </button >
+              ) : (
+                <button onClick={() => {
                   if (userData?.useGps) {
                     if (!mapCalibration) return showAlert("Map not calibrated yet.");
                     if (!navigator.geolocation) return showAlert("GPS not supported.");
@@ -1799,13 +1887,6 @@ export default function App() {
                       let y = (north - latitude) / (north - south);
                       const isInside = x >= 0 && x <= 1 && y >= 0 && y <= 1;
 
-                      console.log("--- GPS Refresh Debug ---");
-                      console.log(`Current Location: Lat ${latitude}, Lon ${longitude}`);
-                      console.log(`Map Bounds: N ${north}, S ${south}, E ${east}, W ${west}`);
-                      console.log(`Map Coords: x ${x.toFixed(4)}, y ${y.toFixed(4)}`);
-                      console.log(`Within Map Area: ${isInside}`);
-                      console.log("-------------------------");
-
                       const newPoint = { x, y };
 
                       // Determine which area the user is in
@@ -1818,7 +1899,6 @@ export default function App() {
                       }
 
                       const areaName = foundArea ? foundArea.name : 'Out of bounds';
-                      console.log(`Detected area: ${areaName}`);
 
                       try {
                         const updateData: any = {
@@ -1848,27 +1928,27 @@ export default function App() {
                     selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
                   }
                 }}
-                className="btn btn-primary w-full"
-                style={{
-                  background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                  padding: '16px',
-                  fontSize: '1.2rem',
-                  fontWeight: 'bold',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px'
-                }}
-              >
-                <FaMapMarkerAlt size={22} />
-                {gpsRefreshButtonText || (userData?.useGps
-                  ? (gpsHasLocation ? "Using Live GPS" : "Searching for GPS...")
-                  : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
-              </button>
-            )}
-          </div>
+                  className="btn btn-primary w-full"
+                  style={{
+                    background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                    padding: '16px',
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '12px'
+                  }}
+                >
+                  <FaMapMarkerAlt size={22} />
+                  {gpsRefreshButtonText || (userData?.useGps
+                    ? (gpsHasLocation ? "Using Live GPS" : "Searching for GPS...")
+                    : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
+                </button>
+              )}
+          </div >
 
 
 
@@ -3216,117 +3296,31 @@ export default function App() {
       }
 
       {/* Install Instructions Modal */}
-      {
-        activeModal === 'install' && (
-          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">Install App</h3>
-
-              <p style={{ textAlign: 'center', marginBottom: '30px', color: '#ccc' }}>
-                Install Herd Search to your home screen for the best experience, including full-screen map and easier access.
-              </p>
-
-              <div style={{ marginBottom: '30px' }}>
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '15px' }}>
-                  <span style={{ fontSize: '1.5rem' }}>🍎</span> iOS (iPhone/iPad)
-                </h4>
-                <ol style={{ lineHeight: '1.8', paddingLeft: '20px' }}>
-                  <li>Tap the <strong>Share</strong> button 📤 in Safari's toolbar.</li>
-                  <li>Scroll down the share sheet.</li>
-                  <li>Tap <strong>Add to Home Screen</strong>.</li>
-                  <li>Tap <strong>Add</strong> in the top right corner.</li>
-                </ol>
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid #333', paddingBottom: '10px', marginBottom: '15px' }}>
-                  <span style={{ fontSize: '1.5rem', color: '#3ddc84' }}>🤖</span> Android (Chrome)
-                </h4>
-                <ol style={{ lineHeight: '1.8', paddingLeft: '20px' }}>
-                  <li>Tap the <strong>Menu</strong> button ⋮ (three dots) in Chrome.</li>
-                  <li>Tap <strong>Install App</strong> or <strong>Add to Home screen</strong>.</li>
-                  <li>Follow the on-screen prompts to install.</li>
-                </ol>
-              </div>
-
-              <div className="modal-actions">
-                <button onClick={() => setActiveModal(null)} className="btn btn-primary">Done</button>
-              </div>
-            </div>
-          </div>
-        )
-      }
+      {activeModal === 'install' && <InstallModal onClose={() => setActiveModal(null)} />}
 
       {/* Payment Result Modal */}
-      {
-        activeModal === 'paymentResult' && paymentStatus && (
-          <div className="modal-overlay" onClick={() => { setActiveModal(null); setPaymentStatus(null); window.history.replaceState({}, '', window.location.pathname); }}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              {paymentStatus === 'success' ? (
-                <>
-                  <h3 className="modal-header" style={{ color: 'var(--primary)' }}>🎉 Payment Successful!</h3>
-                  <p style={{ textAlign: 'center', marginBottom: '20px', fontSize: '1.1rem' }}>
-                    Your payment was successful! You can now invite friends to your squad.
-                  </p>
-                  <div className="modal-actions" style={{ flexDirection: 'column', gap: '12px' }}>
-                    <button
-                      onClick={() => {
-                        setActiveModal(null);
-                        setPaymentStatus(null);
-                        setActiveTab('map');
-                        window.history.replaceState({}, '', window.location.pathname);
-                        window.location.reload(); // Force refresh to update subscription status
-                      }}
-                      className="btn btn-primary w-full"
-                      style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', color: 'black', fontWeight: 'bold' }}
-                    >
-                      Go to Map
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveModal(null);
-                        setPaymentStatus(null);
-                        window.history.replaceState({}, '', window.location.pathname);
-                      }}
-                      className="btn btn-secondary w-full"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="modal-header" style={{ color: 'var(--error)' }}>❌ Payment Failed</h3>
-                  <p style={{ textAlign: 'center', marginBottom: '20px' }}>
-                    Your payment was not successful. Please try again or contact support if the problem persists.
-                  </p>
-                  <div className="modal-actions" style={{ flexDirection: 'column', gap: '12px' }}>
-                    <button
-                      onClick={() => {
-                        setActiveModal('upgrade');
-                        setPaymentStatus(null);
-                        window.history.replaceState({}, '', window.location.pathname);
-                      }}
-                      className="btn btn-primary w-full"
-                    >
-                      Try Again
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveModal(null);
-                        setPaymentStatus(null);
-                      }}
-                      className="btn btn-secondary w-full"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )
-      }
+      {activeModal === 'paymentResult' && paymentStatus && (
+        <PaymentResultModal
+          paymentStatus={paymentStatus}
+          onClose={() => {
+            setActiveModal(null);
+            setPaymentStatus(null);
+            window.history.replaceState({}, '', window.location.pathname);
+          }}
+          onGoToMap={() => {
+            setActiveModal(null);
+            setPaymentStatus(null);
+            setActiveTab('map');
+            window.history.replaceState({}, '', window.location.pathname);
+            window.location.reload();
+          }}
+          onRetry={() => {
+            setActiveModal('upgrade');
+            setPaymentStatus(null);
+            window.history.replaceState({}, '', window.location.pathname);
+          }}
+        />
+      )}
 
 
     </div >
