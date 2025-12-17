@@ -208,6 +208,8 @@ export default function App() {
     if (paymentIntent && redirectStatus) {
       console.log("Parking Stripe Params in LocalStorage:", { paymentIntent, redirectStatus });
       localStorage.setItem('parkedStripeParams', JSON.stringify({ paymentIntent, redirectStatus, timestamp: Date.now() }));
+    } else {
+      console.log("No Stripe params in URL. Current URL:", window.location.href);
     }
 
     // 3. If NOT in URL (because of redirect), try to RETRIEVE parked params
@@ -216,15 +218,21 @@ export default function App() {
       if (parked) {
         try {
           const { paymentIntent: pi, redirectStatus: rs, timestamp } = JSON.parse(parked);
-          // Only valid for 5 minutes
-          if (Date.now() - timestamp < 5 * 60 * 1000) {
+          // Only valid for 60 minutes (extended for debugging)
+          const expiryTime = 60 * 60 * 1000;
+          const age = Date.now() - timestamp;
+          if (age < expiryTime) {
             console.log("Restoring Parked Stripe Params:", pi, rs);
             paymentIntent = pi;
             redirectStatus = rs;
+          } else {
+            console.warn(`Parked params found but EXPIRED. Age: ${age / 1000}s. Limit: ${expiryTime / 1000}s`);
           }
         } catch (e) {
           console.error("Failed to parse parked params", e);
         }
+      } else {
+        console.log("No parked params found in localStorage.");
       }
     }
 
