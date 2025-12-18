@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import addFriendImg from './assets/addFriend.png';
+import inviteToSquadImg from './assets/inviteToSquad.png';
 import {
   FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost
 } from 'react-icons/fa';
@@ -3136,7 +3138,7 @@ export default function App() {
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <h3 className="modal-header">Invite to Squad</h3>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-                <img src="/inviteToSquad.png" alt="Invite" style={{ width: '80px', height: 'auto' }} />
+                <img src={inviteToSquadImg} alt="Invite" style={{ width: '80px', height: 'auto' }} />
               </div>
 
               {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
@@ -3240,7 +3242,7 @@ export default function App() {
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <h3 className="modal-header">Add Friend</h3>
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-                <img src="/addFriend.png" alt="Add Friend" style={{ width: '80px', height: 'auto' }} />
+                <img src={addFriendImg} alt="Add Friend" style={{ width: '80px', height: 'auto' }} />
               </div>
               <div className="mt-4">
                 <h4>Search User by Email</h4>
