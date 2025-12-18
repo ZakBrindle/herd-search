@@ -72,7 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     }
 
                     const envEmail = import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS?.toLowerCase();
-                    const isDev = user.email?.toLowerCase() === 'z4kbrindle@gmail.com' || (envEmail && user.email?.toLowerCase() === envEmail);
+                    // Ensure isDev is explicitly boolean true or false. NEVER undefined.
+                    const isDev = !!(user.email?.toLowerCase() === 'z4kbrindle@gmail.com' || (envEmail && user.email?.toLowerCase() === envEmail));
 
                     if (!userDoc.exists()) {
                         console.log("Creating new user profile...");
@@ -82,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             email: user.email?.toLowerCase(),
                             photoURL: user.photoURL,
                             tier: 'free' as Tier,
-                            isDev
+                            isDev // Now guaranteed boolean
                         };
 
                         // Create User Doc
@@ -128,6 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             } catch (err) {
                 console.error("Critical Auth Init Error:", err);
+                // Force logout so user is not stuck in limbo
+                await firebaseSignOut(auth);
+                setCurrentUser(null);
+                setUserData(null);
             } finally {
                 setLoading(false);
             }
