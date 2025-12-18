@@ -1312,63 +1312,96 @@ export default function App() {
   // --- Subscriptions ---
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
-        const userRef = getUserDocRef(user.uid);
-        const publicProfileRef = doc(getPublicProfileCollection(), user.uid);
-        const userDoc = await getDoc(userRef);
+      try {
+        if (user) {
+          setCurrentUser(user);
+          const userRef = getUserDocRef(user.uid);
+          const publicProfileRef = doc(getPublicProfileCollection(), user.uid);
 
-        const envEmail = import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS?.toLowerCase();
-        const isDev = user.email?.toLowerCase() === 'z4kbrindle@gmail.com' || (envEmail && user.email?.toLowerCase() === envEmail);
-        console.log("User logged in:", user.email, "Is Dev:", isDev);
-
-        if (!userDoc.exists()) {
-          const profileData = {
-            uid: user.uid,
-            displayName: user.displayName,
-            email: user.email?.toLowerCase(),
-            photoURL: user.photoURL,
-            tier: 'free',
-            isDev
-          };
-          await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
-          await setDoc(publicProfileRef, profileData);
-
-          const squadDoc = await addDoc(collection(db, "squads"), {
-            ownerId: user.uid,
-            members: [user.uid],
-            pendingMembers: [],
-            createdAt: Date.now(),
-          });
-          await updateDoc(userRef, {
-            squadId: squadDoc.id,
-            squadOwnerId: user.uid,
-          });
-        } else {
-          if (isDev) {
-            await updateDoc(userRef, { isDev: true });
+          let userDoc;
+          try {
+            userDoc = await getDoc(userRef);
+          } catch (e) {
+            console.error("Error fetching user doc during init:", e);
+            // If we can't fetch the doc, there's a serious network/permission issue.
+            // We can't proceed safely to create/update.
+            throw e;
           }
-          const data = userDoc.data();
-          if (!data?.squadId) {
+
+          const envEmail = import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS?.toLowerCase();
+          const isDev = user.email?.toLowerCase() === 'z4kbrindle@gmail.com' || (envEmail && user.email?.toLowerCase() === envEmail);
+          console.log("User logged in:", user.email, "Is Dev:", isDev);
+
+          if (!userDoc.exists()) {
+            console.log("Creating new user profile...");
+            const profileData = {
+              uid: user.uid,
+              displayName: user.displayName,
+              email: user.email?.toLowerCase(),
+              photoURL: user.photoURL,
+              tier: 'free' as Tier,
+              isDev
+            };
+
+            // Create User Doc
+            await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
+            await setDoc(publicProfileRef, profileData);
+
+            // Create Squad
             const squadDoc = await addDoc(collection(db, "squads"), {
               ownerId: user.uid,
               members: [user.uid],
               pendingMembers: [],
               createdAt: Date.now(),
             });
+
+            // Link Squad
             await updateDoc(userRef, {
               squadId: squadDoc.id,
               squadOwnerId: user.uid,
             });
+            console.log("New user initialized successfully.");
+          } else {
+            console.log("Existing user found. Checking consistency...");
+            const updates: any = {};
+            if (isDev) updates.isDev = true;
+
+            const data = userDoc.data();
+
+            // Fix missing Tier
+            if (!data?.tier) {
+              console.warn("User missing tier. defaulting to free.");
+              updates.tier = 'free';
+            }
+
+            // Fix missing Squad
+            if (!data?.squadId) {
+              console.warn("User missing squad. Creating new one.");
+              const squadDoc = await addDoc(collection(db, "squads"), {
+                ownerId: user.uid,
+                members: [user.uid],
+                pendingMembers: [],
+                createdAt: Date.now(),
+              });
+              updates.squadId = squadDoc.id;
+              updates.squadOwnerId = user.uid;
+            }
+
+            if (Object.keys(updates).length > 0) {
+              await updateDoc(userRef, updates);
+            }
           }
+        } else {
+          setCurrentUser(null);
+          setUserData(null);
+          setFriendsData([]);
+          setIsDevMode(false);
         }
-      } else {
-        setCurrentUser(null);
-        setUserData(null);
-        setFriendsData([]);
-        setIsDevMode(false);
+      } catch (err) {
+        console.error("Critical Auth Init Error:", err);
+      } finally {
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
 
     const unsubscribeAreas = onSnapshot(collection(db, "areas"), (snapshot) => {
@@ -3106,7 +3139,7 @@ export default function App() {
                     <p className="price">{plan.price}</p>
                     <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Max {plan.limit} Friends in Squad</p>
                     <button className="btn btn-primary w-full" disabled={!upgradesEnabled}>
-                      {!upgradesEnabled ? "Upgrade not available" : "Select"}
+                      {!upgradesEnabled ? "Upgrades Paused 🚧" : "Select"}
                     </button>
                   </div>
                 ))}
