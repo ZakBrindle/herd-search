@@ -358,7 +358,7 @@ export default function App() {
       }
     });
     return () => unsub();
-  }, []);
+  }, [currentUser]);
 
   // GPS Tracking Logic
   useEffect(() => {
@@ -3043,8 +3043,8 @@ export default function App() {
               <h2 className="modal-header">Welcome to Herd Search!</h2>
               <p>Track your friends, create a squad, and never get lost at the festival again.</p>
               <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px' }}>
-                <button onClick={() => setActiveModal('addFriend')} className="btn btn-primary w-full">Add a Friend to Start</button>
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary w-full">I'll do it later</button>
+                <button onClick={() => { setActiveModal('addFriend'); }} className="btn btn-primary w-full">Add a Friend to Start</button>
+                <button onClick={() => { setActiveModal(null); }} className="btn btn-secondary w-full">I'll do it later</button>
               </div>
             </div>
           </div>
