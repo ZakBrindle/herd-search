@@ -1348,7 +1348,10 @@ export default function App() {
   }, [userData?.friends]);
 
   // --- Auto-remove Desynced Friends ---
+  // --- Auto-remove Desynced Friends ---
   useEffect(() => {
+    /* Temporarily disabled: It's aggressively removing friends while the mutual-add logic settles. 
+       We need to be sure before we delete.
     if (!userData || !currentUser || friendsData.length === 0) return;
 
     const desyncedFriends: string[] = [];
@@ -1374,6 +1377,7 @@ export default function App() {
         showAlert(`Connection with ${names} was out of sync and has been reset.`);
       }).catch(console.error);
     }
+    */
   }, [friendsData, userData, currentUser]);
 
   // --- Notifications ---
