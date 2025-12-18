@@ -4,8 +4,9 @@ import {
   FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost
 } from 'react-icons/fa';
 import {
-  GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, type User
+  GoogleAuthProvider, signInWithPopup
 } from "firebase/auth";
+import { useAuth, type UserData, type Tier, type Point } from './contexts/AuthContext';
 import SupportSystem from './components/SupportSystem';
 import {
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection,
@@ -20,9 +21,7 @@ import DevStats from './components/DevStats';
 import InstallModal from './components/modals/InstallModal';
 import PaymentResultModal from './components/modals/PaymentResultModal';
 
-type Point = { x: number; y: number };
 type Area = { id: string; name: string; polygon: Point[] };
-type Tier = 'free' | 'basic' | 'standard' | 'premium' | 'festival' | 'dev_tier_test';
 type GPSBounds = {
   north: number; // Max Lat
   south: number; // Min Lat
@@ -39,30 +38,6 @@ type Vote = {
   createdAt: number;
   votes: { [uid: string]: 'yes' | 'no' };
   completedAt?: number;
-};
-
-
-type UserData = DocumentData & {
-  uid: string;
-  location?: Point;
-  photoURL?: string;
-  displayName?: string;
-  currentArea?: string;
-  lastKnownArea?: string;
-  friends?: string[];
-  useGps?: boolean;
-  lastUpdate?: number;
-  squadId?: string;
-  squadOwnerId?: string;
-  tier?: Tier;
-  subscriptionExpiry?: number;
-  email?: string;
-  ghostMode?: boolean;
-  ghostModeExpiry?: number;
-  isDev?: boolean;
-  statusMessage?: string;
-  statusTimestamp?: number;
-  isPaymentPending?: boolean;
 };
 
 
@@ -126,8 +101,7 @@ const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: str
 export default function App() {
   const navigate = useNavigate();
   // --- State Management ---
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const { currentUser, userData, loading: authLoading, signOut } = useAuth();
   const [squadData, setSquadData] = useState<DocumentData | null>(null);
   const [friendsData, setFriendsData] = useState<UserData[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -161,7 +135,6 @@ export default function App() {
   void gpsTimeoutCount; // Used via functional state update in GPS error handler
   const [showShareLink, setShowShareLink] = useState(false);
   const [gpsHasLocation, setGpsHasLocation] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
 
   // Dev Features
   const [devMapFilterDuration, setDevMapFilterDuration] = useState<'5m' | '30m' | '1h' | '24h' | null>(null);
@@ -1310,121 +1283,24 @@ export default function App() {
   }, [incomingFriendRequests, incomingSquadInvites]);
 
   // --- Subscriptions ---
+  // --- Area Listener ---
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      try {
-        if (user) {
-          setCurrentUser(user);
-          const userRef = getUserDocRef(user.uid);
-          const publicProfileRef = doc(getPublicProfileCollection(), user.uid);
-
-          let userDoc;
-          try {
-            userDoc = await getDoc(userRef);
-          } catch (e) {
-            console.error("Error fetching user doc during init:", e);
-            // If we can't fetch the doc, there's a serious network/permission issue.
-            // We can't proceed safely to create/update.
-            throw e;
-          }
-
-          const envEmail = import.meta.env.VITE_ZAKS_PERSONAL_EMAIL_ADDRESS?.toLowerCase();
-          const isDev = user.email?.toLowerCase() === 'z4kbrindle@gmail.com' || (envEmail && user.email?.toLowerCase() === envEmail);
-          console.log("User logged in:", user.email, "Is Dev:", isDev);
-
-          if (!userDoc.exists()) {
-            console.log("Creating new user profile...");
-            const profileData = {
-              uid: user.uid,
-              displayName: user.displayName,
-              email: user.email?.toLowerCase(),
-              photoURL: user.photoURL,
-              tier: 'free' as Tier,
-              isDev
-            };
-
-            // Create User Doc
-            await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
-            await setDoc(publicProfileRef, profileData);
-
-            // Create Squad
-            const squadDoc = await addDoc(collection(db, "squads"), {
-              ownerId: user.uid,
-              members: [user.uid],
-              pendingMembers: [],
-              createdAt: Date.now(),
-            });
-
-            // Link Squad
-            await updateDoc(userRef, {
-              squadId: squadDoc.id,
-              squadOwnerId: user.uid,
-            });
-            console.log("New user initialized successfully.");
-          } else {
-            console.log("Existing user found. Checking consistency...");
-            const updates: any = {};
-            if (isDev) updates.isDev = true;
-
-            const data = userDoc.data();
-
-            // Fix missing Tier
-            if (!data?.tier) {
-              console.warn("User missing tier. defaulting to free.");
-              updates.tier = 'free';
-            }
-
-            // Fix missing Squad
-            if (!data?.squadId) {
-              console.warn("User missing squad. Creating new one.");
-              const squadDoc = await addDoc(collection(db, "squads"), {
-                ownerId: user.uid,
-                members: [user.uid],
-                pendingMembers: [],
-                createdAt: Date.now(),
-              });
-              updates.squadId = squadDoc.id;
-              updates.squadOwnerId = user.uid;
-            }
-
-            if (Object.keys(updates).length > 0) {
-              await updateDoc(userRef, updates);
-            }
-          }
-        } else {
-          setCurrentUser(null);
-          setUserData(null);
-          setFriendsData([]);
-          setIsDevMode(false);
-        }
-      } catch (err) {
-        console.error("Critical Auth Init Error:", err);
-      } finally {
-        setAuthLoading(false);
-      }
-    });
-
     const unsubscribeAreas = onSnapshot(collection(db, "areas"), (snapshot) => {
       const areasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Area[];
       setAreas(areasData);
     });
-
-    return () => {
-      unsubscribeAuth();
-      unsubscribeAreas();
-    };
+    return () => unsubscribeAreas();
   }, []);
 
+  // --- Reset App State on Logout ---
   useEffect(() => {
-    if (!currentUser?.uid) return;
-    const unsubUser = onSnapshot(getUserDocRef(currentUser.uid), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data() as UserData;
-        setUserData(data);
-      }
-    });
-    return () => unsubUser();
-  }, [currentUser?.uid]);
+    if (!currentUser) {
+      setFriendsData([]);
+      setIsDevMode(false);
+      // We don't need to manually reset userData/currentUser as context handles that
+      // but friendsData persists in App state if not cleared.
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     const friendIds = userData?.friends || [];
@@ -2665,7 +2541,7 @@ export default function App() {
 
 
 
-            <button onClick={() => signOut(auth)} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
+            <button onClick={() => signOut()} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
             <div style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
               <Link to="/terms" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Terms of Service</Link>

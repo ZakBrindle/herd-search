@@ -9,16 +9,22 @@ import AboutPage from './pages/AboutPage'
 
 import InstallInstructionsPage from './pages/InstallInstructionsPage'
 
+import { AuthProvider } from './contexts/AuthContext'
+
+import { RequireAuth } from './components/RequireAuth'
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/terms" element={<TermsOfService />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/install" element={<InstallInstructionsPage />} />
-        <Route path="/admin/support" element={<AdminSupportPage />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<App />} />
+          <Route path="/terms" element={<RequireAuth><TermsOfService /></RequireAuth>} />
+          <Route path="/about" element={<RequireAuth><AboutPage /></RequireAuth>} />
+          <Route path="/install" element={<RequireAuth><InstallInstructionsPage /></RequireAuth>} />
+          <Route path="/admin/support" element={<RequireAuth><AdminSupportPage /></RequireAuth>} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
 )
