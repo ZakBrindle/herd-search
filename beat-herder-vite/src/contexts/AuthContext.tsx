@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { type User, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { doc, onSnapshot, getDoc, setDoc, updateDoc, collection, addDoc, type DocumentData } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 

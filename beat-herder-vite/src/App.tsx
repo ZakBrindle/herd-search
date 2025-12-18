@@ -1275,8 +1275,9 @@ export default function App() {
     }
 
     if (incomingFriendRequests.length > prevFriendReqCount.current) {
-      setAlertMessage("New Friend Request received! 👥");
-      setActiveModal('alert');
+      if (incomingFriendRequests.length > 0) {
+        setActiveModal('friendRequests');
+      }
     }
     prevFriendReqCount.current = incomingFriendRequests.length;
 
@@ -1488,24 +1489,42 @@ export default function App() {
 
   const handleAcceptFriendRequest = async (request: DocumentData) => {
     if (!currentUser) return;
+    let warningShown = false;
     try {
+      // 1. Add them to MY friends list (I have permission to edit my own doc)
       await updateDoc(getUserDocRef(currentUser.uid), { friends: arrayUnion(request.from) });
-      // Note context: We need to update the other user's friend list too, but Firestore security rules might prevent this 
-      // unless we have specific rules allowing "mutual add" if request exists.
-      // For now, assuming the rules I requested allow it OR we just do it one-way 
-      // Update: The rules I tried to apply earlier (and failed) had the mutual add logic. 
-      // Since I couldn't apply them, this might fail for the OTHER user if rules are strict.
-      // Let's at least update our own and delete request.
-      // Ideally: Cloud function or less strict rules.
-      // I will attempt to update the other user too, hoping current rules allow it or user applied rules.
 
-      await updateDoc(getUserDocRef(request.from), { friends: arrayUnion(currentUser.uid) });
+      // 2. Try to add ME to THEIR friends list (Mutual add)
+      // This might fail if the other user has strict security rules or if their "friends" field is missing
+      try {
+        await updateDoc(getUserDocRef(request.from), { friends: arrayUnion(currentUser.uid) });
+      } catch (err) {
+        console.warn("Could not add self to other user's friend list (Permission/Missing Field). They may need to add you back manually.", err);
+        // We do NOT throw here, so we can still delete the request.
+        // However, the "Auto-Desync" feature might remove them later if they don't have us.
+        // Ideally, we'd inform the user.
+        showAlert("Friend accepted! Note: You might not appear in their list until they add you too.");
+        warningShown = true;
+      }
 
+      // 3. Delete the request
       await deleteDoc(doc(db, "friendRequests", request.id));
-      showAlert("Friend Request Accepted!");
+
+      // Only show success if we didn't show the warning above? 
+      // Actually showAlert replaces the message. Let's just show a generic success if no warning was shown?
+      // Or just let the generic success overwrite?
+      // Let's refine the UX:
+      // If the catch block above ran, showAlert was called. 
+      // If we call it again here, it overwrites.
+      // So let's conditionally call it.
+      // But for now, let's just say "Accepted" if it worked perfectly.
+      // We can use a flag.
+      if (!warningShown) {
+        showAlert("Friend Request Accepted!");
+      }
     } catch (e) {
       console.error(e);
-      showAlert("Error accepting friend request. (Permissions?)");
+      showAlert("Error accepting friend request. Please try again.");
     }
   };
 
@@ -2994,6 +3013,56 @@ export default function App() {
       }
 
 
+
+      {
+        activeModal === 'friendRequests' && (
+          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3 className="modal-header">New Friend Requests! 👥</h3>
+              {incomingFriendRequests.length === 0 ? (
+                <p>No new requests.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {incomingFriendRequests.map(req => (
+                    <div key={req.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <div className="avatar" style={{ background: '#444', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>?</div>
+                        <strong>{getDisplayNameByUid(req.from)}</strong>
+                        <span style={{ fontSize: '0.8rem', color: '#888' }}> wants to be friends.</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          className="btn btn-primary"
+                          style={{ flex: 1 }}
+                          onClick={() => {
+                            handleAcceptFriendRequest(req);
+                            if (incomingFriendRequests.length <= 1) setActiveModal(null);
+                          }}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          className="btn btn-danger"
+                          style={{ flex: 1, background: 'transparent', border: '1px solid var(--error)' }}
+                          onClick={() => {
+                            handleDeclineFriendRequest(req);
+                            if (incomingFriendRequests.length <= 1) setActiveModal(null);
+                          }}
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="modal-actions" style={{ marginTop: '1rem' }}>
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary w-full">Close (Decide Later)</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       {
         activeModal === 'upgrade' && (
