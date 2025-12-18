@@ -3105,8 +3105,8 @@ export default function App() {
                     </div>
                     <p className="price">{plan.price}</p>
                     <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Max {plan.limit} Friends in Squad</p>
-                    <button className="btn btn-primary w-full" disabled={!upgradesEnabled && !userData?.isDev}>
-                      {(!upgradesEnabled && !userData?.isDev) ? "Currently Unavailable" : "Select"}
+                    <button className="btn btn-primary w-full" disabled={!upgradesEnabled}>
+                      {!upgradesEnabled ? "Upgrade not available" : "Select"}
                     </button>
                   </div>
                 ))}
