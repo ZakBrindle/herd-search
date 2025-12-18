@@ -1808,49 +1808,50 @@ export default function App() {
               </div>
             )}
 
+
+
+            {/* Friends Markers */}
+            {!devMapFilterDuration && friendsData
+              .filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()))
+              .map(u => (
+                <div key={u.uid} className="user-marker" style={{
+                  left: `${Math.max(0, Math.min(100, u.location!.x * 100))}%`,
+                  top: `${Math.max(0, Math.min(100, u.location!.y * 100))}%`
+                }}>
+                  <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
+                  {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
+                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
+                  )}
+                  <div className="marker-label">{u.displayName?.split(' ')[0]}</div>
+                </div>
+              ))}
+
+            {/* Dev Mode: All Users Markers */}
+            {devMapFilterDuration && allUsersOnMap.map(u => {
+              if (!u.location) return null;
+              const isFriend = friendsData.some(f => f.uid === u.uid);
+              const isMe = u.uid === userData?.uid;
+              let borderColor = '#999'; // Default
+              if (isMe) borderColor = 'var(--primary)';
+              else if (isFriend) borderColor = 'var(--secondary)';
+
+              return (
+                <div key={u.uid} className="user-marker" style={{
+                  left: `${Math.max(0, Math.min(100, u.location.x * 100))}%`,
+                  top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`
+                }}>
+                  <img
+                    src={u.photoURL || "/default-avatar.png"}
+                    className="marker-avatar"
+                    alt={u.displayName}
+                    style={{ borderColor }}
+                  />
+                  <div className="marker-label" style={{ fontSize: '0.6rem' }}>{u.displayName?.split(' ')[0]}</div>
+                </div>
+              );
+            })}
+
           </div>
-
-          {/* Friends Markers */}
-          {!devMapFilterDuration && friendsData
-            .filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()))
-            .map(u => (
-              <div key={u.uid} className="user-marker" style={{
-                left: `${Math.max(0, Math.min(100, u.location!.x * 100))}%`,
-                top: `${Math.max(0, Math.min(100, u.location!.y * 100))}%`
-              }}>
-                <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
-                {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
-                  <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
-                )}
-                <div className="marker-label">{u.displayName?.split(' ')[0]}</div>
-              </div>
-            ))}
-
-          {/* Dev Mode: All Users Markers */}
-          {devMapFilterDuration && allUsersOnMap.map(u => {
-            if (!u.location) return null;
-            const isFriend = friendsData.some(f => f.uid === u.uid);
-            const isMe = u.uid === userData?.uid;
-            let borderColor = '#999'; // Default
-            if (isMe) borderColor = 'var(--primary)';
-            else if (isFriend) borderColor = 'var(--secondary)';
-
-            return (
-              <div key={u.uid} className="user-marker" style={{
-                left: `${Math.max(0, Math.min(100, u.location.x * 100))}%`,
-                top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`
-              }}>
-                <img
-                  src={u.photoURL || "/default-avatar.png"}
-                  className="marker-avatar"
-                  alt={u.displayName}
-                  style={{ borderColor }}
-                />
-                <div className="marker-label" style={{ fontSize: '0.6rem' }}>{u.displayName?.split(' ')[0]}</div>
-              </div>
-            );
-          })}
-
 
           {/* Check In / Vote Button */}
           <div style={{ padding: '0 4px', marginBottom: '1rem' }}>
