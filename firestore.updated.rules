@@ -5,6 +5,7 @@ service cloud.firestore {
 
     // --- Admin & Helper Functions ---
     function adminUids() {
+      // Replace with your actual admin UIDs if needed
       return ['bUNLX0K2L7b4pROkz4LR2JUXsjn2', 'z8VvRjk1rmWHKT6nNFCu5eWU12C3'];
     }
 
@@ -39,7 +40,7 @@ service cloud.firestore {
         request.auth.uid == userId && (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
              'location', 'currentArea', 'lastKnownArea', 'useGps', 'lastUpdate',
-            'squadId', 'squadOwnerId', 'friends', 'tier', 'subscriptionExpiry',
+            'squadId', 'squadOwnerId', 'friends', 'tier', 'subscriptionExpiry','isPaymentPending',
             'statusMessage', 'statusTimestamp', 'ghostMode', 'ghostModeExpiry', 'ghostModeCooldown',
             'fcmToken', 'isDev'
           ])
@@ -55,7 +56,8 @@ service cloud.firestore {
         || (
           request.auth.uid != userId &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['friends']) &&
-          request.resource.data.friends.size() == resource.data.friends.size() + 1 &&
+          // Modified rule: Checks if 'friends' field exists on target doc, defaulting to empty array logic
+          request.resource.data.friends.size() == (resource.data.keys().hasAny(['friends']) ? resource.data.friends.size() : 0) + 1 &&
           request.auth.uid in request.resource.data.friends
         )
       );

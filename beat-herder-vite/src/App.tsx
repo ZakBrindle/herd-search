@@ -3314,7 +3314,6 @@ export default function App() {
                 <img src={addFriendImg} alt="Add Friend" style={{ width: '80px', height: 'auto' }} />
               </div>
               <div className="mt-4">
-                <h4>Search User by Email</h4>
                 <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
                 <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
                   <button onClick={() => { setActiveModal(null); setFriendEmail(''); }} className="btn btn-secondary" style={{ flex: '0 0 auto' }}>Close</button>
