@@ -1449,28 +1449,32 @@ export default function App() {
 
   // --- Auto-remove Desynced Friends ---
   useEffect(() => {
-    if (!selectedMember || !userData || !currentUser) return;
+    if (!userData || !currentUser || friendsData.length === 0) return;
 
-    // Only apply if we are viewing them as a "Friend" (or checking if they are in our friend list)
-    const isMyFriend = userData.friends?.includes(selectedMember.uid);
-    if (!isMyFriend) return;
+    const desyncedFriends: string[] = [];
 
-    // Check Reciprocity
-    // Note: selectedMember.friends might be undefined if we can't read it, but usually we can read public/user profiles if friends.
-    // If we can't read it, we shouldn't delete immediately? 
-    // Wait, if we can read 'selectedMember' (it comes from friendsData usually), we have their doc.
-    const isReciprocal = selectedMember.friends?.includes(userData.uid);
+    friendsData.forEach(friend => {
+      // Check if the friend still has us in their friends list
+      // We check explicit absence. Use optional chaining in case field is missing.
+      const IsInTheirList = friend.friends?.includes(currentUser.uid);
 
-    if (isReciprocal === false) { // Explicitly false check to be sure we read the array and it was missing ID
-      console.log(`Auto-removing desynced friend: ${selectedMember.displayName}`);
-      updateDoc(getUserDocRef(currentUser.uid), { friends: arrayRemove(selectedMember.uid) })
-        .then(() => {
-          setSelectedMember(null);
-          showAlert(`Connection with ${selectedMember.displayName} was out of sync and has been reset. You can add them again.`);
-        })
-        .catch(console.error);
+      if (IsInTheirList === false) {
+        desyncedFriends.push(friend.uid);
+      }
+    });
+
+    if (desyncedFriends.length > 0) {
+      console.log("Auto-removing desynced friends:", desyncedFriends);
+
+      // Perform removal
+      updateDoc(getUserDocRef(currentUser.uid), {
+        friends: arrayRemove(...desyncedFriends)
+      }).then(() => {
+        const names = friendsData.filter(f => desyncedFriends.includes(f.uid)).map(f => f.displayName).join(", ");
+        showAlert(`Connection with ${names} was out of sync and has been reset.`);
+      }).catch(console.error);
     }
-  }, [selectedMember, userData, currentUser]);
+  }, [friendsData, userData, currentUser]);
 
   // --- Notifications ---
   useEffect(() => {
@@ -3255,6 +3259,9 @@ export default function App() {
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <h3 className="modal-header">Invite to Squad</h3>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                <img src="/inviteToSquad.png" alt="Invite" style={{ width: '80px', height: 'auto' }} />
+              </div>
 
               {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
                 <div>
@@ -3356,6 +3363,9 @@ export default function App() {
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <h3 className="modal-header">Add Friend</h3>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                <img src="/addFriend.png" alt="Add Friend" style={{ width: '80px', height: 'auto' }} />
+              </div>
               <div className="mt-4">
                 <h4>Search User by Email</h4>
                 <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
