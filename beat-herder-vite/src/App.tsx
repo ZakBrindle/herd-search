@@ -3040,7 +3040,7 @@ export default function App() {
           <div className="modal-overlay">
             <div className="modal-content" style={{ textAlign: 'center' }}>
               <img src={welcomeWaveImg} alt="Welcome" style={{ width: '120px', marginBottom: '1rem' }} />
-              <h2 className="modal-header">Welcome to Beat Herder!</h2>
+              <h2 className="modal-header">Welcome to Herd Search!</h2>
               <p>Track your friends, create a squad, and never get lost at the festival again.</p>
               <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px' }}>
                 <button onClick={() => setActiveModal('addFriend')} className="btn btn-primary w-full">Add a Friend to Start</button>
