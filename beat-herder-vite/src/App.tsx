@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
+import welcomeWaveImg from './assets/welcomeWave.png';
 import {
   FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost
 } from 'react-icons/fa';
@@ -152,6 +153,15 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('useSandboxStripe', useSandboxStripe.toString());
   }, [useSandboxStripe]);
+
+  // Welcome Modal Logic
+  useEffect(() => {
+    if (userData && userData.hasSeenWelcome === false) {
+      setActiveModal('welcome');
+      // Update hasSeenWelcome to true immediately so it doesn't show again
+      updateDoc(getUserDocRef(userData.uid), { hasSeenWelcome: true }).catch(console.error);
+    }
+  }, [userData]);
 
   // Fetch GPS refresh interval from Firestore config
   useEffect(() => {
@@ -343,6 +353,8 @@ export default function App() {
     const unsub = onSnapshot(doc(db, "config", "map"), (doc) => {
       if (doc.exists()) {
         setMapCalibration(doc.data() as GPSBounds);
+      } else {
+        console.log("Waiting for map calibration (doc not found)");
       }
     });
     return () => unsub();
@@ -422,6 +434,23 @@ export default function App() {
         async (err) => {
           console.error("GPS Error:", err);
 
+          // Default handler for all GPS Errors to try and disable GPS gracefully
+          const handleGpsFail = async () => {
+            console.log("GPS: Failed to get location, auto-disabling GPS");
+            setGpsError("Live location was disabled as app failed to grab GPS.");
+            setGpsRefreshButtonText('GPS failed to connect');
+            setTimeout(() => setGpsRefreshButtonText(null), 2000);
+            setGpsTimeoutCount(0); // Reset counter
+            try {
+              // Ensure we call the actual toggle logic or mimic it
+              // We don't have handleGpsToggle in scope here easily if it's defined later. 
+              // But we can update doc directly.
+              await updateDoc(getUserDocRef(userData.uid), { useGps: false });
+            } catch (e) {
+              console.error("Failed to disable GPS:", e);
+            }
+          };
+
           // Check for timeout errors (code 3)
           if (err.code === 3) {
             setGpsTimeoutCount(prevCount => {
@@ -430,28 +459,20 @@ export default function App() {
 
               if (newCount >= 3) {
                 console.log("GPS: 3 consecutive timeouts, auto-disabling GPS");
-                setGpsError("Live location was disabled due to repeated GPS timeouts");
-                setGpsRefreshButtonText('GPS failed to connect');
-                setTimeout(() => setGpsRefreshButtonText(null), 2000);
-                handleGpsToggle(false).catch(e => console.error("Failed to disable GPS:", e));
+                handleGpsFail();
                 return 0; // Reset counter
               }
 
               return newCount;
             });
           }
-          // Check for network service errors
-          else if (err.message && err.message.includes("network service")) {
-            console.log("GPS: Network service failed, auto-disabling GPS");
-            setGpsError("Live location was disabled as app failed to grab GPS");
-            setGpsRefreshButtonText('GPS failed to connect');
-            setTimeout(() => setGpsRefreshButtonText(null), 2000);
-            setGpsTimeoutCount(0); // Reset counter
-            try {
-              await handleGpsToggle(false);
-            } catch (e) {
-              console.error("Failed to disable GPS:", e);
-            }
+          // Network 403 or other perm errors
+          else if (err.message && (err.message.includes("403") || err.message.includes("network"))) {
+            await handleGpsFail();
+          }
+          // Permission Denied (code 1) or Unavailable (code 2)
+          else if (err.code === 1 || err.code === 2) {
+            await handleGpsFail();
           }
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
@@ -3013,6 +3034,22 @@ export default function App() {
       }
 
 
+
+      {
+        activeModal === 'welcome' && (
+          <div className="modal-overlay">
+            <div className="modal-content" style={{ textAlign: 'center' }}>
+              <img src={welcomeWaveImg} alt="Welcome" style={{ width: '120px', marginBottom: '1rem' }} />
+              <h2 className="modal-header">Welcome to Beat Herder!</h2>
+              <p>Track your friends, create a squad, and never get lost at the festival again.</p>
+              <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px' }}>
+                <button onClick={() => setActiveModal('addFriend')} className="btn btn-primary w-full">Add a Friend to Start</button>
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary w-full">I'll do it later</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       {
         activeModal === 'friendRequests' && (

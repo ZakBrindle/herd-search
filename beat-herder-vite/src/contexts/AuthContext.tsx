@@ -30,6 +30,7 @@ export type UserData = DocumentData & {
     isPaymentPending?: boolean;
     fcmToken?: string;
     ghostModeCooldown?: number;
+    hasSeenWelcome?: boolean;
 };
 
 interface AuthContextType {
@@ -87,7 +88,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         };
 
                         // Create User Doc
-                        await setDoc(userRef, { ...profileData, friends: [], location: null, currentArea: 'unknown', useGps: true, lastKnownArea: 'unknown' });
+                        await setDoc(userRef, {
+                            ...profileData,
+                            friends: [],
+                            location: null,
+                            currentArea: 'unknown',
+                            useGps: true,
+                            lastKnownArea: 'unknown',
+                            hasSeenWelcome: false
+                        });
                         await setDoc(publicProfileRef, profileData);
 
                         // Create Squad
