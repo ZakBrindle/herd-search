@@ -2192,8 +2192,30 @@ export default function App() {
               });
             })()}
 
+            {/* Add First Friend Button (If 0 Friends) */}
+            {friendsData.length === 0 && (
+              <div
+                className="card"
+                onClick={() => setActiveModal('addFriend')}
+                style={{
+                  minWidth: '85px',
+                  padding: '12px 0',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  background: 'rgba(3, 218, 198, 0.1)',
+                  border: '1px dashed #03dac6',
+                  color: '#03dac6',
+                  gap: '4px'
+                }}>
+                <FaUserFriends size={20} />
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', textAlign: 'center', lineHeight: '1.2' }}>Add first<br />friend</span>
+              </div>
+            )}
+
             {/* Invite Button for Squad Leaders */}
-            {getSquadLeaderUid() === userData?.uid && userData?.tier !== 'free' && (
+            {getSquadLeaderUid() === userData?.uid && friendsData.length > 0 && (
               <div
                 className="card"
                 onClick={() => setActiveModal('inviteToSquad')}
