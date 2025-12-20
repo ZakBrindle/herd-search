@@ -12,10 +12,12 @@ import InstallInstructionsPage from './pages/InstallInstructionsPage'
 import { AuthProvider } from './contexts/AuthContext'
 
 import { RequireAuth } from './components/RequireAuth'
+import ScrollToTop from './components/ScrollToTop'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <Routes>
           <Route path="/" element={<App />} />

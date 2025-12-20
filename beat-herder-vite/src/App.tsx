@@ -13,7 +13,7 @@ import { useAuth, type UserData, type Tier, type Point } from './contexts/AuthCo
 import SupportSystem from './components/SupportSystem';
 import {
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection,
-  query, where, getDocs, addDoc, deleteDoc, type DocumentData, arrayRemove, limit
+  query, where, getDocs, addDoc, deleteDoc, type DocumentData, arrayRemove, limit, orderBy
 } from "firebase/firestore";
 import { auth, db, messaging } from './firebase';
 import { getToken, onMessage } from "firebase/messaging";
@@ -213,6 +213,10 @@ export default function App() {
   const [newWrappedAvailable, setNewWrappedAvailable] = useState<string | null>(null);
   const [festivalWrappedAvailable, setFestivalWrappedAvailable] = useState(false);
 
+  // Chat Notifications
+  const [hasUnreadChat, setHasUnreadChat] = useState(false);
+  const [lastSeenChatTime, setLastSeenChatTime] = useState(() => Number(localStorage.getItem('lastSeenChatTime') || 0));
+
   const statsRef = useRef({
     lastUpdate: Date.now(),
     pendingAreas: {} as { [name: string]: number },
@@ -232,6 +236,11 @@ export default function App() {
     const timer = setTimeout(() => setShowSplash(false), 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Scroll to top on tab change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
 
   useEffect(() => {
     localStorage.setItem('useSandboxStripe', useSandboxStripe.toString());
@@ -1641,6 +1650,34 @@ export default function App() {
     });
     return () => unsubSquad();
   }, [userData?.squadId]);
+
+  // --- Chat Unread Listener ---
+  useEffect(() => {
+    if (!userData?.squadId) return;
+    try {
+      const q = query(collection(db, "squads", userData.squadId, "messages"), orderBy("createdAt", "desc"), limit(1));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const latestMsg = snapshot.docs[0].data();
+          // If message is newer than last seen AND we are not currently looking at chat
+          if (latestMsg.createdAt > lastSeenChatTime && activeTab !== 'chat') {
+            setHasUnreadChat(true);
+          }
+        }
+      });
+      return () => unsubscribe();
+    } catch (e) { console.error("Chat listener error", e); }
+  }, [userData?.squadId, lastSeenChatTime, activeTab]);
+
+  // Clear unread when entering chat
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      setHasUnreadChat(false);
+      const now = Date.now();
+      setLastSeenChatTime(now);
+      localStorage.setItem('lastSeenChatTime', now.toString());
+    }
+  }, [activeTab]);
 
   // --- DEV: Fetch All Users for Map ---
   useEffect(() => {
@@ -3103,9 +3140,21 @@ export default function App() {
           const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter(f => f.squadId === userData?.squadId).map(f => f.uid))].filter(Boolean);
           if (userData?.squadId && squadMembers.length > 1) {
             return (
-              <button className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>
+              <button className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')} style={{ position: 'relative' }}>
                 <FaComments />
                 <span>Chat</span>
+                {hasUnreadChat && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '3px',
+                    left: 'calc(50% - 22px)',
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: 'var(--error)',
+                    borderRadius: '50%',
+                    border: '1px solid #121212'
+                  }} />
+                )}
               </button>
             );
           }
@@ -3169,6 +3218,19 @@ export default function App() {
                                 statusTimestamp: Date.now()
                               });
                               showAlert("Status updated!");
+
+                              // Send to Chat
+                              if (userData.squadId) {
+                                addDoc(collection(db, "squads", userData.squadId, "messages"), {
+                                  senderId: currentUser.uid,
+                                  senderName: userData.displayName || 'Unknown',
+                                  senderPhotoURL: userData.photoURL || '',
+                                  content: `Status Update: ${val}`,
+                                  type: 'status_update',
+                                  createdAt: Date.now()
+                                }).catch(console.error);
+                              }
+
                               setSelectedMember(null);
                             } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
                           }
@@ -3182,6 +3244,19 @@ export default function App() {
                             statusTimestamp: Date.now()
                           });
                           showAlert("Status updated!");
+
+                          // Send to Chat
+                          if (userData.squadId) {
+                            addDoc(collection(db, "squads", userData.squadId, "messages"), {
+                              senderId: currentUser.uid,
+                              senderName: userData.displayName || 'Unknown',
+                              senderPhotoURL: userData.photoURL || '',
+                              content: `Status Update: ${val}`,
+                              type: 'status_update',
+                              createdAt: Date.now()
+                            }).catch(console.error);
+                          }
+
                           setSelectedMember(null);
                         } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
                       }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', height: '44px', boxSizing: 'border-box' }}>➜</button>

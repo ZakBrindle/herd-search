@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { UserData } from '../contexts/AuthContext';
-import { FaPaperPlane, FaComments } from 'react-icons/fa';
+import { FaComments } from 'react-icons/fa';
 
 interface ChatMessage {
     id: string;
@@ -19,6 +19,7 @@ interface ChatMessage {
     senderPhotoURL?: string;
     content: string;
     createdAt: number;
+    type?: 'chat' | 'status_update';
 }
 
 interface ChatTabProps {
@@ -164,6 +165,25 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                     // If date header is shown, we MUST show the message header too (break group)
                     const showHeader = !isSameSenderAsPrev || shouldBreakGroup || showDateHeader;
 
+                    // If it is a status update, render it differently
+                    if (msg.type === 'status_update') {
+                        return (
+                            <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+                                <div style={{
+                                    background: 'rgba(255,255,255,0.08)',
+                                    padding: '6px 16px',
+                                    borderRadius: '20px',
+                                    fontSize: '0.8rem',
+                                    color: '#aaa',
+                                    fontStyle: 'italic',
+                                    border: '1px solid #333'
+                                }}>
+                                    {msg.content}
+                                </div>
+                            </div>
+                        );
+                    }
+
                     return (
                         <div key={msg.id} style={{ display: 'flex', flexDirection: 'column' }}>
                             {showDateHeader && (
@@ -268,13 +288,12 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                         alignItems: 'center',
                         justifyContent: 'center',
                         background: 'var(--primary)',
-                        color: 'black',
                         border: 'none'
                     }}
                 >
-                    <FaPaperPlane size={16} />
+                    <span style={{ fontSize: '1.2rem', marginTop: '-2px' }}>➤</span>
                 </button>
             </div>
-        </div>
+        </div >
     );
 }
