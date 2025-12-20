@@ -1021,7 +1021,7 @@ export default function App() {
       const allVoted = squadMembers.every((uid: string) => updatedVotes[uid] !== undefined);
       const majorityReached = yesVotes > squadSize / 2 || noVotes > squadSize / 2;
 
-      let updateData: any = { [`activeVote.votes.${userData.uid} `]: voteVal };
+      let updateData: any = { [`activeVote.votes.${userData.uid}`]: voteVal };
 
       if ((allVoted || majorityReached) && !activeVote.completedAt) {
         updateData[`activeVote.completedAt`] = Date.now();
