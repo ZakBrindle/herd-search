@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -13,7 +13,7 @@ import { useAuth, type UserData, type Tier, type Point } from './contexts/AuthCo
 import SupportSystem from './components/SupportSystem';
 import {
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection,
-  query, where, getDocs, addDoc, deleteDoc, type DocumentData, arrayRemove
+  query, where, getDocs, addDoc, deleteDoc, type DocumentData, arrayRemove, limit
 } from "firebase/firestore";
 import { auth, db, messaging } from './firebase';
 import { getToken, onMessage } from "firebase/messaging";
@@ -23,6 +23,10 @@ import LocationPicker from './components/LocationPicker';
 import DevStats from './components/DevStats';
 import InstallModal from './components/modals/InstallModal';
 import PaymentResultModal from './components/modals/PaymentResultModal';
+import ChatTab from './components/ChatTab';
+import WrappedModal from './components/modals/WrappedModal'; // Import WrappedModal
+import { increment } from 'firebase/firestore'; // Import increment
+
 
 type Area = { id: string; name: string; polygon: Point[] };
 type GPSBounds = {
@@ -42,6 +46,15 @@ type Vote = {
   votes: { [uid: string]: 'yes' | 'no' };
   completedAt?: number;
 };
+
+// Wrapped Interfaces
+interface DailyStats {
+  date: string;
+  topAreas: { name: string; timeMs: number }[];
+  topFriends: { uid: string; timeMs: number }[];
+  totalTimeActiveMs: number;
+}
+
 
 
 type ConfirmAction = {
@@ -127,7 +140,7 @@ export default function App() {
   const [currentStatusInput, setCurrentStatusInput] = useState('');
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
   const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
-  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile' | 'chat'>('map');
   const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
   const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -138,6 +151,22 @@ export default function App() {
   void gpsTimeoutCount; // Used via functional state update in GPS error handler
   const [showShareLink, setShowShareLink] = useState(false);
   const [gpsHasLocation, setGpsHasLocation] = useState(false);
+  const [highlightedUids, setHighlightedUids] = useState<string[]>([]);
+
+  // Wrapped Stats State
+  const [showWrappedModal, setShowWrappedModal] = useState(false);
+  const [selectedWrappedStats, setSelectedWrappedStats] = useState<DailyStats | null>(null);
+  const [isFestivalWrapped, setIsFestivalWrapped] = useState(false);
+  const [wrappedDays, setWrappedDays] = useState<string[]>([]); // Days with available wrapped
+  const [newWrappedAvailable, setNewWrappedAvailable] = useState<string | null>(null); // For popup
+  const [festivalWrappedAvailable, setFestivalWrappedAvailable] = useState(false);
+  const statsRef = useRef({
+    lastUpdate: Date.now(),
+    pendingAreas: {} as { [name: string]: number },
+    pendingFriends: {} as { [uid: string]: number },
+    totalTime: 0
+  });
+
 
   // Dev Features
   const [devMapFilterDuration, setDevMapFilterDuration] = useState<'5m' | '30m' | '1h' | '24h' | null>(null);
@@ -546,6 +575,48 @@ export default function App() {
     }
     //  if (debug) console.log(`Final result: ${isInside ? 'INSIDE' : 'OUTSIDE'}`);
     return isInside;
+  };
+
+  const clusterUsers = (users: UserData[], threshold: number = 0.05) => {
+    const clusters: { centroid: Point, users: UserData[] }[] = [];
+    const processed = new Set<string>();
+
+    users.forEach(user => {
+      if (processed.has(user.uid) || !user.location) return;
+
+      const clusterGroup = [user];
+      processed.add(user.uid);
+
+      users.forEach(other => {
+        if (user.uid === other.uid || processed.has(other.uid) || !other.location) return;
+
+        const dx = user.location!.x - other.location!.x;
+        const dy = user.location!.y - other.location!.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < threshold) {
+          clusterGroup.push(other);
+          processed.add(other.uid);
+        }
+      });
+
+      // Calculate centroid
+      let sumX = 0, sumY = 0;
+      clusterGroup.forEach(u => { sumX += u.location!.x; sumY += u.location!.y; });
+
+      clusters.push({
+        centroid: { x: sumX / clusterGroup.length, y: sumY / clusterGroup.length },
+        users: clusterGroup
+      });
+    });
+
+    return clusters;
+  };
+
+  const handleClusterClick = (clusterUsers: UserData[]) => {
+    const uids = clusterUsers.map(u => u.uid);
+    setHighlightedUids(uids);
+    setTimeout(() => setHighlightedUids([]), 3000); // Highlight needed briefly
   };
 
   // --- Canvas Drawing & Map Logic ---
@@ -1798,33 +1869,119 @@ export default function App() {
               style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }}
             />
 
-            {userData?.location && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) && (
-              <div className="user-marker" style={{
-                left: `${Math.max(0, Math.min(100, userData.location.x * 100))}%`,
-                top: `${Math.max(0, Math.min(100, userData.location.y * 100))}%`
-              }}>
-                <img src={userData.photoURL || "/default-avatar.png"} className="marker-avatar" alt="Me" />
-                <div className="marker-label">You</div>
-              </div>
-            )}
+            {/* CLUSTERED MARKERS (Me + Friends) */}
+            {(() => {
+              // 1. Gather all visible squad members (Me + Friends in Squad)
+              const visibleMembers: UserData[] = [];
 
+              // Me (if enabled)
+              if (userData && userData.location && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())) {
+                visibleMembers.push(userData);
+              }
 
+              // Friends (in squad, not ghost)
+              if (!devMapFilterDuration) {
+                const visibleFriends = friendsData.filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()));
+                visibleMembers.push(...visibleFriends);
+              }
 
-            {/* Friends Markers */}
-            {!devMapFilterDuration && friendsData
-              .filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()))
-              .map(u => (
-                <div key={u.uid} className="user-marker" style={{
-                  left: `${Math.max(0, Math.min(100, u.location!.x * 100))}%`,
-                  top: `${Math.max(0, Math.min(100, u.location!.y * 100))}%`
-                }}>
-                  <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
-                  {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
-                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
-                  )}
-                  <div className="marker-label">{u.displayName?.split(' ')[0]}</div>
-                </div>
-              ))}
+              // 2. Cluster them
+              const clusters = clusterUsers(visibleMembers, 0.05); // 5% threshold
+
+              // 3. Render Clusters
+              return clusters.map((cluster) => {
+                const key = cluster.users.map(u => u.uid).join('-');
+
+                // --- SINGLE MARKER ---
+                if (cluster.users.length === 1) {
+                  const u = cluster.users[0];
+                  const isMe = u.uid === userData?.uid;
+                  return (
+                    <div key={u.uid} className="user-marker" style={{
+                      left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
+                      top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
+                      zIndex: isMe ? 20 : 10
+                    }}>
+                      <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
+                      {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
+                        <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
+                      )}
+                      <div className="marker-label">{isMe ? 'You' : u.displayName?.split(' ')[0]}</div>
+                    </div>
+                  );
+                }
+
+                // --- PAIR MARKER (50/50 Split) ---
+                if (cluster.users.length === 2) {
+                  const u1 = cluster.users[0];
+                  const u2 = cluster.users[1];
+                  const name1 = (u1.uid === userData?.uid) ? 'You' : u1.displayName?.split(' ')[0];
+                  const name2 = (u2.uid === userData?.uid) ? 'You' : u2.displayName?.split(' ')[0];
+
+                  return (
+                    <div key={key} className="user-marker"
+                      onClick={(e) => { e.stopPropagation(); handleClusterClick(cluster.users); }}
+                      style={{
+                        left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
+                        top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
+                        zIndex: 30,
+                        cursor: 'pointer'
+                      }}>
+                      <div className="marker-avatar" style={{
+                        position: 'relative',
+                        overflow: 'hidden',
+                        background: '#333',
+                        padding: 0
+                      }}>
+                        <img src={u1.photoURL || "/default-avatar.png"} style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
+                        <img src={u2.photoURL || "/default-avatar.png"} style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
+                        {/* Divider line */}
+                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'white' }}></div>
+                      </div>
+                      <div className="marker-label" style={{ whiteSpace: 'nowrap' }}>{name1} & {name2}</div>
+                    </div>
+                  );
+                }
+
+                // --- GROUP MARKER (3+ People) ---
+                // Quadrants: 3 pics + Plus symbol
+                const displayUsers = cluster.users.slice(0, 3);
+
+                return (
+                  <div key={key} className="user-marker"
+                    onClick={(e) => { e.stopPropagation(); handleClusterClick(cluster.users); }}
+                    style={{
+                      left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
+                      top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
+                      zIndex: 40,
+                      cursor: 'pointer'
+                    }}>
+                    <div className="marker-avatar" style={{
+                      position: 'relative',
+                      overflow: 'hidden',
+                      background: '#333',
+                      padding: 0,
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gridTemplateRows: '1fr 1fr'
+                    }}>
+                      {/* TL */}
+                      <img src={displayUsers[0]?.photoURL || "/default-avatar.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {/* TR */}
+                      <img src={displayUsers[1]?.photoURL || "/default-avatar.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {/* BL */}
+                      <img src={displayUsers[2]?.photoURL || "/default-avatar.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {/* BR (Plus) */}
+                      <div style={{ width: '100%', height: '100%', background: '#444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '10px' }}>
+                        +
+                      </div>
+                    </div>
+                    <div className="marker-label">Squad</div>
+                  </div>
+                );
+
+              });
+            })()}
 
             {/* Dev Mode: All Users Markers */}
             {devMapFilterDuration && allUsersOnMap.map(u => {
@@ -2001,8 +2158,23 @@ export default function App() {
               const leaderUid = getSquadLeaderUid();
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
+                .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
                 .map(member => (
-                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }} style={{ minWidth: '200px', flexDirection: 'column', alignItems: 'flex-start', position: 'relative', gap: '4px' }}>
+                  <div key={member.uid}
+                    className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `}
+                    onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }}
+                    style={{
+                      minWidth: '200px',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      position: 'relative',
+                      gap: '4px',
+                      // Highlight style
+                      border: highlightedUids.includes(member.uid) ? '2px solid var(--primary)' : undefined,
+                      boxShadow: highlightedUids.includes(member.uid) ? '0 0 15px var(--primary)' : undefined,
+                      transform: highlightedUids.includes(member.uid) ? 'scale(1.02)' : undefined,
+                      transition: 'all 0.3s ease'
+                    }}>
                     {member.uid === currentUser.uid && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setActiveModal('updateStatus'); }}
@@ -2543,6 +2715,57 @@ export default function App() {
               })()}
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
+
+              {/* WRAPPED SECTION */}
+              {(wrappedDays.length > 0 || festivalWrappedAvailable) && (
+                <div style={{ width: '100%', marginTop: '20px' }}>
+                  <h3 style={{ fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FaClock color="#fdbb2d" /> Wrapped
+                  </h3>
+
+                  {/* Festival Wrapped Button (Mon-Wed) */}
+                  {festivalWrappedAvailable && (
+                    <button
+                      onClick={handleOpenFestivalWrapped}
+                      className="card"
+                      style={{
+                        width: '100%',
+                        marginBottom: '10px',
+                        background: 'linear-gradient(90deg, #fdbb2d, #b21f1f)',
+                        border: 'none',
+                        justifyContent: 'center',
+                        padding: '16px'
+                      }}
+                    >
+                      <span style={{ fontWeight: '900', fontSize: '1.2rem', color: 'white' }}>FESTIVAL WRAPPED 🎁</span>
+                    </button>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px' }}>
+                    {/* Show daily buttons if NOT Tue/Wed (Day 2 or 3) */}
+                    {!(new Date().getDay() === 2 || new Date().getDay() === 3) && wrappedDays.map(day => (
+                      <button
+                        key={day}
+                        onClick={() => handleOpenWrapped(day)}
+                        className="card"
+                        style={{
+                          padding: '12px 20px',
+                          minWidth: '120px',
+                          flexDirection: 'column',
+                          background: 'linear-gradient(135deg, #222, #333)',
+                          border: '1px solid #444',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <span style={{ fontSize: '0.8rem', color: '#aaa' }}>{new Date(day).toLocaleDateString(undefined, { weekday: 'short' })}</span>
+                        <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>Wrapped</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+
               {/* Support Buttons */}
               <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
                 <button
@@ -2613,8 +2836,239 @@ export default function App() {
         </>
       )
     }
+
+    if (activeTab === 'chat') {
+      const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter(f => f.squadId === userData?.squadId).map(f => f.uid))].filter(Boolean);
+      // Double check validation if they somehow got here without a squad
+      if (!userData?.squadId || squadMembers.length <= 1) {
+        // Redirect back to map if requirements not met
+        setTimeout(() => setActiveTab('map'), 0);
+        return null;
+      }
+
+      return (
+        <ChatTab userData={userData} squadId={userData.squadId} />
+      );
+    }
   }; // End renderContent
 
+
+  // --- WRAPPED LOGIC ---
+
+  const getFestivalDate = (timestamp: number = Date.now()): string => {
+    // Shift 6 hours back
+    const d = new Date(timestamp - 6 * 60 * 60 * 1000);
+    return d.toISOString().split('T')[0];
+  };
+
+  // 1. Data Logging
+  useEffect(() => {
+    if (!userData || !gpsHasLocation) return;
+
+    // Timer for every 10s to accumulate local stats
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const lastUpdate = statsRef.current.lastUpdate || now;
+      // Fix: ensure lastUpdate is valid. If it was huge/invalid, reset? 
+      if (now - lastUpdate > 600000) { statsRef.current.lastUpdate = now; return; } // Safety
+
+      const delta = now - statsRef.current.lastUpdate;
+      statsRef.current.lastUpdate = now;
+
+      // Find Current Area
+      let foundArea = 'The Wilds'; // Default name to log
+      if (userData.location) {
+        for (const area of areas) {
+          if (isPointInPolygon(userData.location, area.polygon)) {
+            foundArea = area.name;
+            break;
+          }
+        }
+      }
+
+      // Update Pending Stats
+      // We use . / _ replacement later, here just key by name
+      statsRef.current.pendingAreas[foundArea] = (statsRef.current.pendingAreas[foundArea] || 0) + delta;
+      statsRef.current.totalTime += delta;
+
+      // Log Friends Proximity
+      friendsData.forEach(friend => {
+        if (friend.squadId === userData.squadId && friend.location && userData.location) {
+          const dx = friend.location.x - userData.location.x;
+          const dy = friend.location.y - userData.location.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 0.05) { // Roughly "close"
+            statsRef.current.pendingFriends[friend.uid] = (statsRef.current.pendingFriends[friend.uid] || 0) + delta;
+          }
+        }
+      });
+
+      // Flush condition: > 60s
+      if (statsRef.current.totalTime > 60000) {
+        flushStats();
+      }
+
+    }, 10000);
+
+    const flushStats = async () => {
+      if (!userData) return;
+      const dateStr = getFestivalDate();
+      const statsDocRef = doc(db, 'users', userData.uid, 'dailyStats', dateStr);
+
+      const batchUpdate: any = {
+        totalTimeActiveMs: increment(statsRef.current.totalTime)
+      };
+
+      Object.entries(statsRef.current.pendingAreas).forEach(([baseKey, val]) => {
+        const safeKey = baseKey.replace(/\./g, '_');
+        batchUpdate[`areasVisited.${safeKey}`] = increment(val);
+      });
+
+      Object.entries(statsRef.current.pendingFriends).forEach(([uid, val]) => {
+        batchUpdate[`friendsProximity.${uid}`] = increment(val);
+      });
+
+      try {
+        await setDoc(statsDocRef, batchUpdate, { merge: true });
+        statsRef.current.pendingAreas = {};
+        statsRef.current.pendingFriends = {};
+        statsRef.current.totalTime = 0;
+      } catch (e) {
+        console.error("Stats flush failed", e);
+      }
+    };
+
+    return () => clearInterval(interval);
+  }, [userData, gpsHasLocation, friendsData, areas]);
+
+  // 2. Check Availability
+  useEffect(() => {
+    if (!userData) return;
+
+    const checkWrappeds = async () => {
+      const daysToCheck = [];
+      for (let i = 1; i <= 4; i++) {
+        // Days: Yesterday, DayBefore...
+        const date = new Date(Date.now() - 6 * 60 * 60 * 1000 - i * 24 * 60 * 60 * 1000);
+        daysToCheck.push(date.toISOString().split('T')[0]);
+      }
+
+      const available = [];
+      let latestAvailable = null;
+
+      for (const day of daysToCheck) {
+        const docRef = doc(db, 'users', userData.uid, 'dailyStats', day);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          available.push(day);
+          if (!latestAvailable) latestAvailable = day;
+        }
+      }
+      setWrappedDays(available);
+
+      // Check Day of Week for Festival Wrapped (Mon=1, Tue=2, Wed=3)
+      const dayOfWeek = new Date().getDay();
+      if (dayOfWeek >= 1 && dayOfWeek <= 3) {
+        // Assume if we have any stats from recent days, Festival Wrapped is ready
+        if (available.length > 0) setFestivalWrappedAvailable(true);
+      } else {
+        setFestivalWrappedAvailable(false);
+      }
+
+      // Popup Logic
+      if (latestAvailable) {
+        const lastSeen = userData.lastSeenWrapped || '1970-01-01';
+        const lastSeenDate = new Date(lastSeen).toISOString().split('T')[0];
+        if (latestAvailable > lastSeenDate) {
+          setNewWrappedAvailable(latestAvailable);
+        }
+      }
+    };
+
+    checkWrappeds();
+  }, [userData?.uid]);
+
+  // 3. Open Modal Handler
+  const handleOpenWrapped = async (dateStr: string) => {
+    if (!userData) return;
+    setIsFestivalWrapped(false);
+    // Ideally show loading state
+    try {
+      const docRef = doc(db, 'users', userData.uid, 'dailyStats', dateStr);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        processAndShowStats(dateStr, data);
+
+        // Update last seen
+        const lastSeen = userData.lastSeenWrapped || '1970-01-01';
+        const lastSeenDate = new Date(lastSeen).toISOString().split('T')[0];
+        if (dateStr > lastSeenDate) {
+          updateDoc(doc(db, 'users', userData.uid), { lastSeenWrapped: new Date().toISOString() });
+          setNewWrappedAvailable(null);
+        }
+      }
+    } catch (e) {
+      console.error("Error opening wrapped", e);
+      showAlert("Could not load stats for this day.");
+    }
+  };
+
+  const handleOpenFestivalWrapped = async () => {
+    if (!userData) return;
+    setIsFestivalWrapped(true);
+
+    // Aggregate last 7 days
+    const aggregated: any = {
+      totalTimeActiveMs: 0,
+      areasVisited: {},
+      friendsProximity: {}
+    };
+
+    try {
+      // Re-fetch last few days to be sure
+      const q = query(collection(db, 'users', userData.uid, 'dailyStats'), limit(7));
+      const snaps = await getDocs(q);
+
+      snaps.forEach(doc => {
+        const data = doc.data();
+        aggregated.totalTimeActiveMs += (data.totalTimeActiveMs || 0);
+
+        // Merge Areas
+        Object.entries(data.areasVisited || {}).forEach(([key, val]) => {
+          aggregated.areasVisited[key] = (aggregated.areasVisited[key] || 0) + (val as number);
+        });
+
+        // Merge Friends
+        Object.entries(data.friendsProximity || {}).forEach(([key, val]) => {
+          aggregated.friendsProximity[key] = (aggregated.friendsProximity[key] || 0) + (val as number);
+        });
+      });
+
+      processAndShowStats("Festival Wrapped", aggregated);
+
+    } catch (e) {
+      console.error("Error loading festival stats", e);
+    }
+  };
+
+  const processAndShowStats = (label: string, data: any) => {
+    const areasList = Object.entries(data.areasVisited || {})
+      .map(([name, time]) => ({ name: name.replace(/_/g, '.'), timeMs: time as number }))
+      .sort((a, b) => b.timeMs - a.timeMs);
+
+    const friendsList = Object.entries(data.friendsProximity || {})
+      .map(([uid, time]) => ({ uid, timeMs: time as number }))
+      .sort((a, b) => b.timeMs - a.timeMs);
+
+    setSelectedWrappedStats({
+      date: label,
+      topAreas: areasList,
+      topFriends: friendsList,
+      totalTimeActiveMs: data.totalTimeActiveMs || 0
+    });
+    setShowWrappedModal(true);
+  };
 
   return (
     <div className="app-container">
@@ -2642,6 +3096,21 @@ export default function App() {
           <FaMap />
           <span>Map</span>
         </button>
+
+        {/* Chat Tab - Only visible if in a squad with > 1 person */}
+        {(() => {
+          const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter(f => f.squadId === userData?.squadId).map(f => f.uid))].filter(Boolean);
+          if (userData?.squadId && squadMembers.length > 1) {
+            return (
+              <button className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>
+                <FaComments />
+                <span>Chat</span>
+              </button>
+            );
+          }
+          return null;
+        })()}
+
         <button className={`nav-item ${activeTab === 'friends' ? 'active' : ''}`} onClick={() => setActiveTab('friends')} style={{ position: 'relative' }}>
           <FaUserFriends />
           <span>Friends</span>
@@ -2662,7 +3131,10 @@ export default function App() {
         <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
           <FaUser />
           <span>Profile</span>
+          {/* Notification Dot for Profile */}
+          {newWrappedAvailable && <div style={{ position: 'absolute', top: 5, right: '35%', width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', border: '1px solid black' }} />}
         </button>
+
       </nav>
 
       {/* Modals */}
@@ -3456,6 +3928,33 @@ export default function App() {
             currentMapFilter={devMapFilterDuration}
             onSetMapFilter={setDevMapFilterDuration}
           />
+        </div>
+      )}
+
+      {(showWrappedModal && selectedWrappedStats) && (
+        <WrappedModal
+          stats={selectedWrappedStats}
+          friendsData={friendsData}
+          onClose={() => setShowWrappedModal(false)}
+          isFestival={isFestivalWrapped}
+        />
+      )}
+
+
+      {/* New Wrapped Popup (Map Page Only) */}
+      {(newWrappedAvailable && activeTab === 'map') && (
+        <div className="modal-overlay" style={{ zIndex: 9000 }}>
+          <div className="card animate-pop-in" style={{ padding: '30px', textAlign: 'center', background: 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)' }}>
+            <h1 style={{ fontSize: '2rem', marginBottom: '20px' }}>🎁</h1>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '10px' }}>Your Daily Wrapped is Ready!</h2>
+            <p style={{ marginBottom: '20px' }}>See where you spent your time yesterday.</p>
+            <button className="btn primary-btn" onClick={() => handleOpenWrapped(newWrappedAvailable)} style={{ width: '100%', background: 'white', color: 'black' }}>
+              View Wrapped
+            </button>
+            <button className="btn text-only" onClick={() => { setNewWrappedAvailable(null); updateDoc(doc(db, 'users', userData!.uid), { lastSeenWrapped: new Date().toISOString() }); }} style={{ marginTop: '10px', color: 'rgba(255,255,255,0.7)' }}>
+              Maybe Later
+            </button>
+          </div>
         </div>
       )}
 
