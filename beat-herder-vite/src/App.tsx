@@ -113,6 +113,58 @@ const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: str
   return <span>Status: {statusText}</span>;
 };
 
+// --- Utility & Helper Functions (Pure / Firestore) ---
+const getPublicProfileCollection = () => collection(db, 'public/user_profiles/users');
+const getUserDocRef = (uid: string) => doc(db, 'users', uid);
+
+const isPointInPolygon = (point: Point, polygon: Point[]): boolean => {
+  if (!polygon) return false;
+  let isInside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    const intersect = ((yi > point.y) !== (yj > point.y)) && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+    if (intersect) isInside = !isInside;
+  }
+  return isInside;
+};
+
+const clusterUsers = (users: UserData[], threshold: number = 0.05) => {
+  const clusters: { centroid: Point, users: UserData[] }[] = [];
+  const processed = new Set<string>();
+
+  users.forEach(user => {
+    if (processed.has(user.uid) || !user.location) return;
+
+    const clusterGroup = [user];
+    processed.add(user.uid);
+
+    users.forEach(other => {
+      if (user.uid === other.uid || processed.has(other.uid) || !other.location) return;
+
+      const dx = user.location!.x - other.location!.x;
+      const dy = user.location!.y - other.location!.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < threshold) {
+        clusterGroup.push(other);
+        processed.add(other.uid);
+      }
+    });
+
+    // Calculate centroid
+    let sumX = 0, sumY = 0;
+    clusterGroup.forEach(u => { sumX += u.location!.x; sumY += u.location!.y; });
+
+    clusters.push({
+      centroid: { x: sumX / clusterGroup.length, y: sumY / clusterGroup.length },
+      users: clusterGroup
+    });
+  });
+
+  return clusters;
+};
+
 // --- Main Component ---
 export default function App() {
   const navigate = useNavigate();
@@ -248,7 +300,143 @@ export default function App() {
     fetchAllUsers();
   }, [devMapFilterDuration]);
 
+  // --- WRAPPED LOGIC: Helpers & Effects ---
+  const getFestivalDate = (timestamp: number = Date.now()): string => {
+    // Shift 6 hours back
+    const d = new Date(timestamp - 6 * 60 * 60 * 1000);
+    return d.toISOString().split('T')[0];
+  };
+
+  // 1. Data Logging
+  useEffect(() => {
+    if (!userData || !gpsHasLocation) return;
+
+    // Timer for every 10s to accumulate local stats
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const lastUpdate = statsRef.current.lastUpdate || now;
+      if (now - lastUpdate > 600000) { statsRef.current.lastUpdate = now; return; } // Safety reset
+
+      const delta = now - statsRef.current.lastUpdate;
+      statsRef.current.lastUpdate = now;
+
+      // Find Current Area
+      let foundArea = 'The Wilds';
+      if (userData.location) {
+        for (const area of areas) {
+          if (isPointInPolygon(userData.location, area.polygon)) {
+            foundArea = area.name;
+            break;
+          }
+        }
+      }
+
+      // Update Pending Stats
+      statsRef.current.pendingAreas[foundArea] = (statsRef.current.pendingAreas[foundArea] || 0) + delta;
+      statsRef.current.totalTime += delta;
+
+      // Log Friends Proximity
+      friendsData.forEach(friend => {
+        if (friend.squadId === userData.squadId && friend.location && userData.location) {
+          const dx = friend.location.x - userData.location.x;
+          const dy = friend.location.y - userData.location.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 0.05) { // Roughly "close"
+            statsRef.current.pendingFriends[friend.uid] = (statsRef.current.pendingFriends[friend.uid] || 0) + delta;
+          }
+        }
+      });
+
+      // Flush condition: > 60s
+      if (statsRef.current.totalTime > 60000) {
+        flushStats();
+      }
+
+    }, 10000);
+
+    const flushStats = async () => {
+      if (!userData) return;
+      const dateStr = getFestivalDate();
+      const statsDocRef = doc(db, 'users', userData.uid, 'dailyStats', dateStr);
+
+      const batchUpdate: any = {
+        totalTimeActiveMs: increment(statsRef.current.totalTime)
+      };
+
+      Object.entries(statsRef.current.pendingAreas).forEach(([baseKey, val]) => {
+        const safeKey = baseKey.replace(/\./g, '_');
+        batchUpdate[`areasVisited.${safeKey}`] = increment(val);
+      });
+
+      Object.entries(statsRef.current.pendingFriends).forEach(([uid, val]) => {
+        batchUpdate[`friendsProximity.${uid}`] = increment(val);
+      });
+
+      try {
+        await setDoc(statsDocRef, batchUpdate, { merge: true });
+        statsRef.current.pendingAreas = {};
+        statsRef.current.pendingFriends = {};
+        statsRef.current.totalTime = 0;
+      } catch (e) {
+        console.error("Stats flush failed", e);
+      }
+    };
+
+    return () => clearInterval(interval);
+  }, [userData, gpsHasLocation, friendsData, areas]);
+
+  // 2. Check Availability
+  useEffect(() => {
+    if (!userData) return;
+
+    const checkWrappeds = async () => {
+      const daysToCheck = [];
+      for (let i = 1; i <= 4; i++) {
+        // Days: Yesterday, DayBefore...
+        const date = new Date(Date.now() - 6 * 60 * 60 * 1000 - i * 24 * 60 * 60 * 1000);
+        daysToCheck.push(date.toISOString().split('T')[0]);
+      }
+
+      const available: string[] = [];
+      let latestAvailable = null;
+
+      for (const day of daysToCheck) {
+        const docRef = doc(db, 'users', userData.uid, 'dailyStats', day);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          available.push(day);
+          if (!latestAvailable) latestAvailable = day;
+        }
+      }
+
+      setWrappedDays(available);
+
+      // Check Day of Week for Festival Wrapped (Mon=1, Tue=2, Wed=3)
+      const dayOfWeek = new Date().getDay();
+      if (dayOfWeek >= 1 && dayOfWeek <= 3) {
+        if (available.length > 0) setFestivalWrappedAvailable(true);
+      } else {
+        setFestivalWrappedAvailable(false);
+      }
+
+      // Popup Logic
+      if (latestAvailable) {
+        const lastSeen = userData.lastSeenWrapped || '1970-01-01';
+        const lastSeenDate = new Date(lastSeen).toISOString().split('T')[0];
+        if (latestAvailable > lastSeenDate) {
+          setNewWrappedAvailable(latestAvailable);
+        }
+      }
+    };
+
+    checkWrappeds();
+  }, [userData?.uid]);
+
+
+
+
   const clearPendingPayment = async () => {
+
     if (!currentUser) return;
     try {
       await updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false });
@@ -431,7 +619,7 @@ export default function App() {
           console.log(`GPS: Point coordinates:`, newPoint);
           for (const area of areas) {
             // console.log(`GPS: Checking area "${area.name}" with ${area.polygon.length} polygon points:`, area.polygon);
-            const isInside = isPointInPolygon(newPoint, area.polygon, true); // Enable debug
+            const isInside = isPointInPolygon(newPoint, area.polygon);
             console.log(`GPS: Area "${area.name}" - ${isInside ? 'INSIDE ✓' : 'outside ✗'}`);
             if (isInside) {
               foundArea = area;
@@ -559,61 +747,7 @@ export default function App() {
     }
   };
 
-  const getPublicProfileCollection = () => collection(db, 'public/user_profiles/users');
-  const getUserDocRef = (uid: string) => doc(db, 'users', uid);
 
-  const isPointInPolygon = (point: Point, polygon: Point[], debug = false): boolean => {
-    if (!polygon) return false;
-    let isInside = false;
-    //if (debug) console.log(`Testing point (${point.x.toFixed(4)}, ${point.y.toFixed(4)}) against ${polygon.length} edges`);
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const xi = polygon[i].x, yi = polygon[i].y;
-      const xj = polygon[j].x, yj = polygon[j].y;
-      const intersect = ((yi > point.y) !== (yj > point.y)) && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
-      if (debug) {
-        //console.log(`Edge ${j}->${i}: (${xj.toFixed(4)},${yj.toFixed(4)}) to (${xi.toFixed(4)},${yi.toFixed(4)}) - intersect: ${intersect}`);
-      }
-      if (intersect) isInside = !isInside;
-    }
-    //  if (debug) console.log(`Final result: ${isInside ? 'INSIDE' : 'OUTSIDE'}`);
-    return isInside;
-  };
-
-  const clusterUsers = (users: UserData[], threshold: number = 0.05) => {
-    const clusters: { centroid: Point, users: UserData[] }[] = [];
-    const processed = new Set<string>();
-
-    users.forEach(user => {
-      if (processed.has(user.uid) || !user.location) return;
-
-      const clusterGroup = [user];
-      processed.add(user.uid);
-
-      users.forEach(other => {
-        if (user.uid === other.uid || processed.has(other.uid) || !other.location) return;
-
-        const dx = user.location!.x - other.location!.x;
-        const dy = user.location!.y - other.location!.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist < threshold) {
-          clusterGroup.push(other);
-          processed.add(other.uid);
-        }
-      });
-
-      // Calculate centroid
-      let sumX = 0, sumY = 0;
-      clusterGroup.forEach(u => { sumX += u.location!.x; sumY += u.location!.y; });
-
-      clusters.push({
-        centroid: { x: sumX / clusterGroup.length, y: sumY / clusterGroup.length },
-        users: clusterGroup
-      });
-    });
-
-    return clusters;
-  };
 
   const handleClusterClick = (clusterUsers: UserData[]) => {
     const uids = clusterUsers.map(u => u.uid);
@@ -1426,22 +1560,22 @@ export default function App() {
     /* Temporarily disabled: It's aggressively removing friends while the mutual-add logic settles. 
        We need to be sure before we delete.
     if (!userData || !currentUser || friendsData.length === 0) return;
-
+ 
     const desyncedFriends: string[] = [];
-
+ 
     friendsData.forEach(friend => {
       // Check if the friend still has us in their friends list
       // We check explicit absence. Use optional chaining in case field is missing.
       const IsInTheirList = friend.friends?.includes(currentUser.uid);
-
+ 
       if (IsInTheirList === false) {
         desyncedFriends.push(friend.uid);
       }
     });
-
+ 
     if (desyncedFriends.length > 0) {
       console.log("Auto-removing desynced friends:", desyncedFriends);
-
+ 
       // Perform removal
       updateDoc(getUserDocRef(currentUser.uid), {
         friends: arrayRemove(...desyncedFriends)
@@ -2853,137 +2987,6 @@ export default function App() {
       );
     }
   }; // End renderContent
-
-  const getFestivalDate = (timestamp: number = Date.now()): string => {
-    // Shift 6 hours back
-    const d = new Date(timestamp - 6 * 60 * 60 * 1000);
-    return d.toISOString().split('T')[0];
-  };
-
-  // --- WRAPPED LOGIC: Data Logging ---
-  useEffect(() => {
-    if (!userData || !gpsHasLocation) return;
-
-    // Timer for every 10s to accumulate local stats
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const lastUpdate = statsRef.current.lastUpdate || now;
-      if (now - lastUpdate > 600000) { statsRef.current.lastUpdate = now; return; } // Safety reset
-
-      const delta = now - statsRef.current.lastUpdate;
-      statsRef.current.lastUpdate = now;
-
-      // Find Current Area
-      let foundArea = 'The Wilds';
-      if (userData.location) {
-        for (const area of areas) {
-          if (isPointInPolygon(userData.location, area.polygon)) {
-            foundArea = area.name;
-            break;
-          }
-        }
-      }
-
-      // Update Pending Stats
-      statsRef.current.pendingAreas[foundArea] = (statsRef.current.pendingAreas[foundArea] || 0) + delta;
-      statsRef.current.totalTime += delta;
-
-      // Log Friends Proximity
-      friendsData.forEach(friend => {
-        if (friend.squadId === userData.squadId && friend.location && userData.location) {
-          const dx = friend.location.x - userData.location.x;
-          const dy = friend.location.y - userData.location.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 0.05) { // Roughly "close"
-            statsRef.current.pendingFriends[friend.uid] = (statsRef.current.pendingFriends[friend.uid] || 0) + delta;
-          }
-        }
-      });
-
-      // Flush condition: > 60s
-      if (statsRef.current.totalTime > 60000) {
-        flushStats();
-      }
-
-    }, 10000);
-
-    const flushStats = async () => {
-      if (!userData) return;
-      const dateStr = getFestivalDate();
-      const statsDocRef = doc(db, 'users', userData.uid, 'dailyStats', dateStr);
-
-      const batchUpdate: any = {
-        totalTimeActiveMs: increment(statsRef.current.totalTime)
-      };
-
-      Object.entries(statsRef.current.pendingAreas).forEach(([baseKey, val]) => {
-        const safeKey = baseKey.replace(/\./g, '_');
-        batchUpdate[`areasVisited.${safeKey}`] = increment(val);
-      });
-
-      Object.entries(statsRef.current.pendingFriends).forEach(([uid, val]) => {
-        batchUpdate[`friendsProximity.${uid}`] = increment(val);
-      });
-
-      try {
-        await setDoc(statsDocRef, batchUpdate, { merge: true });
-        statsRef.current.pendingAreas = {};
-        statsRef.current.pendingFriends = {};
-        statsRef.current.totalTime = 0;
-      } catch (e) {
-        console.error("Stats flush failed", e);
-      }
-    };
-
-    return () => clearInterval(interval);
-  }, [userData, gpsHasLocation, friendsData, areas]);
-
-  // --- WRAPPED LOGIC: Check Availability ---
-  useEffect(() => {
-    if (!userData) return;
-
-    const checkWrappeds = async () => {
-      const daysToCheck = [];
-      for (let i = 1; i <= 4; i++) {
-        // Days: Yesterday, DayBefore...
-        const date = new Date(Date.now() - 6 * 60 * 60 * 1000 - i * 24 * 60 * 60 * 1000);
-        daysToCheck.push(date.toISOString().split('T')[0]);
-      }
-
-      const available: string[] = [];
-      let latestAvailable = null;
-
-      for (const day of daysToCheck) {
-        const docRef = doc(db, 'users', userData.uid, 'dailyStats', day);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          available.push(day);
-          if (!latestAvailable) latestAvailable = day;
-        }
-      }
-
-      setWrappedDays(available);
-
-      // Check Day of Week for Festival Wrapped (Mon=1, Tue=2, Wed=3)
-      const dayOfWeek = new Date().getDay();
-      if (dayOfWeek >= 1 && dayOfWeek <= 3) {
-        if (available.length > 0) setFestivalWrappedAvailable(true);
-      } else {
-        setFestivalWrappedAvailable(false);
-      }
-
-      // Popup Logic
-      if (latestAvailable) {
-        const lastSeen = userData.lastSeenWrapped || '1970-01-01';
-        const lastSeenDate = new Date(lastSeen).toISOString().split('T')[0];
-        if (latestAvailable > lastSeenDate) {
-          setNewWrappedAvailable(latestAvailable);
-        }
-      }
-    };
-
-    checkWrappeds();
-  }, [userData?.uid]); // Run once per user login
 
 
   // 3. Open Modal Handler
