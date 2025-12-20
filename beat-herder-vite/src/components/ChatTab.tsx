@@ -109,15 +109,26 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
         <div className="chat-container" style={{
             display: 'flex',
             flexDirection: 'column',
-            height: 'calc(100vh - 140px)', // Adjust for header and bottom nav
-            position: 'relative'
+            height: 'calc(100vh - 80px)', // Full height minus nav bar
+            position: 'absolute', // Break out of flow if needed, or stick to flex
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: '80px',
+            background: 'var(--bg-color)', // Ensure background covers
+            zIndex: 50
         }}>
             <header style={{
                 padding: '16px',
                 borderBottom: '1px solid #333',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px'
+                gap: '10px',
+                background: 'rgba(18, 18, 18, 0.95)',
+                backdropFilter: 'blur(10px)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 10
             }}>
                 <div className="logo" style={{ fontSize: '1.2rem' }}>Squad Chat</div>
                 <FaComments size={20} color="var(--primary)" />
@@ -126,7 +137,7 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
             <div className="messages-list" style={{
                 flex: 1,
                 overflowY: 'auto',
-                padding: '16px',
+                padding: '16px 16px 100px 16px', // Extra bottom padding for input area
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '8px'
@@ -255,11 +266,17 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
 
             {/* Input Area */}
             <div className="input-area" style={{
+                position: 'fixed',
+                bottom: '74px', // Standard height of bottom nav
+                left: 0,
+                right: 0,
                 padding: '12px',
                 background: '#1e1e1e',
                 display: 'flex',
                 gap: '8px',
-                borderTop: '1px solid #333'
+                borderTop: '1px solid #333',
+                zIndex: 100,
+                boxShadow: '0 -4px 10px rgba(0,0,0,0.5)'
             }}>
                 <input
                     type="text"
@@ -274,7 +291,8 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                         padding: '10px 16px',
                         border: 'none',
                         background: '#333',
-                        color: 'white'
+                        color: 'white',
+                        marginBottom: 0 // Override input-field margin
                     }}
                 />
                 <button
@@ -288,7 +306,8 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                         alignItems: 'center',
                         justifyContent: 'center',
                         background: 'var(--primary)',
-                        border: 'none'
+                        border: 'none',
+                        color: 'black'
                     }}
                 >
                     <span style={{ fontSize: '1.2rem', marginTop: '-2px' }}>➤</span>
