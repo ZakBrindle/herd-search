@@ -157,15 +157,17 @@ export default function App() {
   const [showWrappedModal, setShowWrappedModal] = useState(false);
   const [selectedWrappedStats, setSelectedWrappedStats] = useState<DailyStats | null>(null);
   const [isFestivalWrapped, setIsFestivalWrapped] = useState(false);
-  const [wrappedDays, setWrappedDays] = useState<string[]>([]); // Days with available wrapped
-  const [newWrappedAvailable, setNewWrappedAvailable] = useState<string | null>(null); // For popup
+  const [wrappedDays, setWrappedDays] = useState<string[]>([]);
+  const [newWrappedAvailable, setNewWrappedAvailable] = useState<string | null>(null);
   const [festivalWrappedAvailable, setFestivalWrappedAvailable] = useState(false);
+
   const statsRef = useRef({
     lastUpdate: Date.now(),
     pendingAreas: {} as { [name: string]: number },
     pendingFriends: {} as { [uid: string]: number },
     totalTime: 0
   });
+
 
 
   // Dev Features
@@ -2852,16 +2854,13 @@ export default function App() {
     }
   }; // End renderContent
 
-
-  // --- WRAPPED LOGIC ---
-
   const getFestivalDate = (timestamp: number = Date.now()): string => {
     // Shift 6 hours back
     const d = new Date(timestamp - 6 * 60 * 60 * 1000);
     return d.toISOString().split('T')[0];
   };
 
-  // 1. Data Logging
+  // --- WRAPPED LOGIC: Data Logging ---
   useEffect(() => {
     if (!userData || !gpsHasLocation) return;
 
@@ -2869,14 +2868,13 @@ export default function App() {
     const interval = setInterval(() => {
       const now = Date.now();
       const lastUpdate = statsRef.current.lastUpdate || now;
-      // Fix: ensure lastUpdate is valid. If it was huge/invalid, reset? 
-      if (now - lastUpdate > 600000) { statsRef.current.lastUpdate = now; return; } // Safety
+      if (now - lastUpdate > 600000) { statsRef.current.lastUpdate = now; return; } // Safety reset
 
       const delta = now - statsRef.current.lastUpdate;
       statsRef.current.lastUpdate = now;
 
       // Find Current Area
-      let foundArea = 'The Wilds'; // Default name to log
+      let foundArea = 'The Wilds';
       if (userData.location) {
         for (const area of areas) {
           if (isPointInPolygon(userData.location, area.polygon)) {
@@ -2887,7 +2885,6 @@ export default function App() {
       }
 
       // Update Pending Stats
-      // We use . / _ replacement later, here just key by name
       statsRef.current.pendingAreas[foundArea] = (statsRef.current.pendingAreas[foundArea] || 0) + delta;
       statsRef.current.totalTime += delta;
 
@@ -2941,7 +2938,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [userData, gpsHasLocation, friendsData, areas]);
 
-  // 2. Check Availability
+  // --- WRAPPED LOGIC: Check Availability ---
   useEffect(() => {
     if (!userData) return;
 
@@ -2953,7 +2950,7 @@ export default function App() {
         daysToCheck.push(date.toISOString().split('T')[0]);
       }
 
-      const available = [];
+      const available: string[] = [];
       let latestAvailable = null;
 
       for (const day of daysToCheck) {
@@ -2964,12 +2961,12 @@ export default function App() {
           if (!latestAvailable) latestAvailable = day;
         }
       }
+
       setWrappedDays(available);
 
       // Check Day of Week for Festival Wrapped (Mon=1, Tue=2, Wed=3)
       const dayOfWeek = new Date().getDay();
       if (dayOfWeek >= 1 && dayOfWeek <= 3) {
-        // Assume if we have any stats from recent days, Festival Wrapped is ready
         if (available.length > 0) setFestivalWrappedAvailable(true);
       } else {
         setFestivalWrappedAvailable(false);
@@ -2986,7 +2983,8 @@ export default function App() {
     };
 
     checkWrappeds();
-  }, [userData?.uid]);
+  }, [userData?.uid]); // Run once per user login
+
 
   // 3. Open Modal Handler
   const handleOpenWrapped = async (dateStr: string) => {
