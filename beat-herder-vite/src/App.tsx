@@ -1032,7 +1032,7 @@ export default function App() {
           : `Vote Ended: We are NOT going to ${activeVote.targetAreaName}`;
 
         addDoc(collection(db, "squads", userData.squadId, "messages"), {
-          senderId: 'system', // or currentUser.uid, but 'system' implies mostly automated
+          senderId: userData.uid, // Must match auth uid for rules
           senderName: 'Squad Vote',
           senderPhotoURL: '', // No avatar for system msg
           content: resultString,
