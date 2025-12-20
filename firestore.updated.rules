@@ -129,6 +129,11 @@ service cloud.firestore {
           // Only allow if the user is not the owner (owner must use delete)
           resource.data.ownerId != request.auth.uid
         )
+        // --- ADDED: Allow members to vote (update activeVote) ---
+        || (
+          request.auth.uid in resource.data.members &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activeVote'])
+        )
       );
       allow delete: if request.auth != null && (
         resource.data.ownerId == request.auth.uid ||

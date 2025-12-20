@@ -19,7 +19,7 @@ interface ChatMessage {
     senderPhotoURL?: string;
     content: string;
     createdAt: number;
-    type?: 'chat' | 'status_update';
+    type?: 'chat' | 'status_update' | 'vote_ended';
 }
 
 interface ChatTabProps {
@@ -174,20 +174,43 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                     const shouldBreakGroup = (consecutiveCount % 5 === 0);
 
                     // If date header is shown, we MUST show the message header too (break group)
-                    const showHeader = !isSameSenderAsPrev || shouldBreakGroup || showDateHeader;
+                    // ALSO: If the previous message was a status update OR vote ended, we must show the header because the flow was broken visually
+                    const prevWasSystem = prevMsg && (prevMsg.type === 'status_update' || prevMsg.type === 'vote_ended');
+                    const showHeader = !isSameSenderAsPrev || shouldBreakGroup || showDateHeader || prevWasSystem;
 
                     // If it is a status update, render it differently
                     if (msg.type === 'status_update') {
                         return (
                             <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
                                 <div style={{
-                                    background: 'rgba(255,255,255,0.08)',
+                                    background: '#FFF9C4', // Pastel Yellow
                                     padding: '6px 16px',
                                     borderRadius: '20px',
                                     fontSize: '0.8rem',
-                                    color: '#aaa',
-                                    fontStyle: 'italic',
-                                    border: '1px solid #333'
+                                    color: '#444',
+                                    fontWeight: '500',
+                                    border: '1px solid #F0E68C',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                }}>
+                                    Status update by {msg.senderName}: {msg.content}
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    // If it is a vote ended message, render it differently
+                    if (msg.type === 'vote_ended') {
+                        return (
+                            <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+                                <div style={{
+                                    background: '#E1BEE7', // Pastel Light Purple
+                                    padding: '6px 16px',
+                                    borderRadius: '20px',
+                                    fontSize: '0.8rem',
+                                    color: '#444',
+                                    fontWeight: '600',
+                                    border: '1px solid #D1C4E9',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                                 }}>
                                     {msg.content}
                                 </div>

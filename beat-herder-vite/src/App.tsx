@@ -1025,6 +1025,20 @@ export default function App() {
 
       if ((allVoted || majorityReached) && !activeVote.completedAt) {
         updateData[`activeVote.completedAt`] = Date.now();
+
+        // --- Send Vote Result to Chat ---
+        const resultString = yesVotes > noVotes
+          ? `Vote Ended: We are going to ${activeVote.targetAreaName}`
+          : `Vote Ended: We are NOT going to ${activeVote.targetAreaName}`;
+
+        addDoc(collection(db, "squads", userData.squadId, "messages"), {
+          senderId: 'system', // or currentUser.uid, but 'system' implies mostly automated
+          senderName: 'Squad Vote',
+          senderPhotoURL: '', // No avatar for system msg
+          content: resultString,
+          type: 'vote_ended',
+          createdAt: Date.now()
+        }).catch(console.error);
       }
 
       await updateDoc(squadRef, updateData);
@@ -3225,7 +3239,7 @@ export default function App() {
                                   senderId: currentUser.uid,
                                   senderName: userData.displayName || 'Unknown',
                                   senderPhotoURL: userData.photoURL || '',
-                                  content: `Status Update: ${val}`,
+                                  content: val,
                                   type: 'status_update',
                                   createdAt: Date.now()
                                 }).catch(console.error);
@@ -3251,7 +3265,7 @@ export default function App() {
                               senderId: currentUser.uid,
                               senderName: userData.displayName || 'Unknown',
                               senderPhotoURL: userData.photoURL || '',
-                              content: `Status Update: ${val}`,
+                              content: val,
                               type: 'status_update',
                               createdAt: Date.now()
                             }).catch(console.error);
