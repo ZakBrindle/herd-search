@@ -18,7 +18,7 @@ interface ChatMessage {
     senderPhotoURL?: string;
     content: string;
     createdAt: number;
-    type?: 'chat' | 'status_update' | 'vote_ended';
+    type?: 'chat' | 'status_update' | 'vote_ended' | 'search_notification';
 }
 
 interface ChatTabProps {
@@ -260,18 +260,19 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                         );
                     }
 
-                    // If it is a vote ended message, render it differently
-                    if (msg.type === 'vote_ended') {
+                    // If it is a vote ended message or search notification, render it differently
+                    if (msg.type === 'vote_ended' || msg.type === 'search_notification') {
+                        const isSearch = msg.type === 'search_notification';
                         return (
                             <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
                                 <div style={{
-                                    background: '#E1BEE7', // Pastel Light Purple
+                                    background: isSearch ? '#FFF9C4' : '#E1BEE7', // Pastel Yellow for Search, Purple for Vote
                                     padding: '6px 16px',
                                     borderRadius: '20px',
                                     fontSize: '0.8rem',
                                     color: '#444',
-                                    fontWeight: '600',
-                                    border: '1px solid #D1C4E9',
+                                    fontWeight: isSearch ? '500' : '600',
+                                    border: isSearch ? '1px solid #F0E68C' : '1px solid #D1C4E9',
                                     boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                                 }}>
                                     {msg.content}

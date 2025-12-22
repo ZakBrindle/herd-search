@@ -1659,31 +1659,41 @@ export default function App() {
     if (!currentUser) {
       setFriendsData([]);
       setIsDevMode(false);
-      // We don't need to manually reset userData/currentUser as context handles that
-      // but friendsData persists in App state if not cleared.
     }
   }, [currentUser]);
 
+  // --- Member & Friend Listener ---
   useEffect(() => {
-    const friendIds = userData?.friends || [];
+    if (!userData) return;
 
-    // Immediately remove any friends from state that are no longer in the list
-    setFriendsData(prev => prev.filter(f => friendIds.includes(f.uid)));
+    // 1. Gather all IDs we need to follow: Friends + Squad Members
+    const friendIds = userData.friends || [];
+    const squadMemberIds = (squadData?.members as string[]) || [];
 
-    if (friendIds.length === 0) return;
-    const unsubscribes = friendIds.map(friendId =>
-      onSnapshot(getUserDocRef(friendId), (doc) => {
-        if (doc.exists()) {
-          const friendData = { uid: doc.id, ...doc.data() } as UserData;
-          setFriendsData(prevFriends => {
-            const otherFriends = prevFriends.filter(f => f.uid !== friendId);
-            return [...otherFriends, friendData];
+    // Combine and remove self
+    const allRelevantUids = Array.from(new Set([...friendIds, ...squadMemberIds]))
+      .filter(uid => uid !== userData.uid);
+
+    // 2. Immediate cleanup: remove people no longer in either list
+    setFriendsData(prev => prev.filter(f => allRelevantUids.includes(f.uid)));
+
+    if (allRelevantUids.length === 0) return;
+
+    // 3. Setup individual listeners
+    const unsubscribes = allRelevantUids.map(uid =>
+      onSnapshot(getUserDocRef(uid), (docSnap) => {
+        if (docSnap.exists()) {
+          const mData = { uid: docSnap.id, ...docSnap.data() } as UserData;
+          setFriendsData(prev => {
+            const others = prev.filter(f => f.uid !== uid);
+            return [...others, mData];
           });
         }
       })
     );
+
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [userData?.friends]);
+  }, [JSON.stringify(userData?.friends), JSON.stringify(squadData?.members)]);
 
   // --- Auto-remove Desynced Friends ---
   // --- Auto-remove Desynced Friends ---
@@ -2204,16 +2214,23 @@ export default function App() {
                         top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
                         zIndex: isMe ? 20 : 10,
                         cursor: 'pointer',
-                        // Highlight if they are searching for us
-                        filter: (u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) ? 'drop-shadow(0 0 8px #FFD700) drop-shadow(0 0 12px #FFD700)' : undefined,
-                        transform: (u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) ? 'scale(1.2)' : undefined,
+                        // Highlight if they are searching for us OR if we are searching for them
+                        filter: ((u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
+                          ? 'drop-shadow(0 0 8px #FFD700) drop-shadow(0 0 12px #FFD700)'
+                          : undefined,
+                        transform: ((u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
+                          ? 'scale(1.2)'
+                          : undefined,
                         transition: 'all 0.3s ease'
                       }}>
                       <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                         <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
                       )}
-                      <div className="marker-label">{isMe ? 'You' : u.displayName?.split(' ')[0]}</div>
+                      <div className="marker-label">
+                        {isMe ? 'You' : u.displayName?.split(' ')[0]}
+                        {userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000) && ' 🏮'}
+                      </div>
                     </div>
                   );
                 }
@@ -2500,36 +2517,44 @@ export default function App() {
                       alignItems: 'flex-start',
                       position: 'relative',
                       gap: '4px',
-                      // Searching for us highlight
-                      border: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000))
+                      // Searching highlight (either they look for us, or we look for them)
+                      border: ((member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === member.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
                         ? '2px solid #FFD700'
                         : (highlightedUids.includes(member.uid) ? '2px solid var(--primary)' : undefined),
-                      boxShadow: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000))
+                      boxShadow: ((member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === member.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
                         ? '0 0 15px rgba(255, 215, 0, 0.4)'
                         : (highlightedUids.includes(member.uid) ? '0 0 15px var(--primary)' : undefined),
-                      background: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000))
+                      background: ((member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === member.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
                         ? 'rgba(255, 215, 0, 0.05)'
                         : undefined,
                       transform: highlightedUids.includes(member.uid) ? 'scale(1.02)' : undefined,
                       transition: 'all 0.3s ease'
                     }}>
-                    {(member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '8px',
-                        right: '8px',
-                        background: '#FFD700',
-                        color: 'black',
-                        fontSize: '0.65rem',
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        fontWeight: 'bold',
-                        boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                        zIndex: 5
-                      }}>
-                        IS SEARCHING FOR YOU
-                      </div>
-                    )}
+                    {/* Search Tag */}
+                    {(() => {
+                      const isTheySearchUs = member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000);
+                      const isWeSearchThem = userData?.searchingFor?.uid === member.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000);
+
+                      if (!isTheySearchUs && !isWeSearchThem) return null;
+
+                      return (
+                        <div style={{
+                          position: 'absolute',
+                          top: '8px',
+                          right: '8px',
+                          background: '#FFD700',
+                          color: 'black',
+                          fontSize: '0.65rem',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontWeight: 'bold',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                          zIndex: 5
+                        }}>
+                          {isTheySearchUs ? 'IS SEARCHING FOR YOU' : 'SEARCHING FOR'}
+                        </div>
+                      );
+                    })()}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <img src={member.photoURL!} className="avatar" alt="Avatar" />
                       <div>
@@ -2836,28 +2861,35 @@ export default function App() {
                     onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); setActiveModal('member'); }}
                     style={{
                       position: 'relative',
-                      border: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) ? '2px solid #FFD700' : undefined,
-                      boxShadow: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) ? '0 0 15px rgba(255, 215, 0, 0.4)' : undefined,
-                      background: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) ? 'rgba(255, 215, 0, 0.05)' : undefined,
+                      border: ((member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === member.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000))) ? '2px solid #FFD700' : undefined,
+                      boxShadow: ((member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === member.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000))) ? '0 0 15px rgba(255, 215, 0, 0.4)' : undefined,
+                      background: ((member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === member.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000))) ? 'rgba(255, 215, 0, 0.05)' : undefined,
                     }}
                   >
-                    {(member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '8px',
-                        right: '8px',
-                        background: '#FFD700',
-                        color: 'black',
-                        fontSize: '0.65rem',
-                        padding: '2px 8px',
-                        borderRadius: '10px',
-                        fontWeight: 'bold',
-                        boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                        zIndex: 5
-                      }}>
-                        SEARCHING FOR YOU
-                      </div>
-                    )}
+                    {(() => {
+                      const isTheySearchUs = member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000);
+                      const isWeSearchThem = userData?.searchingFor?.uid === member.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000);
+
+                      if (!isTheySearchUs && !isWeSearchThem) return null;
+
+                      return (
+                        <div style={{
+                          position: 'absolute',
+                          top: '8px',
+                          right: '8px',
+                          background: '#FFD700',
+                          color: 'black',
+                          fontSize: '0.65rem',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontWeight: 'bold',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                          zIndex: 5
+                        }}>
+                          {isTheySearchUs ? 'IS SEARCHING FOR YOU' : 'SEARCHING FOR'}
+                        </div>
+                      );
+                    })()}
                     <img src={member.photoURL!} className="avatar" alt="Avatar" />
                     <div>
                       <h3>
@@ -2927,7 +2959,7 @@ export default function App() {
 
           <h2 style={{ paddingTop: '1rem' }} className="section-title">All Friends</h2>
           <div className="squad-list">
-            {friendsData.map(friend => (
+            {friendsData.filter(f => userData?.friends?.includes(f.uid)).map(friend => (
               <div key={friend.uid} className="card" onClick={() => { setSelectedMember(friend); setSelectedMemberContext('friend'); }}>
                 <img src={friend.photoURL || "/default-avatar.png"} className="avatar" alt="Avatar" />
                 <div>
