@@ -2965,11 +2965,7 @@ export default function App() {
                     });
 
                     const hasData = !!dayDate;
-                    const isMonOrTue = new Date().getDay() === 1 || new Date().getDay() === 2;
-                    const shouldHide = isMonOrTue; // Hide daily on Mon/Tue when festival wrapped is available
-
-                    // Don't render if we should hide
-                    if (shouldHide) return null;
+                    // Always show daily wrapped placeholders
 
                     // Gradient colors for each day
                     const dayGradients = [
@@ -3159,6 +3155,15 @@ export default function App() {
   const handleOpenFestivalWrapped = async () => {
     if (!userData) return;
     setIsFestivalWrapped(true);
+
+    // Update lastSeenWrapped to prevent popup from showing again
+    try {
+      await updateDoc(doc(db, 'users', userData.uid), {
+        lastSeenWrapped: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Error updating lastSeenWrapped:", e);
+    }
 
     // Aggregate Thursday, Friday, Saturday, Sunday (festival days)
     // Assume festival is the most recent weekend
