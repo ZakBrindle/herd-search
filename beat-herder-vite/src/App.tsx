@@ -4465,38 +4465,52 @@ export default function App() {
               {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View ${selectedMember.displayName?.split(' ')[0]}'s Schedule`}
             </button>
 
-            {/* Update Status Button - When viewing your own card */}
+            {/* Status Input - When viewing your own card */}
             {selectedMember.uid === userData?.uid && (
-              <button
-                onClick={() => {
-                  const newStatus = prompt("Update your status:", currentStatusInput || "");
-                  if (newStatus !== null) {
-                    setCurrentStatusInput(newStatus);
-                    if (newStatus.trim()) {
-                      updateDoc(doc(db, 'users', userData.uid), {
-                        statusMessage: newStatus.trim(),
-                        statusTimestamp: Date.now()
-                      });
-                    } else {
-                      updateDoc(doc(db, 'users', userData.uid), {
-                        statusMessage: null,
-                        statusTimestamp: null
-                      });
-                    }
-                    showAlert("Status updated!");
-                  }
-                }}
-                className="btn w-full"
-                style={{
-                  background: 'linear-gradient(45deg, #667eea, #764ba2)',
-                  marginBottom: '1rem',
-                  padding: '12px',
-                  fontSize: '0.95rem',
-                  fontWeight: 'bold'
-                }}
-              >
-                📝 Update Status
-              </button>
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="What's happening?"
+                    className="input-field"
+                    value={currentStatusInput}
+                    onChange={(e) => setCurrentStatusInput(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter' && currentStatusInput.trim()) {
+                        await updateDoc(doc(db, 'users', userData.uid), {
+                          statusMessage: currentStatusInput.trim(),
+                          statusTimestamp: Date.now()
+                        });
+                        showAlert("Status updated!");
+                      }
+                    }}
+                    style={{ flex: 1, height: '44px', boxSizing: 'border-box' }}
+                  />
+                  <button
+                    onClick={async () => {
+                      if (currentStatusInput.trim()) {
+                        await updateDoc(doc(db, 'users', userData.uid), {
+                          statusMessage: currentStatusInput.trim(),
+                          statusTimestamp: Date.now()
+                        });
+                        showAlert("Status updated!");
+                      }
+                    }}
+                    className="btn btn-primary"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '0 16px',
+                      height: '44px',
+                      boxSizing: 'border-box',
+                      minWidth: '60px'
+                    }}
+                  >
+                    ➜
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* Leave Squad Button - When you're in someone else's squad */}
