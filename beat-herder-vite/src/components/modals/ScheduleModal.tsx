@@ -231,147 +231,190 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
                 </div>
 
                 {/* Schedule Grid */}
-                <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #333', borderRadius: '8px' }}>
-                    {TIME_SLOTS.map(time => {
+                <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #333', borderRadius: '12px', background: '#1a1a1a' }}>
+                    {TIME_SLOTS.map((time, index) => {
                         const key = `${selectedDay}-${time}`;
                         const item = schedule[key];
+                        const isEven = index % 2 === 0;
 
                         return (
                             <div key={key} style={{
-                                padding: '12px',
-                                borderBottom: '1px solid #222',
+                                padding: '16px 20px',
+                                borderBottom: '1px solid #282828',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '12px',
-                                background: editingSlot === key ? '#222' : 'transparent'
+                                gap: '20px',
+                                background: editingSlot === key ? 'rgba(187, 134, 252, 0.1)' : (isEven ? 'transparent' : 'rgba(255,255,255,0.02)'),
+                                transition: 'background-color 0.2s'
                             }}>
-                                {/* Time */}
-                                <div style={{ minWidth: '100px', fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+                                {/* Time Column */}
+                                <div style={{
+                                    minWidth: '94px',
+                                    fontSize: '0.95rem',
+                                    fontWeight: '700',
+                                    color: 'var(--primary)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center'
+                                }}>
                                     {formatTime12Hour(time)}
                                 </div>
 
-                                {/* Content */}
-                                {editingSlot === key && isViewingOwnSchedule ? (
-                                    // Edit Mode
-                                    <div style={{ flex: 1, display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                        <select
-                                            value={tempStage}
-                                            onChange={(e) => setTempStage(e.target.value)}
-                                            className="input-field"
-                                            style={{ flex: '1 1 150px', marginBottom: 0, background: '#333', color: 'white', padding: '8px' }}
-                                        >
-                                            <option value="">Select Stage</option>
-                                            {STAGES.map(stage => (
-                                                <option key={stage} value={stage}>{stage}</option>
-                                            ))}
-                                        </select>
-                                        <input
-                                            type="text"
-                                            value={tempPerformer}
-                                            onChange={(e) => setTempPerformer(e.target.value)}
-                                            placeholder="Performer / Act"
-                                            className="input-field"
-                                            style={{ flex: '1 1 150px', marginBottom: 0, background: '#333', color: 'white', padding: '8px' }}
-                                        />
-                                        <button
-                                            onClick={() => saveScheduleItem(selectedDay, time, tempStage, tempPerformer)}
-                                            className="btn"
-                                            style={{ background: 'var(--primary)', color: 'black', padding: '8px 16px', fontSize: '0.85rem' }}
-                                        >
-                                            Save
-                                        </button>
+                                {/* Content Column */}
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                                    {editingSlot === key && isViewingOwnSchedule ? (
+                                        // Edit Mode
+                                        <div style={{ flex: 1, display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                            <select
+                                                value={tempStage}
+                                                onChange={(e) => setTempStage(e.target.value)}
+                                                className="input-field"
+                                                style={{ flex: '1 1 180px', marginBottom: 0, background: '#333', color: 'white', padding: '10px', border: '1px solid #444' }}
+                                            >
+                                                <option value="">Select Stage</option>
+                                                {STAGES.map(stage => (
+                                                    <option key={stage} value={stage}>{stage}</option>
+                                                ))}
+                                            </select>
+                                            <input
+                                                type="text"
+                                                value={tempPerformer}
+                                                onChange={(e) => setTempPerformer(e.target.value)}
+                                                placeholder="Performer / Act"
+                                                className="input-field"
+                                                style={{ flex: '1 1 180px', marginBottom: 0, background: '#333', color: 'white', padding: '10px', border: '1px solid #444' }}
+                                            />
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    onClick={() => saveScheduleItem(selectedDay, time, tempStage, tempPerformer)}
+                                                    className="btn"
+                                                    style={{ background: 'var(--primary)', color: 'black', padding: '8px 20px', fontSize: '0.9rem', flex: 1 }}
+                                                >
+                                                    Save
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingSlot(null);
+                                                        setTempStage('');
+                                                        setTempPerformer('');
+                                                    }}
+                                                    className="btn"
+                                                    style={{ background: '#555', color: 'white', padding: '8px 20px', fontSize: '0.9rem', flex: 1 }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : item ? (
+                                        // Display Mode with Item
+                                        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ flex: 1, marginRight: '16px' }}>
+                                                <div style={{
+                                                    fontWeight: '700',
+                                                    color: 'white',
+                                                    marginBottom: '4px',
+                                                    fontSize: '1.05rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px'
+                                                }}>
+                                                    <FaMusic size={14} style={{ color: 'var(--secondary)' }} />
+                                                    {item.performer}
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', color: '#888', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <span style={{ color: 'var(--primary)', opacity: 0.8 }}>@</span> {item.stage}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                {!isViewingOwnSchedule && (() => {
+                                                    const myScheduleKey = `${item.day}-${item.time}`;
+                                                    const myItem = userData.schedule?.[myScheduleKey];
+                                                    const hasOverlap = !!myItem;
+
+                                                    return (
+                                                        <button
+                                                            onClick={() => copyToMySchedule(item)}
+                                                            className="btn"
+                                                            style={{
+                                                                background: hasOverlap ? 'var(--error)' : 'rgba(187, 134, 252, 0.1)',
+                                                                color: hasOverlap ? 'white' : 'var(--primary)',
+                                                                border: `1px solid ${hasOverlap ? 'var(--error)' : 'rgba(187, 134, 252, 0.3)'}`,
+                                                                padding: '6px 14px',
+                                                                fontSize: '0.85rem',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                fontWeight: '600'
+                                                            }}
+                                                        >
+                                                            <FaCopy size={12} /> {hasOverlap ? 'Replace' : 'Copy'}
+                                                        </button>
+                                                    );
+                                                })()}
+                                                {isViewingOwnSchedule && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingSlot(key);
+                                                                setTempStage(item.stage);
+                                                                setTempPerformer(item.performer);
+                                                            }}
+                                                            className="btn"
+                                                            style={{ background: '#333', color: '#ddd', padding: '6px 14px', fontSize: '0.85rem', border: '1px solid #444' }}
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteScheduleItem(key)}
+                                                            className="btn"
+                                                            style={{ background: 'rgba(207, 102, 121, 0.1)', color: 'var(--error)', padding: '6px 14px', fontSize: '0.85rem', border: '1px solid var(--error)' }}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : isViewingOwnSchedule ? (
+                                        // Empty slot - show add button for own schedule
                                         <button
                                             onClick={() => {
-                                                setEditingSlot(null);
+                                                setEditingSlot(key);
                                                 setTempStage('');
                                                 setTempPerformer('');
                                             }}
                                             className="btn"
-                                            style={{ background: '#555', padding: '8px 16px', fontSize: '0.85rem' }}
+                                            style={{
+                                                flex: 1,
+                                                background: 'transparent',
+                                                border: '1px dashed #444',
+                                                padding: '12px',
+                                                fontSize: '0.85rem',
+                                                color: '#666',
+                                                justifyContent: 'center',
+                                                transition: 'all 0.2s',
+                                                textAlign: 'center'
+                                            }}
+                                            onMouseOver={(e) => {
+                                                e.currentTarget.style.borderColor = 'var(--primary)';
+                                                e.currentTarget.style.color = 'var(--primary)';
+                                                e.currentTarget.style.background = 'rgba(187, 134, 252, 0.05)';
+                                            }}
+                                            onMouseOut={(e) => {
+                                                e.currentTarget.style.borderColor = '#444';
+                                                e.currentTarget.style.color = '#666';
+                                                e.currentTarget.style.background = 'transparent';
+                                            }}
                                         >
-                                            Cancel
+                                            + Add Performance
                                         </button>
-                                    </div>
-                                ) : item ? (
-                                    // Display Mode with Item
-                                    <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: 'bold', color: 'white', marginBottom: '4px' }}>
-                                                <FaMusic size={12} style={{ marginRight: '6px', color: 'var(--secondary)' }} />
-                                                {item.performer}
-                                            </div>
-                                            <div style={{ fontSize: '0.85rem', color: '#aaa' }}>
-                                                {item.stage}
-                                            </div>
+                                    ) : (
+                                        // Empty slot - viewing someone else's schedule
+                                        <div style={{ flex: 1, color: '#444', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                                            No plans scheduled
                                         </div>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            {!isViewingOwnSchedule && (() => {
-                                                const myScheduleKey = `${item.day}-${item.time}`;
-                                                const myItem = userData.schedule?.[myScheduleKey];
-                                                const hasOverlap = !!myItem;
-
-                                                return (
-                                                    <button
-                                                        onClick={() => copyToMySchedule(item)}
-                                                        className="btn"
-                                                        style={{
-                                                            background: hasOverlap ? '#b21f1f' : '#333',
-                                                            color: hasOverlap ? 'white' : 'var(--primary)',
-                                                            padding: '6px 12px',
-                                                            fontSize: '0.8rem',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px',
-                                                            fontWeight: hasOverlap ? 'bold' : 'normal'
-                                                        }}
-                                                    >
-                                                        <FaCopy size={12} /> {hasOverlap ? 'Copy & Replace' : 'Copy'}
-                                                    </button>
-                                                );
-                                            })()}
-                                            {isViewingOwnSchedule && (
-                                                <>
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingSlot(key);
-                                                            setTempStage(item.stage);
-                                                            setTempPerformer(item.performer);
-                                                        }}
-                                                        className="btn"
-                                                        style={{ background: '#555', padding: '6px 12px', fontSize: '0.8rem' }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => deleteScheduleItem(key)}
-                                                        className="btn"
-                                                        style={{ background: '#8B0000', padding: '6px 12px', fontSize: '0.8rem' }}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : isViewingOwnSchedule ? (
-                                    // Empty slot - show add button for own schedule
-                                    <button
-                                        onClick={() => {
-                                            setEditingSlot(key);
-                                            setTempStage('');
-                                            setTempPerformer('');
-                                        }}
-                                        className="btn"
-                                        style={{ flex: 1, background: 'transparent', border: '1px dashed #555', padding: '8px', fontSize: '0.85rem', color: '#888' }}
-                                    >
-                                        + Add to schedule
-                                    </button>
-                                ) : (
-                                    // Empty slot - viewing someone else's schedule
-                                    <div style={{ flex: 1, color: '#555', fontSize: '0.85rem', fontStyle: 'italic' }}>
-                                        No plans
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         );
                     })}
