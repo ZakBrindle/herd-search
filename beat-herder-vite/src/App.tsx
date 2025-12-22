@@ -771,10 +771,15 @@ export default function App() {
 
 
 
-  const handleClusterClick = (clusterUsers: UserData[]) => {
+  const handleClusterClick = (clusterUsers: UserData[], point?: Point) => {
     const uids = clusterUsers.map(u => u.uid);
     setHighlightedUids(uids);
     setTimeout(() => setHighlightedUids([]), 3000); // Highlight needed briefly
+
+    if (point && userData?.useGps === false) {
+      const area = findAreaAtPoint(point);
+      if (area) setSelectedAreaForCheckIn(area);
+    }
   };
 
   const getUpcomingEvents = () => {
@@ -983,6 +988,10 @@ export default function App() {
     }
   };
 
+  const findAreaAtPoint = (point: Point): Area | null => {
+    return areas.find(area => isPointInPolygon(point, area.polygon)) || null;
+  };
+
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -1005,14 +1014,7 @@ export default function App() {
       redrawCanvas();
     }
     else if (userData?.useGps === false) {
-      let foundArea: Area | null = null;
-      for (const area of areas) {
-        if (isPointInPolygon(pos, area.polygon)) {
-          foundArea = area;
-          break;
-        }
-      }
-      setSelectedAreaForCheckIn(foundArea);
+      setSelectedAreaForCheckIn(findAreaAtPoint(pos));
     }
   };
 
@@ -2205,6 +2207,10 @@ export default function App() {
                     <div key={u.uid} className="user-marker"
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (userData?.useGps === false && u.location) {
+                          const area = findAreaAtPoint(u.location);
+                          if (area) setSelectedAreaForCheckIn(area);
+                        }
                         setSelectedMember(u);
                         setSelectedMemberContext('squad');
                         setActiveModal('member');
@@ -2244,7 +2250,7 @@ export default function App() {
 
                   return (
                     <div key={key} className="user-marker"
-                      onClick={(e) => { e.stopPropagation(); handleClusterClick(cluster.users); }}
+                      onClick={(e) => { e.stopPropagation(); handleClusterClick(cluster.users, cluster.centroid); }}
                       style={{
                         left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
                         top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
@@ -2273,7 +2279,7 @@ export default function App() {
 
                 return (
                   <div key={key} className="user-marker"
-                    onClick={(e) => { e.stopPropagation(); handleClusterClick(cluster.users); }}
+                    onClick={(e) => { e.stopPropagation(); handleClusterClick(cluster.users, cluster.centroid); }}
                     style={{
                       left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
                       top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
@@ -2569,6 +2575,7 @@ export default function App() {
                             Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
                               ({(() => {
                                 const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
+                                if (diff < 2) return "Right Now";
                                 if (diff < 90) return `${Math.floor(diff)}m ago`;
                                 return `${Math.floor(diff / 60)}h ago`;
                               })()})
@@ -2578,6 +2585,7 @@ export default function App() {
                             Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
                               ({(() => {
                                 const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
+                                if (diff < 2) return "Right Now";
                                 if (diff < 90) return `${Math.floor(diff)}m ago`;
                                 return `${Math.floor(diff / 60)}h ago`;
                               })()})
@@ -3311,6 +3319,7 @@ export default function App() {
                     }
                   })}
                 </div>
+                <hr style={{ borderColor: '#33333310', margin: '2rem 0', width: '100%' }} />
               </div>
 
 
