@@ -2370,7 +2370,7 @@ export default function App() {
                 .map(member => (
                   <div key={member.uid}
                     className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `}
-                    onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }}
+                    onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); setActiveModal('member'); }}
                     style={{
                       minWidth: '200px',
                       flexDirection: 'column',
@@ -2637,7 +2637,7 @@ export default function App() {
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
                 .map(member => (
-                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); }}>
+                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); setActiveModal('member'); }}>
                     <img src={member.photoURL!} className="avatar" alt="Avatar" />
                     <div>
                       <h3>
@@ -2925,53 +2925,145 @@ export default function App() {
 
 
               {/* WRAPPED SECTION */}
-              {(wrappedDays.length > 0 || festivalWrappedAvailable) && (
-                <div style={{ width: '100%', marginTop: '20px' }}>
-                  <h3 style={{ fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <FaClock color="#fdbb2d" /> Wrapped
-                  </h3>
+              <div style={{ width: '100%', marginTop: '20px' }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaClock color="#fdbb2d" /> Wrapped
+                </h3>
 
-                  {/* Festival Wrapped Button (Mon-Wed) */}
-                  {festivalWrappedAvailable && (
-                    <button
-                      onClick={handleOpenFestivalWrapped}
-                      className="card"
-                      style={{
-                        width: '100%',
-                        marginBottom: '10px',
-                        background: 'linear-gradient(90deg, #fdbb2d, #b21f1f)',
-                        border: 'none',
-                        justifyContent: 'center',
-                        padding: '16px'
-                      }}
-                    >
-                      <span style={{ fontWeight: '900', fontSize: '1.2rem', color: 'white' }}>FESTIVAL WRAPPED 🎁</span>
-                    </button>
-                  )}
-
-                  <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px' }}>
-                    {/* Show daily buttons if NOT Tue/Wed (Day 2 or 3) */}
-                    {!(new Date().getDay() === 2 || new Date().getDay() === 3) && wrappedDays.map(day => (
-                      <button
-                        key={day}
-                        onClick={() => handleOpenWrapped(day)}
-                        className="card"
-                        style={{
-                          padding: '12px 20px',
-                          minWidth: '120px',
-                          flexDirection: 'column',
-                          background: 'linear-gradient(135deg, #222, #333)',
-                          border: '1px solid #444',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <span style={{ fontSize: '0.8rem', color: '#aaa' }}>{new Date(day).toLocaleDateString(undefined, { weekday: 'short' })}</span>
-                        <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>Wrapped</span>
-                      </button>
-                    ))}
+                {/* Festival Wrapped Button/Placeholder */}
+                {festivalWrappedAvailable ? (
+                  <button
+                    onClick={handleOpenFestivalWrapped}
+                    className="card"
+                    style={{
+                      width: '100%',
+                      marginBottom: '15px',
+                      background: 'linear-gradient(135deg, #fdbb2d 0%, #ff6b6b 50%, #b21f1f 100%)',
+                      border: 'none',
+                      justifyContent: 'center',
+                      padding: '20px',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 15px rgba(253, 187, 45, 0.3)'
+                    }}
+                  >
+                    <span style={{ fontWeight: '900', fontSize: '1.3rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                      🎉 FESTIVAL WRAPPED 🎁
+                    </span>
+                  </button>
+                ) : (
+                  <div
+                    className="card"
+                    style={{
+                      width: '100%',
+                      marginBottom: '15px',
+                      background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
+                      border: '2px dashed #444',
+                      justifyContent: 'center',
+                      padding: '20px',
+                      opacity: 0.6
+                    }}
+                  >
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔒</div>
+                      <span style={{ fontWeight: '600', fontSize: '1.1rem', color: '#666' }}>
+                        Festival Wrapped
+                      </span>
+                      <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '4px' }}>
+                        Available Mon-Wed
+                      </div>
+                    </div>
                   </div>
+                )}
+
+                {/* Daily Wrapped Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                  {/* Map through all festival days */}
+                  {['Thursday', 'Friday', 'Saturday', 'Sunday'].map((dayName, index) => {
+                    // Find if we have data for this day
+                    const dayDate = wrappedDays.find(date => {
+                      const d = new Date(date);
+                      return d.toLocaleDateString(undefined, { weekday: 'long' }) === dayName;
+                    });
+
+                    const hasData = !!dayDate;
+                    const isMonOrTue = new Date().getDay() === 1 || new Date().getDay() === 2;
+                    const shouldHide = isMonOrTue; // Hide daily on Mon/Tue when festival wrapped is available
+
+                    // Don't render if we should hide
+                    if (shouldHide) return null;
+
+                    // Gradient colors for each day
+                    const dayGradients = [
+                      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Thursday - Purple
+                      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', // Friday - Pink
+                      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Saturday - Blue
+                      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)'  // Sunday - Green
+                    ];
+
+                    const dayEmojis = ['🎸', '🎤', '🎵', '🎶'];
+
+                    if (hasData) {
+                      return (
+                        <button
+                          key={dayName}
+                          onClick={() => handleOpenWrapped(dayDate)}
+                          className="card"
+                          style={{
+                            padding: '16px',
+                            background: dayGradients[index],
+                            border: 'none',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                            transition: 'transform 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                          }}
+                        >
+                          <div style={{ fontSize: '2rem', marginBottom: '8px' }}>{dayEmojis[index]}</div>
+                          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.9)', fontWeight: '600', textTransform: 'uppercase' }}>
+                            {dayName.substring(0, 3)}
+                          </span>
+                          <span style={{ fontSize: '1rem', fontWeight: 'bold', color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
+                            Wrapped
+                          </span>
+                        </button>
+                      );
+                    } else {
+                      return (
+                        <div
+                          key={dayName}
+                          className="card"
+                          style={{
+                            padding: '16px',
+                            background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
+                            border: '2px dashed #444',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            opacity: 0.5
+                          }}
+                        >
+                          <div style={{ fontSize: '2rem', marginBottom: '8px', opacity: 0.4 }}>🔒</div>
+                          <span style={{ fontSize: '0.75rem', color: '#555', fontWeight: '600', textTransform: 'uppercase' }}>
+                            {dayName.substring(0, 3)}
+                          </span>
+                          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#444' }}>
+                            Locked
+                          </span>
+                        </div>
+                      );
+                    }
+                  })}
                 </div>
-              )}
+              </div>
 
 
               {/* Support Buttons */}
