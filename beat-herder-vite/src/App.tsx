@@ -2336,7 +2336,7 @@ export default function App() {
                   gap: '8px'
                 }}
               >
-                ✔ I found them!
+                ✔ I found {getDisplayNameByUid(userData.searchingFor.uid).split(' ')[0]}!
               </button>
             </div>
           )}
@@ -2516,8 +2516,8 @@ export default function App() {
                     {(member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) && (
                       <div style={{
                         position: 'absolute',
-                        top: '-10px',
-                        right: '10px',
+                        top: '8px',
+                        right: '8px',
                         background: '#FFD700',
                         color: 'black',
                         fontSize: '0.65rem',
@@ -2527,7 +2527,7 @@ export default function App() {
                         boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
                         zIndex: 5
                       }}>
-                        SEARCHING FOR YOU
+                        IS SEARCHING FOR YOU
                       </div>
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -2844,8 +2844,8 @@ export default function App() {
                     {(member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) && (
                       <div style={{
                         position: 'absolute',
-                        top: '-10px',
-                        right: '10px',
+                        top: '8px',
+                        right: '8px',
                         background: '#FFD700',
                         color: 'black',
                         fontSize: '0.65rem',
@@ -3709,7 +3709,7 @@ export default function App() {
                       fontWeight: 'bold'
                     }}
                   >
-                    🏮 Searching for you!
+                    🏮 Let them know you're searching for them!
                   </button>
                 )}
 
