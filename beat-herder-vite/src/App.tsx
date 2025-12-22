@@ -1793,9 +1793,20 @@ export default function App() {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         if (!snapshot.empty) {
           const latestMsg = snapshot.docs[0].data();
-          // If message is newer than last seen AND we are not currently looking at chat
-          if (latestMsg.createdAt > lastSeenChatTime && activeTab !== 'chat') {
-            setHasUnreadChat(true);
+          const msgTime = latestMsg.createdAt || 0;
+
+          if (activeTab === 'chat') {
+            // If we are IN chat, immediately mark this as seen
+            if (msgTime > lastSeenChatTime) {
+              setLastSeenChatTime(msgTime);
+              localStorage.setItem('lastSeenChatTime', msgTime.toString());
+              setHasUnreadChat(false);
+            }
+          } else {
+            // If we are NOT in chat, check if it's new
+            if (msgTime > lastSeenChatTime) {
+              setHasUnreadChat(true);
+            }
           }
         }
       });
