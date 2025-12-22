@@ -4178,22 +4178,98 @@ export default function App() {
         // On Monday, check if Festival Wrapped is available - if so, show that instead
         if (isMonday && festivalWrappedAvailable) {
           return (
-            <div className="modal-overlay" style={{ zIndex: 9000 }}>
-              <div className="card animate-pop-in" style={{ padding: '30px', textAlign: 'center', background: 'linear-gradient(135deg, #fdbb2d, #ff6b6b, #b21f1f)' }}>
-                <h1 style={{ fontSize: '2rem', marginBottom: '20px' }}>🎉</h1>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '10px' }}>Your Festival Wrapped is Ready!</h2>
-                <p style={{ marginBottom: '20px' }}>See your complete weekend festival experience!</p>
-                <button className="btn primary-btn" onClick={() => {
-                  setNewWrappedAvailable(null);
-                  handleOpenFestivalWrapped();
-                }} style={{ width: '100%', background: 'white', color: 'black' }}>
-                  View Festival Wrapped
-                </button>
-                <button className="btn text-only" onClick={() => {
-                  setNewWrappedAvailable(null);
-                }} style={{ marginTop: '10px', color: 'rgba(255,255,255,0.7)' }}>
-                  Maybe Later
-                </button>
+            <div className="modal-overlay" style={{ zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                className="card animate-pop-in"
+                style={{
+                  width: '90%',
+                  maxWidth: '400px',
+                  minHeight: '500px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  background: 'linear-gradient(135deg, #fdbb2d, #ff6b6b, #b21f1f)',
+                  borderRadius: '20px',
+                  padding: '0',
+                  overflow: 'hidden',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+                }}
+              >
+                {/* Title Section */}
+                <div style={{
+                  padding: '24px 20px',
+                  borderBottom: '1px solid rgba(255,255,255,0.2)'
+                }}>
+                  <h2 style={{
+                    fontSize: '1.4rem',
+                    fontWeight: 'bold',
+                    margin: 0,
+                    color: 'white',
+                    textAlign: 'center'
+                  }}>
+                    🎉 Your Festival Wrapped is Ready!
+                  </h2>
+                </div>
+
+                {/* Content Section */}
+                <div style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '40px 20px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🎁</div>
+                  <p style={{
+                    fontSize: '1.1rem',
+                    color: 'rgba(255,255,255,0.95)',
+                    lineHeight: '1.5',
+                    margin: 0
+                  }}>
+                    See your complete weekend festival experience!
+                  </p>
+                </div>
+
+                {/* Buttons Section */}
+                <div style={{ padding: '20px' }}>
+                  <button
+                    className="btn primary-btn"
+                    onClick={() => {
+                      setNewWrappedAvailable(null);
+                      handleOpenFestivalWrapped();
+                    }}
+                    style={{
+                      width: '100%',
+                      background: 'white',
+                      color: '#b21f1f',
+                      fontWeight: 'bold',
+                      fontSize: '1.1rem',
+                      padding: '16px',
+                      borderRadius: '12px',
+                      marginBottom: '12px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                    }}
+                  >
+                    View Festival Wrapped
+                  </button>
+                  <button
+                    className="btn text-only"
+                    onClick={() => {
+                      setNewWrappedAvailable(null);
+                    }}
+                    style={{
+                      width: '100%',
+                      color: 'rgba(255,255,255,0.9)',
+                      fontSize: '1rem',
+                      padding: '12px',
+                      background: 'rgba(255,255,255,0.1)',
+                      borderRadius: '12px'
+                    }}
+                  >
+                    Maybe Later
+                  </button>
+                </div>
               </div>
             </div>
           );
@@ -4204,26 +4280,102 @@ export default function App() {
         const dayName = wrappedDate.toLocaleDateString(undefined, { weekday: 'long' });
 
         return (
-          <div className="modal-overlay" style={{ zIndex: 9000 }}>
-            <div className="card animate-pop-in" style={{ padding: '30px', textAlign: 'center', background: 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)' }}>
-              <h1 style={{ fontSize: '2rem', marginBottom: '20px' }}>🎁</h1>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '10px' }}>Your {dayName} Wrapped is Ready!</h2>
-              <p style={{ marginBottom: '20px' }}>See where you spent your time on {dayName}.</p>
-              <button className="btn primary-btn" onClick={() => {
-                const today = new Date().toISOString().split('T')[0];
-                localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
-                handleOpenWrapped(newWrappedAvailable);
-              }} style={{ width: '100%', background: 'white', color: 'black' }}>
-                View Wrapped
-              </button>
-              <button className="btn text-only" onClick={() => {
-                const today = new Date().toISOString().split('T')[0];
-                localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
-                setNewWrappedAvailable(null);
-                updateDoc(doc(db, 'users', userData!.uid), { lastSeenWrapped: new Date().toISOString() });
-              }} style={{ marginTop: '10px', color: 'rgba(255,255,255,0.7)' }}>
-                Maybe Later
-              </button>
+          <div className="modal-overlay" style={{ zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div
+              className="card animate-pop-in"
+              style={{
+                width: '90%',
+                maxWidth: '400px',
+                minHeight: '500px',
+                display: 'flex',
+                flexDirection: 'column',
+                background: 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)',
+                borderRadius: '20px',
+                padding: '0',
+                overflow: 'hidden',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+              }}
+            >
+              {/* Title Section */}
+              <div style={{
+                padding: '24px 20px',
+                borderBottom: '1px solid rgba(255,255,255,0.2)'
+              }}>
+                <h2 style={{
+                  fontSize: '1.4rem',
+                  fontWeight: 'bold',
+                  margin: 0,
+                  color: 'white',
+                  textAlign: 'center'
+                }}>
+                  🎁 Your {dayName} Wrapped is Ready!
+                </h2>
+              </div>
+
+              {/* Content Section */}
+              <div style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '40px 20px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '4rem', marginBottom: '20px' }}>✨</div>
+                <p style={{
+                  fontSize: '1.1rem',
+                  color: 'rgba(255,255,255,0.95)',
+                  lineHeight: '1.5',
+                  margin: 0
+                }}>
+                  See where you spent your time on {dayName}.
+                </p>
+              </div>
+
+              {/* Buttons Section */}
+              <div style={{ padding: '20px' }}>
+                <button
+                  className="btn primary-btn"
+                  onClick={() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
+                    handleOpenWrapped(newWrappedAvailable);
+                  }}
+                  style={{
+                    width: '100%',
+                    background: 'white',
+                    color: '#1a2a6c',
+                    fontWeight: 'bold',
+                    fontSize: '1.1rem',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    marginBottom: '12px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  View Wrapped
+                </button>
+                <button
+                  className="btn text-only"
+                  onClick={() => {
+                    const today = new Date().toISOString().split('T')[0];
+                    localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
+                    setNewWrappedAvailable(null);
+                    updateDoc(doc(db, 'users', userData!.uid), { lastSeenWrapped: new Date().toISOString() });
+                  }}
+                  style={{
+                    width: '100%',
+                    color: 'rgba(255,255,255,0.9)',
+                    fontSize: '1rem',
+                    padding: '12px',
+                    background: 'rgba(255,255,255,0.1)',
+                    borderRadius: '12px'
+                  }}
+                >
+                  Maybe Later
+                </button>
+              </div>
             </div>
           </div>
         );
