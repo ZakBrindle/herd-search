@@ -146,11 +146,13 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
         };
 
         if (existingItem && !isViewingOwnSchedule) {
+            onClose(); // Close instantly so they see the confirm popup
             showConfirm(
                 `You already have "${existingItem.performer}" at ${existingItem.stage} scheduled for ${item.day} at ${item.time}. Overwrite it with "${item.performer}" at ${item.stage}?`,
                 performCopy
             );
         } else {
+            onClose(); // Close instantly
             await performCopy();
         }
     };

@@ -3638,7 +3638,19 @@ export default function App() {
               <div style={{ textAlign: 'center' }}>
                 <img src={selectedMember.photoURL!} alt="Avatar" className="avatar" style={{ width: 80, height: 80, marginBottom: '1rem' }} />
                 <h2>{selectedMember.displayName}</h2>
-                {selectedMemberContext !== 'friend' && <p>{selectedMember.currentArea || "Unknown Location"}</p>}
+                {selectedMemberContext !== 'friend' && (
+                  <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', margin: '0.5rem 0' }}>
+                    📍 {selectedMember.currentArea || "Unknown Location"}
+                    <span style={{ color: '#888', fontSize: '0.8rem' }}>
+                      ({(() => {
+                        const diff = (Date.now() - (selectedMember.lastUpdate || 0)) / 60000;
+                        if (diff < 2) return "Right Now";
+                        if (diff < 90) return `${Math.floor(diff)}m ago`;
+                        return `${Math.floor(diff / 60)}h ago`;
+                      })()})
+                    </span>
+                  </p>
+                )}
 
                 {/* Status Update for Self */}
                 {selectedMember.uid === userData?.uid && (
