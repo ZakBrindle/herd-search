@@ -3418,6 +3418,33 @@ export default function App() {
                   </div>
                 )}
 
+                {/* View Schedule Button - For all users */}
+                <button
+                  onClick={() => {
+                    setScheduleViewingUser(selectedMember.uid === userData?.uid ? null : selectedMember);
+                    setShowScheduleModal(true);
+                    setSelectedMember(null);
+                  }}
+                  className="btn w-full"
+                  style={{
+                    background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                    marginTop: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '14px',
+                    fontSize: '1rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  <FaClock />
+                  {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View ${selectedMember.displayName?.split(' ')[0]}'s Schedule`}
+                </button>
+
+                {/* Separator Line */}
+                <hr style={{ borderColor: '#33333310', margin: '1.5rem 0', width: '100%' }} />
+
                 {/* Case 1: Friend is in MY squad and I am leader -> Kick */}
                 {getSquadLeaderUid() === userData?.uid && selectedMember.squadId === userData?.squadId && selectedMember.uid !== userData?.uid && (
                   <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
