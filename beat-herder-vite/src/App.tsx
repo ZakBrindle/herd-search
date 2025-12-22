@@ -3200,6 +3200,8 @@ export default function App() {
 
     // Get the dates for Thu, Fri, Sat, Sun
     const festivalDates: string[] = [];
+    const dayNames = ['Thursday', 'Friday', 'Saturday', 'Sunday'];
+
     for (let i = 0; i < 4; i++) {
       const date = new Date(now);
       date.setDate(date.getDate() - daysBackToThursday + i);
@@ -3211,18 +3213,31 @@ export default function App() {
     const aggregated: any = {
       totalTimeActiveMs: 0,
       areasVisited: {},
-      friendsProximity: {}
+      friendsProximity: {},
+      dailyData: [], // Store each day's data
+      festivalDates: festivalDates,
+      dayNames: dayNames
     };
 
     try {
       // Fetch each festival day's stats
-      for (const dateStr of festivalDates) {
+      for (let i = 0; i < festivalDates.length; i++) {
+        const dateStr = festivalDates[i];
         const docRef = doc(db, 'users', userData.uid, 'dailyStats', dateStr);
         const snap = await getDoc(docRef);
 
         if (snap.exists()) {
           const data = snap.data();
           aggregated.totalTimeActiveMs += (data.totalTimeActiveMs || 0);
+
+          // Store daily data for highlights
+          aggregated.dailyData.push({
+            dayName: dayNames[i],
+            date: dateStr,
+            areasVisited: data.areasVisited || {},
+            friendsProximity: data.friendsProximity || {},
+            totalTimeActiveMs: data.totalTimeActiveMs || 0
+          });
 
           // Merge Areas
           Object.entries(data.areasVisited || {}).forEach(([key, val]) => {
@@ -3232,6 +3247,15 @@ export default function App() {
           // Merge Friends
           Object.entries(data.friendsProximity || {}).forEach(([key, val]) => {
             aggregated.friendsProximity[key] = (aggregated.friendsProximity[key] || 0) + (val as number);
+          });
+        } else {
+          // Add empty day data if no stats
+          aggregated.dailyData.push({
+            dayName: dayNames[i],
+            date: dateStr,
+            areasVisited: {},
+            friendsProximity: {},
+            totalTimeActiveMs: 0
           });
         }
       }
@@ -4463,6 +4487,53 @@ export default function App() {
               <FaClock />
               {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View ${selectedMember.displayName?.split(' ')[0]}'s Schedule`}
             </button>
+
+            {/* Kick from Squad Button - Squad Leader Only */}
+            {selectedMember.uid !== userData?.uid && selectedMemberContext === 'squad' && getSquadLeaderUid() === userData?.uid && (
+              <button
+                onClick={async () => {
+                  const confirmed = window.confirm(
+                    `Are you sure you want to kick ${selectedMember.displayName} from the squad?`
+                  );
+
+                  if (confirmed && userData?.squadId) {
+                    try {
+                      const squadDoc = await getDoc(doc(db, 'squads', userData.squadId!));
+                      if (squadDoc.exists()) {
+                        const currentMembers = squadDoc.data().members || [];
+                        const updatedMembers = currentMembers.filter((uid: string) => uid !== selectedMember.uid);
+
+                        await updateDoc(doc(db, 'squads', userData.squadId!), {
+                          members: updatedMembers
+                        });
+
+                        await updateDoc(doc(db, 'users', selectedMember.uid), {
+                          squadId: null
+                        });
+
+                        showAlert(`${selectedMember.displayName} has been removed from the squad.`);
+                        setActiveModal(null);
+                        setSelectedMember(null);
+                      }
+                    } catch (error) {
+                      console.error("Error kicking from squad:", error);
+                      showAlert("Failed to remove member from squad");
+                    }
+                  }
+                }}
+                className="btn w-full"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #8B0000',
+                  color: '#ff6b6b',
+                  marginBottom: '1rem',
+                  padding: '12px',
+                  fontSize: '0.95rem'
+                }}
+              >
+                Kick from Squad
+              </button>
+            )}
 
             {/* Squad Member Tag */}
             {selectedMember.uid !== userData?.uid && selectedMemberContext === 'squad' && (

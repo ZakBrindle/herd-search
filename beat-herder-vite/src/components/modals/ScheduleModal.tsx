@@ -29,7 +29,7 @@ const STAGES = [
     'Main Stage',
     'The Fortress',
     'Trash Manor',
-    'The Beautiful Ballroom',
+    'Campfire',
     'The Toil Trees',
     'Woodland Stage',
     'Late Night Stage',
@@ -180,8 +180,8 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
     }
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
+            <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', width: '96%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '1rem' }}>
                     <div>
@@ -235,7 +235,7 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
                                 background: editingSlot === key ? '#222' : 'transparent'
                             }}>
                                 {/* Time */}
-                                <div style={{ width: '80px', fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+                                <div style={{ minWidth: '100px', fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--primary)' }}>
                                     {formatTime12Hour(time)}
                                 </div>
 
@@ -294,15 +294,30 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                            {!isViewingOwnSchedule && (
-                                                <button
-                                                    onClick={() => copyToMySchedule(item)}
-                                                    className="btn"
-                                                    style={{ background: '#333', color: 'var(--primary)', padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                                >
-                                                    <FaCopy size={12} /> Copy
-                                                </button>
-                                            )}
+                                            {!isViewingOwnSchedule && (() => {
+                                                const myScheduleKey = `${item.day}-${item.time}`;
+                                                const myItem = userData.schedule?.[myScheduleKey];
+                                                const hasOverlap = !!myItem;
+
+                                                return (
+                                                    <button
+                                                        onClick={() => copyToMySchedule(item)}
+                                                        className="btn"
+                                                        style={{
+                                                            background: hasOverlap ? '#b21f1f' : '#333',
+                                                            color: hasOverlap ? 'white' : 'var(--primary)',
+                                                            padding: '6px 12px',
+                                                            fontSize: '0.8rem',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            fontWeight: hasOverlap ? 'bold' : 'normal'
+                                                        }}
+                                                    >
+                                                        <FaCopy size={12} /> {hasOverlap ? 'Copy & Replace' : 'Copy'}
+                                                    </button>
+                                                );
+                                            })()}
                                             {isViewingOwnSchedule && (
                                                 <>
                                                     <button
