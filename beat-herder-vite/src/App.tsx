@@ -2926,7 +2926,7 @@ export default function App() {
                     }}
                   >
                     <span style={{ fontWeight: '900', fontSize: '1.3rem', color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-                      🎉 FESTIVAL WRAPPED 🎁
+                      🎉 MY FESTIVAL WRAPPED 🎁
                     </span>
                   </button>
                 ) : (
