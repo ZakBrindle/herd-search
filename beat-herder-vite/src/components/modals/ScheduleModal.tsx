@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { FaTimes, FaClock, FaMusic, FaCopy } from 'react-icons/fa';
+import { FaTimes, FaClock, FaMusic, FaCopy, FaPencilAlt, FaTrash } from 'react-icons/fa';
 import type { UserData } from '../../contexts/AuthContext';
 
 // Schedule item structure
@@ -192,7 +192,7 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
 
     return (
         <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
-            <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', width: '96%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1100px', width: '98%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '1rem' }}>
                     <div>
@@ -359,17 +359,35 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
                                                                 setTempStage(item.stage);
                                                                 setTempPerformer(item.performer);
                                                             }}
-                                                            className="btn"
-                                                            style={{ background: '#333', color: '#ddd', padding: '6px 14px', fontSize: '0.85rem', border: '1px solid #444' }}
+                                                            className="btn icon-button"
+                                                            style={{
+                                                                background: '#333',
+                                                                color: 'var(--primary)',
+                                                                width: '32px',
+                                                                height: '32px',
+                                                                padding: 0,
+                                                                border: '1px solid #444',
+                                                                borderRadius: '8px'
+                                                            }}
+                                                            title="Edit"
                                                         >
-                                                            Edit
+                                                            <FaPencilAlt size={14} />
                                                         </button>
                                                         <button
                                                             onClick={() => deleteScheduleItem(key)}
-                                                            className="btn"
-                                                            style={{ background: 'rgba(207, 102, 121, 0.1)', color: 'var(--error)', padding: '6px 14px', fontSize: '0.85rem', border: '1px solid var(--error)' }}
+                                                            className="btn icon-button"
+                                                            style={{
+                                                                background: 'rgba(207, 102, 121, 0.1)',
+                                                                color: 'var(--error)',
+                                                                width: '32px',
+                                                                height: '32px',
+                                                                padding: 0,
+                                                                border: '1px solid var(--error)',
+                                                                borderRadius: '8px'
+                                                            }}
+                                                            title="Delete"
                                                         >
-                                                            Delete
+                                                            <FaTrash size={14} />
                                                         </button>
                                                     </>
                                                 )}
