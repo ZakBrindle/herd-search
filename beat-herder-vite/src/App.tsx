@@ -4171,52 +4171,119 @@ export default function App() {
 
 
       {/* New Wrapped Popup (Map Page Only) */}
-      {(newWrappedAvailable && activeTab === 'map') && (
-        <div className="modal-overlay" style={{ zIndex: 9000 }}>
-          <div className="card animate-pop-in" style={{ padding: '30px', textAlign: 'center', background: 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)' }}>
-            <h1 style={{ fontSize: '2rem', marginBottom: '20px' }}>🎁</h1>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '10px' }}>Your Daily Wrapped is Ready!</h2>
-            <p style={{ marginBottom: '20px' }}>See where you spent your time yesterday.</p>
-            <button className="btn primary-btn" onClick={() => {
-              const today = new Date().toISOString().split('T')[0];
-              localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
-              handleOpenWrapped(newWrappedAvailable);
-            }} style={{ width: '100%', background: 'white', color: 'black' }}>
-              View Wrapped
-            </button>
-            <button className="btn text-only" onClick={() => {
-              const today = new Date().toISOString().split('T')[0];
-              localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
-              setNewWrappedAvailable(null);
-              updateDoc(doc(db, 'users', userData!.uid), { lastSeenWrapped: new Date().toISOString() });
-            }} style={{ marginTop: '10px', color: 'rgba(255,255,255,0.7)' }}>
-              Maybe Later
-            </button>
+      {(newWrappedAvailable && activeTab === 'map') && (() => {
+        const dayOfWeek = new Date().getDay();
+        const isMonday = dayOfWeek === 1;
+
+        // On Monday, check if Festival Wrapped is available - if so, show that instead
+        if (isMonday && festivalWrappedAvailable) {
+          return (
+            <div className="modal-overlay" style={{ zIndex: 9000 }}>
+              <div className="card animate-pop-in" style={{ padding: '30px', textAlign: 'center', background: 'linear-gradient(135deg, #fdbb2d, #ff6b6b, #b21f1f)' }}>
+                <h1 style={{ fontSize: '2rem', marginBottom: '20px' }}>🎉</h1>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '10px' }}>Your Festival Wrapped is Ready!</h2>
+                <p style={{ marginBottom: '20px' }}>See your complete weekend festival experience!</p>
+                <button className="btn primary-btn" onClick={() => {
+                  setNewWrappedAvailable(null);
+                  handleOpenFestivalWrapped();
+                }} style={{ width: '100%', background: 'white', color: 'black' }}>
+                  View Festival Wrapped
+                </button>
+                <button className="btn text-only" onClick={() => {
+                  setNewWrappedAvailable(null);
+                }} style={{ marginTop: '10px', color: 'rgba(255,255,255,0.7)' }}>
+                  Maybe Later
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // Otherwise show the day-specific wrapped
+        const wrappedDate = new Date(newWrappedAvailable);
+        const dayName = wrappedDate.toLocaleDateString(undefined, { weekday: 'long' });
+
+        return (
+          <div className="modal-overlay" style={{ zIndex: 9000 }}>
+            <div className="card animate-pop-in" style={{ padding: '30px', textAlign: 'center', background: 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)' }}>
+              <h1 style={{ fontSize: '2rem', marginBottom: '20px' }}>🎁</h1>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '10px' }}>Your {dayName} Wrapped is Ready!</h2>
+              <p style={{ marginBottom: '20px' }}>See where you spent your time on {dayName}.</p>
+              <button className="btn primary-btn" onClick={() => {
+                const today = new Date().toISOString().split('T')[0];
+                localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
+                handleOpenWrapped(newWrappedAvailable);
+              }} style={{ width: '100%', background: 'white', color: 'black' }}>
+                View Wrapped
+              </button>
+              <button className="btn text-only" onClick={() => {
+                const today = new Date().toISOString().split('T')[0];
+                localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
+                setNewWrappedAvailable(null);
+                updateDoc(doc(db, 'users', userData!.uid), { lastSeenWrapped: new Date().toISOString() });
+              }} style={{ marginTop: '10px', color: 'rgba(255,255,255,0.7)' }}>
+                Maybe Later
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Member Info Modal (when clicking on a user marker) */}
       {(activeModal === 'member' && selectedMember) && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-          <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '1rem' }}>
-              <h3 style={{ margin: 0 }}>{selectedMember.uid === userData?.uid ? 'You' : selectedMember.displayName}</h3>
-              <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '1.5rem' }}>
-                <FaTimes />
-              </button>
-            </div>
+          <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', position: 'relative' }}>
+            {/* Close Button - Top Right */}
+            <button
+              onClick={() => setActiveModal(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'none',
+                border: 'none',
+                color: '#aaa',
+                cursor: 'pointer',
+                fontSize: '1.5rem',
+                zIndex: 10
+              }}
+            >
+              <FaTimes />
+            </button>
 
-            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            {/* Profile Section - Centered */}
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem', paddingTop: '1rem' }}>
               <img
                 src={selectedMember.photoURL || "/default-avatar.png"}
                 alt={selectedMember.displayName}
-                style={{ width: '80px', height: '80px', borderRadius: '50%', marginBottom: '1rem' }}
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  borderRadius: '50%',
+                  marginBottom: '1rem',
+                  border: '3px solid var(--primary)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                }}
               />
+
+              {/* Name */}
+              <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>
+                {selectedMember.uid === userData?.uid ? 'You' : selectedMember.displayName}
+              </h2>
+
+              {/* Location */}
               {selectedMember.currentArea && (
-                <div style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem' }}>
-                  <FaMapMarkerAlt size={14} style={{ marginRight: '6px', color: 'var(--primary)' }} />
-                  {selectedMember.currentArea}
+                <div style={{
+                  fontSize: '0.95rem',
+                  color: '#aaa',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}>
+                  <FaMapMarkerAlt size={14} style={{ color: 'var(--primary)' }} />
+                  <span>{selectedMember.currentArea}</span>
                 </div>
               )}
             </div>
@@ -4231,23 +4298,33 @@ export default function App() {
               className="btn w-full"
               style={{
                 background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                marginBottom: '0.5rem',
+                marginBottom: '1rem',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                padding: '12px'
+                padding: '14px',
+                fontSize: '1rem',
+                fontWeight: 'bold'
               }}
             >
               <FaClock />
               {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View ${selectedMember.displayName?.split(' ')[0]}'s Schedule`}
             </button>
 
-            {/* Additional actions can be added here */}
+            {/* Squad Member Tag */}
             {selectedMember.uid !== userData?.uid && selectedMemberContext === 'squad' && (
-              <p style={{ fontSize: '0.85rem', color: '#888', marginTop: '1rem', textAlign: 'center' }}>
-                Squad member
-              </p>
+              <div style={{
+                textAlign: 'center',
+                padding: '8px',
+                background: 'rgba(3, 218, 198, 0.1)',
+                borderRadius: '8px',
+                border: '1px solid rgba(3, 218, 198, 0.3)'
+              }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: '600' }}>
+                  Squad Member
+                </span>
+              </div>
             )}
           </div>
         </div>
