@@ -138,6 +138,7 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
                 });
 
                 showAlert(`Copied ${item.performer} to your schedule!`);
+                onClose(); // Close the modal so they can see the next popup or return to map
             } catch (error) {
                 console.error("Error copying to schedule:", error);
                 showAlert("Failed to copy to your schedule");

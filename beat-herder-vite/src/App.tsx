@@ -777,6 +777,60 @@ export default function App() {
     setTimeout(() => setHighlightedUids([]), 3000); // Highlight needed briefly
   };
 
+  const getUpcomingEvents = () => {
+    if (!userData) return [];
+
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const currentLinear = (h < 6 ? h + 24 : h) * 60 + m;
+
+    const adjDate = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentFestivalDay = dayNames[adjDate.getDay()];
+
+    const myUpcoming: any[] = [];
+    if (userData.schedule) {
+      Object.values(userData.schedule as Record<string, any>).forEach(item => {
+        if (item.day === currentFestivalDay) {
+          const [ih, im] = item.time.split(':').map(Number);
+          const itemLinear = (ih < 6 ? ih + 24 : ih) * 60 + im;
+          if (itemLinear >= currentLinear && itemLinear <= currentLinear + 120) {
+            myUpcoming.push({ ...item, type: 'mine', user: userData });
+          }
+        }
+      });
+    }
+
+    const friendsUpcoming: any[] = [];
+    friendsData.forEach(friend => {
+      if (friend.squadId === userData.squadId && friend.schedule) {
+        Object.values(friend.schedule as Record<string, any>).forEach(item => {
+          if (item.day === currentFestivalDay) {
+            const [ih, im] = item.time.split(':').map(Number);
+            const itemLinear = (ih < 6 ? ih + 24 : ih) * 60 + im;
+            if (itemLinear >= currentLinear && itemLinear <= currentLinear + 120) {
+              // Check if I have the same act at the same time
+              const myScheduleKey = `${item.day}-${item.time}`;
+              const myItemAtSameTime = userData.schedule?.[myScheduleKey];
+              if (!myItemAtSameTime || myItemAtSameTime.performer !== item.performer) {
+                friendsUpcoming.push({ ...item, type: 'friend', user: friend });
+              }
+            }
+          }
+        });
+      }
+    });
+
+    return [...myUpcoming, ...friendsUpcoming].sort((a, b) => {
+      const [ah, am] = a.time.split(':').map(Number);
+      const [bh, bm] = b.time.split(':').map(Number);
+      const al = (ah < 6 ? ah + 24 : ah) * 60 + am;
+      const bl = (bh < 6 ? bh + 24 : bh) * 60 + bm;
+      return al - bl;
+    });
+  };
+
   // --- Canvas Drawing & Map Logic ---
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1056,6 +1110,47 @@ export default function App() {
 
       await updateDoc(squadRef, updateData);
     } catch (e) { console.error(e); }
+  };
+
+  const handleSearchForMember = async (member: UserData) => {
+    if (!currentUser || !userData) return;
+    try {
+      await updateDoc(getUserDocRef(currentUser.uid), {
+        searchingFor: {
+          uid: member.uid,
+          timestamp: Date.now()
+        }
+      });
+
+      // Send to Chat as a notification
+      if (userData.squadId) {
+        addDoc(collection(db, "squads", userData.squadId, "messages"), {
+          senderId: 'system',
+          senderName: 'Herd Search',
+          senderPhotoURL: '',
+          content: `${userData.displayName} is searching for ${member.displayName}! 🏮`,
+          type: 'search_notification',
+          createdAt: Date.now()
+        }).catch(console.error);
+      }
+
+      showAlert(`Searching for ${member.displayName?.split(' ')[0]}! They've been notified.`);
+      setSelectedMember(null);
+    } catch (err) {
+      console.error(err);
+      showAlert("Error starting search.");
+    }
+  };
+
+  const handleStopSearching = async () => {
+    if (!currentUser) return;
+    try {
+      await updateDoc(getUserDocRef(currentUser.uid), {
+        searchingFor: null
+      });
+    } catch (e) {
+      console.error("Stop search failed", e);
+    }
   };
 
   const endVote = async () => {
@@ -2108,7 +2203,11 @@ export default function App() {
                         left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
                         top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
                         zIndex: isMe ? 20 : 10,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        // Highlight if they are searching for us
+                        filter: (u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) ? 'drop-shadow(0 0 8px #FFD700) drop-shadow(0 0 12px #FFD700)' : undefined,
+                        transform: (u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) ? 'scale(1.2)' : undefined,
+                        transition: 'all 0.3s ease'
                       }}>
                       <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
@@ -2217,6 +2316,30 @@ export default function App() {
             })}
 
           </div>
+
+          {/* I found them! Button */}
+          {userData?.searchingFor && (Date.now() - userData.searchingFor.timestamp < 3600000) && (
+            <div style={{ padding: '0 4px', marginBottom: '0.5rem' }}>
+              <button
+                onClick={handleStopSearching}
+                className="btn w-full"
+                style={{
+                  background: '#FFD700',
+                  color: 'black',
+                  padding: '12px',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                ✔ I found them!
+              </button>
+            </div>
+          )}
 
           {/* Check In / Vote Button */}
           <div style={{ padding: '0 4px', marginBottom: '1rem' }}>
@@ -2377,12 +2500,36 @@ export default function App() {
                       alignItems: 'flex-start',
                       position: 'relative',
                       gap: '4px',
-                      // Highlight style
-                      border: highlightedUids.includes(member.uid) ? '2px solid var(--primary)' : undefined,
-                      boxShadow: highlightedUids.includes(member.uid) ? '0 0 15px var(--primary)' : undefined,
+                      // Searching for us highlight
+                      border: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000))
+                        ? '2px solid #FFD700'
+                        : (highlightedUids.includes(member.uid) ? '2px solid var(--primary)' : undefined),
+                      boxShadow: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000))
+                        ? '0 0 15px rgba(255, 215, 0, 0.4)'
+                        : (highlightedUids.includes(member.uid) ? '0 0 15px var(--primary)' : undefined),
+                      background: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000))
+                        ? 'rgba(255, 215, 0, 0.05)'
+                        : undefined,
                       transform: highlightedUids.includes(member.uid) ? 'scale(1.02)' : undefined,
                       transition: 'all 0.3s ease'
                     }}>
+                    {(member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        right: '10px',
+                        background: '#FFD700',
+                        color: 'black',
+                        fontSize: '0.65rem',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                        zIndex: 5
+                      }}>
+                        SEARCHING FOR YOU
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <img src={member.photoURL!} className="avatar" alt="Avatar" />
                       <div>
@@ -2532,6 +2679,76 @@ export default function App() {
             )}
           </div>
 
+          {/* Coming Up Section */}
+          {(() => {
+            const upcoming = getUpcomingEvents();
+            if (upcoming.length === 0) return null;
+
+            return (
+              <div style={{ padding: '0 4px', marginTop: '1.5rem', marginBottom: '1rem' }}>
+                <h3 style={{
+                  fontSize: '0.8rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.5px',
+                  color: 'var(--text-muted)',
+                  marginBottom: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <FaClock size={12} style={{ color: 'var(--primary)' }} /> Coming Up (Next 2h)
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {upcoming.map((event, idx) => {
+                    const isMine = event.type === 'mine';
+                    return (
+                      <div key={`${event.user.uid}-${idx}`} className="card" style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px',
+                        border: isMine ? '1px solid rgba(3, 218, 198, 0.2)' : '1px solid rgba(255,255,255,0.05)',
+                        background: isMine ? 'rgba(3, 218, 198, 0.03)' : 'rgba(255,255,255,0.01)',
+                        borderRadius: '12px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                          <img src={event.user.photoURL} alt="Avatar" className="avatar" style={{ width: '32px', height: '32px', border: isMine ? '1px solid var(--primary)' : '1px solid #444' }} />
+                          <div style={{ overflow: 'hidden', flex: 1 }}>
+                            <div style={{
+                              fontSize: '0.85rem',
+                              fontWeight: '600',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              color: isMine ? 'white' : '#ddd'
+                            }}>
+                              {isMine ? 'You are seeing ' : `${event.user.displayName?.split(' ')[0]} is seeing `}
+                              <span style={{ color: 'var(--secondary)' }}>{event.performer}</span>
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              at {event.stage}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          color: isMine ? 'var(--primary)' : '#aaa',
+                          background: isMine ? 'rgba(3, 218, 198, 0.1)' : 'rgba(255,255,255,0.05)',
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          marginLeft: '8px'
+                        }}>
+                          {event.time}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
 
 
 
@@ -2614,7 +2831,33 @@ export default function App() {
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
                 .map(member => (
-                  <div key={member.uid} className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `} onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); setActiveModal('member'); }}>
+                  <div key={member.uid}
+                    className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `}
+                    onClick={() => { setSelectedMember(member); setSelectedMemberContext('squad'); setActiveModal('member'); }}
+                    style={{
+                      position: 'relative',
+                      border: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) ? '2px solid #FFD700' : undefined,
+                      boxShadow: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) ? '0 0 15px rgba(255, 215, 0, 0.4)' : undefined,
+                      background: (member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) ? 'rgba(255, 215, 0, 0.05)' : undefined,
+                    }}
+                  >
+                    {(member.searchingFor?.uid === userData?.uid && (Date.now() - (member.searchingFor?.timestamp || 0) < 3600000)) && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        right: '10px',
+                        background: '#FFD700',
+                        color: 'black',
+                        fontSize: '0.65rem',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                        zIndex: 5
+                      }}>
+                        SEARCHING FOR YOU
+                      </div>
+                    )}
                     <img src={member.photoURL!} className="avatar" alt="Avatar" />
                     <div>
                       <h3>
@@ -3446,6 +3689,29 @@ export default function App() {
                   <FaClock />
                   {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View ${selectedMember.displayName?.split(' ')[0]}'s Schedule`}
                 </button>
+
+                {/* Searching for you! Button */}
+                {selectedMember.uid !== userData?.uid && selectedMember.squadId === userData?.squadId && (
+                  <button
+                    onClick={() => handleSearchForMember(selectedMember)}
+                    className="btn w-full"
+                    style={{
+                      background: 'rgba(255, 215, 0, 0.15)',
+                      color: '#FFD700',
+                      border: '1px solid #FFD700',
+                      marginTop: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '12px',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    🏮 Searching for you!
+                  </button>
+                )}
 
                 {/* Separator Line */}
                 <hr style={{ borderColor: '#33333310', margin: '1.5rem 0', width: '100%' }} />

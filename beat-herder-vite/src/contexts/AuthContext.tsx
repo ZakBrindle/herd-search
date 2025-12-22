@@ -31,6 +31,7 @@ export type UserData = DocumentData & {
     fcmToken?: string;
     ghostModeCooldown?: number;
     hasSeenWelcome?: boolean;
+    searchingFor?: { uid: string; timestamp: number };
 };
 
 interface AuthContextType {
