@@ -4465,6 +4465,87 @@ export default function App() {
               {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View ${selectedMember.displayName?.split(' ')[0]}'s Schedule`}
             </button>
 
+            {/* Update Status Button - When viewing your own card */}
+            {selectedMember.uid === userData?.uid && (
+              <button
+                onClick={() => {
+                  const newStatus = prompt("Update your status:", currentStatusInput || "");
+                  if (newStatus !== null) {
+                    setCurrentStatusInput(newStatus);
+                    if (newStatus.trim()) {
+                      updateDoc(doc(db, 'users', userData.uid), {
+                        statusMessage: newStatus.trim(),
+                        statusTimestamp: Date.now()
+                      });
+                    } else {
+                      updateDoc(doc(db, 'users', userData.uid), {
+                        statusMessage: null,
+                        statusTimestamp: null
+                      });
+                    }
+                    showAlert("Status updated!");
+                  }
+                }}
+                className="btn w-full"
+                style={{
+                  background: 'linear-gradient(45deg, #667eea, #764ba2)',
+                  marginBottom: '1rem',
+                  padding: '12px',
+                  fontSize: '0.95rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                📝 Update Status
+              </button>
+            )}
+
+            {/* Leave Squad Button - When you're in someone else's squad */}
+            {selectedMember.uid === userData?.uid && userData.squadId && getSquadLeaderUid() !== userData.uid && (
+              <button
+                onClick={async () => {
+                  const confirmed = window.confirm(
+                    `Are you sure you want to leave this squad?`
+                  );
+
+                  if (confirmed && userData?.squadId) {
+                    try {
+                      const squadDoc = await getDoc(doc(db, 'squads', userData.squadId));
+                      if (squadDoc.exists()) {
+                        const currentMembers = squadDoc.data().members || [];
+                        const updatedMembers = currentMembers.filter((uid: string) => uid !== userData.uid);
+
+                        await updateDoc(doc(db, 'squads', userData.squadId), {
+                          members: updatedMembers
+                        });
+
+                        await updateDoc(doc(db, 'users', userData.uid), {
+                          squadId: null,
+                          squadOwnerId: null
+                        });
+
+                        showAlert("You have left the squad.");
+                        setActiveModal(null);
+                      }
+                    } catch (error) {
+                      console.error("Error leaving squad:", error);
+                      showAlert("Failed to leave squad");
+                    }
+                  }
+                }}
+                className="btn w-full"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #ff6b6b',
+                  color: '#ff6b6b',
+                  marginBottom: '1rem',
+                  padding: '12px',
+                  fontSize: '0.95rem'
+                }}
+              >
+                🚪 Leave Squad
+              </button>
+            )}
+
             {/* Kick from Squad Button - Squad Leader Only */}
             {selectedMember.uid !== userData?.uid && selectedMemberContext === 'squad' && getSquadLeaderUid() === userData?.uid && (
               <button
