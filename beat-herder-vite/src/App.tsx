@@ -25,6 +25,7 @@ import InstallModal from './components/modals/InstallModal';
 import PaymentResultModal from './components/modals/PaymentResultModal';
 import ChatTab from './components/ChatTab';
 import WrappedModal from './components/modals/WrappedModal'; // Import WrappedModal
+import ScheduleModal from './components/modals/ScheduleModal'; // Import ScheduleModal
 import { increment } from 'firebase/firestore'; // Import increment
 
 
@@ -216,6 +217,11 @@ export default function App() {
   // Chat Notifications
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
   const [lastSeenChatTime, setLastSeenChatTime] = useState(() => Number(localStorage.getItem('lastSeenChatTime') || 0));
+
+  // Schedule Modal State
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleViewingUser, setScheduleViewingUser] = useState<UserData | null>(null);
+
 
   const statsRef = useRef({
     lastUpdate: Date.now(),
@@ -2091,11 +2097,19 @@ export default function App() {
                   const u = cluster.users[0];
                   const isMe = u.uid === userData?.uid;
                   return (
-                    <div key={u.uid} className="user-marker" style={{
-                      left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
-                      top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
-                      zIndex: isMe ? 20 : 10
-                    }}>
+                    <div key={u.uid} className="user-marker"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMember(u);
+                        setSelectedMemberContext('squad');
+                        setActiveModal('member');
+                      }}
+                      style={{
+                        left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
+                        top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
+                        zIndex: isMe ? 20 : 10,
+                        cursor: 'pointer'
+                      }}>
                       <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                         <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
@@ -4088,6 +4102,77 @@ export default function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Member Info Modal (when clicking on a user marker) */}
+      {(activeModal === 'member' && selectedMember) && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}>{selectedMember.uid === userData?.uid ? 'You' : selectedMember.displayName}</h3>
+              <button onClick={() => setActiveModal(null)} style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '1.5rem' }}>
+                <FaTimes />
+              </button>
+            </div>
+
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <img
+                src={selectedMember.photoURL || "/default-avatar.png"}
+                alt={selectedMember.displayName}
+                style={{ width: '80px', height: '80px', borderRadius: '50%', marginBottom: '1rem' }}
+              />
+              {selectedMember.currentArea && (
+                <div style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: '0.5rem' }}>
+                  <FaMapMarkerAlt size={14} style={{ marginRight: '6px', color: 'var(--primary)' }} />
+                  {selectedMember.currentArea}
+                </div>
+              )}
+            </div>
+
+            {/* Schedule Button */}
+            <button
+              onClick={() => {
+                setScheduleViewingUser(selectedMember.uid === userData?.uid ? null : selectedMember);
+                setShowScheduleModal(true);
+                setActiveModal(null);
+              }}
+              className="btn w-full"
+              style={{
+                background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                marginBottom: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '12px'
+              }}
+            >
+              <FaClock />
+              {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View ${selectedMember.displayName?.split(' ')[0]}'s Schedule`}
+            </button>
+
+            {/* Additional actions can be added here */}
+            {selectedMember.uid !== userData?.uid && selectedMemberContext === 'squad' && (
+              <p style={{ fontSize: '0.85rem', color: '#888', marginTop: '1rem', textAlign: 'center' }}>
+                Squad member
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Modal */}
+      {showScheduleModal && userData && (
+        <ScheduleModal
+          userData={userData}
+          viewingUser={scheduleViewingUser}
+          onClose={() => {
+            setShowScheduleModal(false);
+            setScheduleViewingUser(null);
+          }}
+          showAlert={showAlert}
+          showConfirm={showConfirm}
+        />
       )}
 
     </div >
