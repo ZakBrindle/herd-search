@@ -27,12 +27,20 @@ interface ScheduleModalProps {
 // List of stages (can be customized)
 const STAGES = [
     'Main Stage',
+    'The Ring',
     'The Fortress',
-    'Trash Manor',
-    'Campfire',
     'The Toil Trees',
-    'Woodland Stage',
-    'Late Night Stage',
+    'Garage',
+    'The Snug',
+    'Working Mens Club',
+    'Bushrocker Hi-Fi',
+    'Sunrise',
+    'The Factory',
+    'Hubba Bubba',
+    'Launderette',
+    'Smoking Tentacles',
+    'Waterfall',
+    'Campfire',
     'Other'
 ];
 

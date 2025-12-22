@@ -2383,29 +2383,6 @@ export default function App() {
                       transform: highlightedUids.includes(member.uid) ? 'scale(1.02)' : undefined,
                       transition: 'all 0.3s ease'
                     }}>
-                    {member.uid === currentUser.uid && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setActiveModal('updateStatus'); }}
-                        style={{
-                          position: 'absolute',
-                          top: '8px',
-                          right: '8px',
-                          background: 'rgba(255,255,255,0.1)',
-                          border: 'none',
-                          color: 'var(--text-primary)',
-                          borderRadius: '50%',
-                          width: '24px',
-                          height: '24px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          zIndex: 10
-                        }}
-                      >
-                        <FaPencilAlt size={12} />
-                      </button>
-                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <img src={member.photoURL!} className="avatar" alt="Avatar" />
                       <div>
