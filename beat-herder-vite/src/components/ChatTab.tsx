@@ -5,8 +5,7 @@ import {
     orderBy,
     onSnapshot,
     addDoc,
-    where,
-    limit
+    where
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { UserData } from '../contexts/AuthContext';
@@ -28,10 +27,13 @@ interface ChatTabProps {
 }
 
 export default function ChatTab({ userData, squadId }: ChatTabProps) {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [allMessages, setAllMessages] = useState<ChatMessage[]>([]);
+    const [displayedMessages, setDisplayedMessages] = useState<ChatMessage[]>([]);
+    const [messagesToShow, setMessagesToShow] = useState(20);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesListRef = useRef<HTMLDivElement>(null);
     const DAY_IN_MS = 24 * 60 * 60 * 1000;
     const SEVEN_DAYS_MS = 7 * DAY_IN_MS;
 
@@ -47,8 +49,7 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
         const q = query(
             collection(db, 'squads', squadId, 'messages'),
             where('createdAt', '>', sevenDaysAgo),
-            orderBy('createdAt', 'asc'),
-            limit(100) // Safety limit
+            orderBy('createdAt', 'asc')
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -56,21 +57,49 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                 id: doc.id,
                 ...doc.data()
             })) as ChatMessage[];
-            setMessages(msgs);
+            setAllMessages(msgs);
             setLoading(false);
-            scrollToBottom();
         });
 
         return () => unsubscribe();
     }, [squadId]);
 
+    // Update displayed messages when allMessages or messagesToShow changes
+    useEffect(() => {
+        if (allMessages.length === 0) {
+            setDisplayedMessages([]);
+            return;
+        }
+
+        // Show the last N messages
+        const startIndex = Math.max(0, allMessages.length - messagesToShow);
+        setDisplayedMessages(allMessages.slice(startIndex));
+    }, [allMessages, messagesToShow]);
+
+    // Auto-scroll when new messages arrive (but not when loading more)
+    useEffect(() => {
+        if (displayedMessages.length > 0 && messagesToShow === 20) {
+            scrollToBottom();
+        }
+    }, [displayedMessages.length]);
+
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
+    const loadMoreMessages = () => {
+        const previousScrollHeight = messagesListRef.current?.scrollHeight || 0;
+        setMessagesToShow(prev => prev + 20);
+
+        // Maintain scroll position after loading more
+        setTimeout(() => {
+            if (messagesListRef.current) {
+                const newScrollHeight = messagesListRef.current.scrollHeight;
+                messagesListRef.current.scrollTop = newScrollHeight - previousScrollHeight;
+            }
+        }, 50);
+    };
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -134,7 +163,7 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                 <FaComments size={20} color="var(--primary)" />
             </header>
 
-            <div className="messages-list" style={{
+            <div ref={messagesListRef} className="messages-list" style={{
                 flex: 1,
                 overflowY: 'auto',
                 padding: '16px 16px 100px 16px', // Extra bottom padding for input area
@@ -143,16 +172,49 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                 gap: '8px'
             }}>
                 {loading && <p style={{ textAlign: 'center', color: '#666' }}>Loading messages...</p>}
-                {!loading && messages.length === 0 && (
+                {!loading && allMessages.length === 0 && (
                     <div style={{ textAlign: 'center', color: '#888', marginTop: '2rem' }}>
                         <p>No messages yet.</p>
                         <p style={{ fontSize: '0.8rem' }}>Start the conversation with your squad!</p>
                     </div>
                 )}
 
-                {messages.map((msg, index) => {
+                {/* Load More Button */}
+                {!loading && allMessages.length > messagesToShow && (
+                    <div style={{ textAlign: 'center', margin: '10px 0' }}>
+                        <button
+                            onClick={loadMoreMessages}
+                            className="btn"
+                            style={{
+                                background: '#333',
+                                color: 'var(--primary)',
+                                padding: '8px 16px',
+                                borderRadius: '20px',
+                                border: '1px solid var(--primary)',
+                                fontSize: '0.85rem',
+                                fontWeight: '600'
+                            }}
+                        >
+                            Load more
+                        </button>
+                    </div>
+                )}
+
+                {!loading && allMessages.length > 0 && allMessages.length <= messagesToShow && displayedMessages.length === allMessages.length && (
+                    <div style={{ textAlign: 'center', margin: '10px 0' }}>
+                        <span style={{
+                            color: '#666',
+                            fontSize: '0.75rem',
+                            fontStyle: 'italic'
+                        }}>
+                            All chats loaded
+                        </span>
+                    </div>
+                )}
+
+                {displayedMessages.map((msg, index) => {
                     const isMe = msg.senderId === userData?.uid;
-                    const prevMsg = messages[index - 1];
+                    const prevMsg = displayedMessages[index - 1];
 
                     const showDateHeader = !prevMsg || getDayLabel(prevMsg.createdAt) !== getDayLabel(msg.createdAt);
 
@@ -167,7 +229,7 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                     // So if we are the 6th message, we restart the header.
                     let consecutiveCount = 0;
                     let tempIdx = index - 1;
-                    while (tempIdx >= 0 && messages[tempIdx].senderId === msg.senderId) {
+                    while (tempIdx >= 0 && displayedMessages[tempIdx].senderId === msg.senderId) {
                         consecutiveCount++;
                         tempIdx--;
                     }

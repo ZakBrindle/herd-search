@@ -50,17 +50,21 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
     return (
         <div className="modal-overlay" style={{ zIndex: 10000, background: 'black' }} onClick={nextSlide}>
             <div className="wrapped-container" style={{
-                width: '100%',
-                height: '100%',
+                maxWidth: '500px',
+                width: '90%',
+                height: 'auto',
+                maxHeight: '90vh',
+                margin: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
-                padding: '20px',
+                padding: '40px 20px',
                 background: 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)',
                 position: 'relative',
                 color: 'white',
-                textAlign: 'center'
+                textAlign: 'center',
+                borderRadius: '20px'
             }}>
 
                 {/* Progress Bar */}

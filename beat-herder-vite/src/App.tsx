@@ -428,12 +428,19 @@ export default function App() {
         setFestivalWrappedAvailable(false);
       }
 
-      // Popup Logic
+      // Popup Logic - Only show once per day
       if (latestAvailable) {
-        const lastSeen = userData.lastSeenWrapped || '1970-01-01';
-        const lastSeenDate = new Date(lastSeen).toISOString().split('T')[0];
-        if (latestAvailable > lastSeenDate) {
-          setNewWrappedAvailable(latestAvailable);
+        const today = new Date().toISOString().split('T')[0];
+        const lastShownKey = `wrappedPopupLastShown_${latestAvailable}`;
+        const lastShownDate = localStorage.getItem(lastShownKey);
+
+        // Show popup if it hasn't been shown today for this wrapped date
+        if (lastShownDate !== today) {
+          const lastSeen = userData.lastSeenWrapped || '1970-01-01';
+          const lastSeenDate = new Date(lastSeen).toISOString().split('T')[0];
+          if (latestAvailable > lastSeenDate) {
+            setNewWrappedAvailable(latestAvailable);
+          }
         }
       }
     };
@@ -3070,7 +3077,31 @@ export default function App() {
     if (!userData) return;
     setIsFestivalWrapped(true);
 
-    // Aggregate last 7 days
+    // Aggregate Thursday, Friday, Saturday, Sunday (festival days)
+    // Assume festival is the most recent weekend
+    const now = new Date();
+    const currentDay = now.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+
+    // Calculate how many days back to the most recent Thursday
+    let daysBackToThursday = 0;
+    if (currentDay === 0) daysBackToThursday = 3; // Sunday -> Thursday
+    else if (currentDay === 1) daysBackToThursday = 4; // Monday -> Thursday
+    else if (currentDay === 2) daysBackToThursday = 5; // Tuesday -> Thursday
+    else if (currentDay === 3) daysBackToThursday = 6; // Wednesday -> Thursday
+    else if (currentDay === 4) daysBackToThursday = 0; // Thursday
+    else if (currentDay === 5) daysBackToThursday = 1; // Friday -> Thursday
+    else if (currentDay === 6) daysBackToThursday = 2; // Saturday -> Thursday
+
+    // Get the dates for Thu, Fri, Sat, Sun
+    const festivalDates: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - daysBackToThursday + i);
+      // Apply the 6-hour shift for festival dating
+      date.setHours(date.getHours() - 6);
+      festivalDates.push(date.toISOString().split('T')[0]);
+    }
+
     const aggregated: any = {
       totalTimeActiveMs: 0,
       areasVisited: {},
@@ -3078,24 +3109,26 @@ export default function App() {
     };
 
     try {
-      // Re-fetch last few days to be sure
-      const q = query(collection(db, 'users', userData.uid, 'dailyStats'), limit(7));
-      const snaps = await getDocs(q);
+      // Fetch each festival day's stats
+      for (const dateStr of festivalDates) {
+        const docRef = doc(db, 'users', userData.uid, 'dailyStats', dateStr);
+        const snap = await getDoc(docRef);
 
-      snaps.forEach(doc => {
-        const data = doc.data();
-        aggregated.totalTimeActiveMs += (data.totalTimeActiveMs || 0);
+        if (snap.exists()) {
+          const data = snap.data();
+          aggregated.totalTimeActiveMs += (data.totalTimeActiveMs || 0);
 
-        // Merge Areas
-        Object.entries(data.areasVisited || {}).forEach(([key, val]) => {
-          aggregated.areasVisited[key] = (aggregated.areasVisited[key] || 0) + (val as number);
-        });
+          // Merge Areas
+          Object.entries(data.areasVisited || {}).forEach(([key, val]) => {
+            aggregated.areasVisited[key] = (aggregated.areasVisited[key] || 0) + (val as number);
+          });
 
-        // Merge Friends
-        Object.entries(data.friendsProximity || {}).forEach(([key, val]) => {
-          aggregated.friendsProximity[key] = (aggregated.friendsProximity[key] || 0) + (val as number);
-        });
-      });
+          // Merge Friends
+          Object.entries(data.friendsProximity || {}).forEach(([key, val]) => {
+            aggregated.friendsProximity[key] = (aggregated.friendsProximity[key] || 0) + (val as number);
+          });
+        }
+      }
 
       processAndShowStats("Festival Wrapped", aggregated);
 
@@ -4038,10 +4071,19 @@ export default function App() {
             <h1 style={{ fontSize: '2rem', marginBottom: '20px' }}>🎁</h1>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '10px' }}>Your Daily Wrapped is Ready!</h2>
             <p style={{ marginBottom: '20px' }}>See where you spent your time yesterday.</p>
-            <button className="btn primary-btn" onClick={() => handleOpenWrapped(newWrappedAvailable)} style={{ width: '100%', background: 'white', color: 'black' }}>
+            <button className="btn primary-btn" onClick={() => {
+              const today = new Date().toISOString().split('T')[0];
+              localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
+              handleOpenWrapped(newWrappedAvailable);
+            }} style={{ width: '100%', background: 'white', color: 'black' }}>
               View Wrapped
             </button>
-            <button className="btn text-only" onClick={() => { setNewWrappedAvailable(null); updateDoc(doc(db, 'users', userData!.uid), { lastSeenWrapped: new Date().toISOString() }); }} style={{ marginTop: '10px', color: 'rgba(255,255,255,0.7)' }}>
+            <button className="btn text-only" onClick={() => {
+              const today = new Date().toISOString().split('T')[0];
+              localStorage.setItem(`wrappedPopupLastShown_${newWrappedAvailable}`, today);
+              setNewWrappedAvailable(null);
+              updateDoc(doc(db, 'users', userData!.uid), { lastSeenWrapped: new Date().toISOString() });
+            }} style={{ marginTop: '10px', color: 'rgba(255,255,255,0.7)' }}>
               Maybe Later
             </button>
           </div>
