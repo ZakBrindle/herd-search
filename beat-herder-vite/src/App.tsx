@@ -1031,8 +1031,15 @@ export default function App() {
       currentPolygonPoints.current.push(pos);
       redrawCanvas();
     }
-    else if (userData?.useGps === false) {
-      setSelectedAreaForCheckIn(findAreaAtPoint(pos));
+    else {
+      const clickedArea = findAreaAtPoint(pos);
+      if (userData?.useGps === false) {
+        setSelectedAreaForCheckIn(clickedArea);
+        setSelectedAreaForVote(null); // Clear vote if click check-in
+      } else {
+        setSelectedAreaForVote(clickedArea);
+        setSelectedAreaForCheckIn(null); // Clear check-in if click vote
+      }
     }
   };
 
@@ -1370,8 +1377,6 @@ export default function App() {
     if (!isLongPressRef.current) {
       // handle click
       handleCanvasClick(e as any);
-      // Also reset vote selection on normal click?
-      setSelectedAreaForVote(null);
     }
   };
 
@@ -2419,82 +2424,126 @@ export default function App() {
                   Vote we go to {selectedAreaForVote.name}
                 </button >
               ) : (
-                <button onClick={() => {
-                  if (userData?.useGps) {
-                    if (!mapCalibration) return showAlert("Map not calibrated yet.");
-                    if (!navigator.geolocation) return showAlert("GPS not supported.");
+                !userData?.useGps && selectedAreaForCheckIn ? (
+                  <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                    <button onClick={() => handleManualCheckIn(selectedAreaForCheckIn)}
+                      className="btn btn-primary"
+                      style={{
+                        flex: 1.5,
+                        background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                        padding: '16px',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <FaMapMarkerAlt size={20} />
+                      Check in to {selectedAreaForCheckIn.name}
+                    </button>
+                    <button onClick={() => startVote(selectedAreaForCheckIn)}
+                      className="btn"
+                      style={{
+                        flex: 1,
+                        background: 'linear-gradient(45deg, #ff0080, #7928ca)',
+                        padding: '16px',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        color: 'white'
+                      }}
+                    >
+                      <FaUserFriends size={20} />
+                      Vote
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => {
+                    if (userData?.useGps) {
+                      if (!mapCalibration) return showAlert("Map not calibrated yet.");
+                      if (!navigator.geolocation) return showAlert("GPS not supported.");
 
-                    setGpsRefreshButtonText('Searching for GPS...');
+                      setGpsRefreshButtonText('Searching for GPS...');
 
-                    navigator.geolocation.getCurrentPosition(async (pos) => {
-                      const { latitude, longitude } = pos.coords;
-                      const { north, south, east, west } = mapCalibration;
-                      let x = (longitude - west) / (east - west);
-                      let y = (north - latitude) / (north - south);
+                      navigator.geolocation.getCurrentPosition(async (pos) => {
+                        const { latitude, longitude } = pos.coords;
+                        const { north, south, east, west } = mapCalibration;
+                        let x = (longitude - west) / (east - west);
+                        let y = (north - latitude) / (north - south);
 
 
-                      const newPoint = { x, y };
+                        const newPoint = { x, y };
 
-                      // Determine which area the user is in
-                      let foundArea: Area | null = null;
-                      for (const area of areas) {
-                        if (isPointInPolygon(newPoint, area.polygon)) {
-                          foundArea = area;
-                          break;
+                        // Determine which area the user is in
+                        let foundArea: Area | null = null;
+                        for (const area of areas) {
+                          if (isPointInPolygon(newPoint, area.polygon)) {
+                            foundArea = area;
+                            break;
+                          }
                         }
-                      }
 
-                      const areaName = foundArea ? foundArea.name : 'Out of bounds';
+                        const areaName = foundArea ? foundArea.name : 'Out of bounds';
 
-                      try {
-                        const updateData: any = {
-                          location: newPoint,
-                          lastUpdate: Date.now(),
-                          currentArea: areaName
-                        };
+                        try {
+                          const updateData: any = {
+                            location: newPoint,
+                            lastUpdate: Date.now(),
+                            currentArea: areaName
+                          };
 
-                        // Update lastKnownArea if not in Out of bounds
-                        if (areaName !== 'Out of bounds') {
-                          updateData.lastKnownArea = areaName;
+                          // Update lastKnownArea if not in Out of bounds
+                          if (areaName !== 'Out of bounds') {
+                            updateData.lastKnownArea = areaName;
+                          }
+
+                          await updateDoc(getUserDocRef(userData!.uid), updateData);
+                          setGpsRefreshButtonText('GPS Location Updated');
+                          setTimeout(() => setGpsRefreshButtonText(null), 1200);
+                        } catch (e) {
+                          console.error(e);
+                          setGpsRefreshButtonText('Failed to update');
+                          setTimeout(() => setGpsRefreshButtonText(null), 1200);
                         }
-
-                        await updateDoc(getUserDocRef(userData!.uid), updateData);
-                        setGpsRefreshButtonText('GPS Location Updated');
-                        setTimeout(() => setGpsRefreshButtonText(null), 1200);
-                      } catch (e) {
-                        console.error(e);
-                        setGpsRefreshButtonText('Failed to update');
-                        setTimeout(() => setGpsRefreshButtonText(null), 1200);
-                      }
-                    }, (err) => {
-                      showAlert("GPS Error: " + err.message);
-                      setGpsRefreshButtonText(null);
-                    }, { enableHighAccuracy: true });
-                  } else {
-                    selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
-                  }
-                }}
-                  className="btn btn-primary w-full"
-                  style={{
-                    background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                    padding: '16px',
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '12px'
+                      }, (err) => {
+                        showAlert("GPS Error: " + err.message);
+                        setGpsRefreshButtonText(null);
+                      }, { enableHighAccuracy: true });
+                    } else {
+                      selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
+                    }
                   }}
-                >
-                  <FaMapMarkerAlt size={22} />
-                  {gpsRefreshButtonText || (userData?.useGps
-                    ? (gpsHasLocation 
-                        ? <span className="pulsate">Sharing Live GPS</span> 
+                    className="btn btn-primary w-full"
+                    style={{
+                      background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                      padding: '16px',
+                      fontSize: '1.2rem',
+                      fontWeight: 'bold',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px'
+                    }}
+                  >
+                    <FaMapMarkerAlt size={22} />
+                    {gpsRefreshButtonText || (userData?.useGps
+                      ? (gpsHasLocation
+                        ? <span className="pulsate">Sharing Live GPS</span>
                         : (gpsSearchTimeout ? "GPS taking a while? Try manual check-in" : "Searching for GPS..."))
-                    : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
-                </button>
+                      : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
+                  </button>
+                )
               )}
           </div >
 
