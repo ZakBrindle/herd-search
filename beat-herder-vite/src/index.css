@@ -468,6 +468,21 @@ header {
   gap: 8px;
 }
 
+@keyframes pulse {
+  0% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.05); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
 .logo-container {
   display: flex;
   align-items: center;

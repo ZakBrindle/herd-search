@@ -207,6 +207,7 @@ export default function App() {
   const [gpsHasLocation, setGpsHasLocation] = useState(false);
   const [gpsSearchTimeout, setGpsSearchTimeout] = useState(false);
   const [highlightedUids, setHighlightedUids] = useState<string[]>([]);
+  const [zonesLoadError, setZonesLoadError] = useState(false);
 
   // Selection Reset Timer
   useEffect(() => {
@@ -1799,6 +1800,25 @@ export default function App() {
     return () => unsubscribeAreas();
   }, []);
 
+  // --- Watchdog for Area Loading ---
+  useEffect(() => {
+    // If we already have areas, we are good.
+    if (areas.length > 0) {
+      setZonesLoadError(false);
+      return;
+    }
+
+    // Start a 10s timer. If after 10s areas is still 0, show error.
+    const timer = setTimeout(() => {
+      if (areas.length === 0) {
+        console.warn("Watchdog: Areas failed to load after 10 seconds.");
+        setZonesLoadError(true);
+      }
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [areas.length]);
+
   // --- Reset App State on Logout ---
   useEffect(() => {
     if (!currentUser) {
@@ -2415,6 +2435,37 @@ export default function App() {
       return (
         <>
           {renderHeader()}
+
+          {/* Zones Loading Error Banner */}
+          {zonesLoadError && (
+            <div 
+              onClick={() => window.location.reload()}
+              style={{
+                position: 'absolute',
+                top: '60px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 2000,
+                width: '90%',
+                maxWidth: '400px',
+                background: 'var(--error)',
+                color: 'white',
+                padding: '12px',
+                borderRadius: '8px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '10px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                animation: 'pulse 2s infinite'
+              }}
+            >
+              <FaSync className="spin-slow" />
+              Error fetching zone data, click to refresh
+            </div>
+          )}
 
           {isDevMode && (
             <div className="dev-panel">
