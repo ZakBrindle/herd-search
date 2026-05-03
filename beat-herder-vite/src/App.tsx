@@ -2383,7 +2383,10 @@ export default function App() {
               title="Click to refresh location"
             >
               {isUpdatingGps ? (
-                 <div className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px', borderTopColor: 'var(--secondary)' }} />
+                 <>
+                   <div className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px', borderTopColor: 'var(--secondary)' }} />
+                   <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Updating...</span>
+                 </>
               ) : (
                  isGpsSuccess ? <FaCheckCircle size={14} /> : <FaSync size={12} className="pulsate" />
               )}
@@ -2851,9 +2854,8 @@ export default function App() {
                   return (
                     <button 
                       onClick={async () => {
-                        if (gpsRefreshButtonText) return;
+                        if (gpsRefreshButtonText || isUpdatingGps) return;
                         if (userData?.useGps) {
-                          setGpsRefreshButtonText('Updating...');
                           updateGpsLocation();
                         } else {
                           selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
