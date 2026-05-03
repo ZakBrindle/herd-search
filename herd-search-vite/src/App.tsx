@@ -250,7 +250,7 @@ export default function App() {
   // Dev Features
   const [devMapFilterDuration, setDevMapFilterDuration] = useState<'5m' | '30m' | '1h' | '24h' | null>(null);
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
-  
+
   const page1Ref = useRef<HTMLDivElement>(null);
   const page2Ref = useRef<HTMLDivElement>(null);
   const page3Ref = useRef<HTMLDivElement>(null);
@@ -638,97 +638,97 @@ export default function App() {
     return () => unsub();
   }, [currentUser]);
 
-    const updateGpsLocation = useCallback(async () => {
-      const currentUserUid = currentUser?.uid;
-      const currentMapCalibration = mapCalibration;
-      const currentAreas = areas;
-      const uData = userDataRef.current;
+  const updateGpsLocation = useCallback(async () => {
+    const currentUserUid = currentUser?.uid;
+    const currentMapCalibration = mapCalibration;
+    const currentAreas = areas;
+    const uData = userDataRef.current;
 
-      if (!currentUserUid || !uData || !currentMapCalibration || currentAreas.length === 0) return;
-      
-      setIsUpdatingGps(true);
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const { latitude, longitude } = pos.coords;
-          const { north, south, east, west } = currentMapCalibration;
+    if (!currentUserUid || !uData || !currentMapCalibration || currentAreas.length === 0) return;
 
-          // Map (Lat, Lon) to (x, y) 0-1 range
-          let x = (longitude - west) / (east - west);
-          let y = (north - latitude) / (north - south);
+    setIsUpdatingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const { north, south, east, west } = currentMapCalibration;
 
-          const newPoint = { x, y };
+        // Map (Lat, Lon) to (x, y) 0-1 range
+        let x = (longitude - west) / (east - west);
+        let y = (north - latitude) / (north - south);
 
-          // Check if we are in Ghost Mode
-          if (uData.ghostMode && uData.ghostModeExpiry && uData.ghostModeExpiry > Date.now()) {
-            console.log("GPS: Ghost Mode Active, skipping update");
-            setIsUpdatingGps(false);
-            return;
-          }
+        const newPoint = { x, y };
 
-          // Determine which area the user is in
-          let foundArea: Area | null = null;
-          for (const area of currentAreas) {
-            if (isPointInPolygon(newPoint, area.polygon)) {
-              foundArea = area;
-              break;
-            }
-          }
-
-          const areaName = foundArea ? foundArea.name : 'Out of bounds';
-
-          try {
-            const updateData: any = {
-              location: newPoint,
-              lastUpdate: Date.now(),
-              currentArea: areaName
-            };
-
-            if (areaName !== 'Out of bounds') {
-              updateData.lastKnownArea = areaName;
-            }
-
-            await updateDoc(getUserDocRef(currentUserUid), updateData);
-            setGpsTimeoutCount(0);
-            setGpsHasLocation(true);
-          } catch (e) { console.error("Error updating GPS location", e); }
-          finally {
-            setIsUpdatingGps(false);
-          }
-        },
-        async (err) => {
-          console.error("GPS Error:", err);
+        // Check if we are in Ghost Mode
+        if (uData.ghostMode && uData.ghostModeExpiry && uData.ghostModeExpiry > Date.now()) {
+          console.log("GPS: Ghost Mode Active, skipping update");
           setIsUpdatingGps(false);
+          return;
+        }
 
-          const handleGpsFail = async () => {
-            setGpsError("Live location was disabled as app failed to grab GPS.");
-            setGpsRefreshButtonText('GPS failed to connect');
-            setTimeout(() => setGpsRefreshButtonText(null), 2000);
-            setGpsTimeoutCount(0);
-            try {
-              if (currentUserUid) {
-                await updateDoc(getUserDocRef(currentUserUid), { useGps: false });
-              }
-            } catch (e) {
-              console.error("Failed to disable GPS:", e);
-            }
+        // Determine which area the user is in
+        let foundArea: Area | null = null;
+        for (const area of currentAreas) {
+          if (isPointInPolygon(newPoint, area.polygon)) {
+            foundArea = area;
+            break;
+          }
+        }
+
+        const areaName = foundArea ? foundArea.name : 'Out of bounds';
+
+        try {
+          const updateData: any = {
+            location: newPoint,
+            lastUpdate: Date.now(),
+            currentArea: areaName
           };
 
-          if (err.code === 3) {
-            setGpsTimeoutCount(prevCount => {
-              const newCount = prevCount + 1;
-              if (newCount >= 3) {
-                handleGpsFail();
-                return 0;
-              }
-              return newCount;
-            });
-          } else {
-            await handleGpsFail();
+          if (areaName !== 'Out of bounds') {
+            updateData.lastKnownArea = areaName;
           }
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-      );
-    }, [currentUser?.uid, mapCalibration, areas]);
+
+          await updateDoc(getUserDocRef(currentUserUid), updateData);
+          setGpsTimeoutCount(0);
+          setGpsHasLocation(true);
+        } catch (e) { console.error("Error updating GPS location", e); }
+        finally {
+          setIsUpdatingGps(false);
+        }
+      },
+      async (err) => {
+        console.error("GPS Error:", err);
+        setIsUpdatingGps(false);
+
+        const handleGpsFail = async () => {
+          setGpsError("Live location was disabled as app failed to grab GPS.");
+          setGpsRefreshButtonText('GPS failed to connect');
+          setTimeout(() => setGpsRefreshButtonText(null), 2000);
+          setGpsTimeoutCount(0);
+          try {
+            if (currentUserUid) {
+              await updateDoc(getUserDocRef(currentUserUid), { useGps: false });
+            }
+          } catch (e) {
+            console.error("Failed to disable GPS:", e);
+          }
+        };
+
+        if (err.code === 3) {
+          setGpsTimeoutCount(prevCount => {
+            const newCount = prevCount + 1;
+            if (newCount >= 3) {
+              handleGpsFail();
+              return 0;
+            }
+            return newCount;
+          });
+        } else {
+          await handleGpsFail();
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    );
+  }, [currentUser?.uid, mapCalibration, areas]);
 
   // GPS Tracking Logic
   useEffect(() => {
@@ -739,7 +739,7 @@ export default function App() {
     if (areas.length === 0) { console.log("GPS: Waiting for areas to load"); return; }
 
     console.log(`GPS: Starting live location tracking (every ${gpsRefreshInterval} seconds)`);
-    
+
     // Update immediately on mount
     updateGpsLocation();
 
@@ -2324,18 +2324,18 @@ export default function App() {
               borderRadius: '24px'
             }}>
               <p style={{ fontSize: '1.1rem', lineHeight: '1.8', color: '#ccc', margin: 0 }}>
-                I've been attending <strong>Beat-Herder</strong> for almost 10 years and it's one of my favorite places on earth. 
-                The vibe, the music, the people—it's magic. 
+                I've been attending <strong>Beat-Herder</strong> for almost 10 years and it's one of my favorite places on earth.
+                The vibe, the music, the people—it's magic.
                 <br /><br />
-                But there was always one thing missing: the ability to head off on a "solo quest" to explore a new stage or find a specific snack, without completely losing track of your buddies! 
+                But there was always one thing missing: the ability to head off on a "solo quest" to explore a new stage or find a specific snack, without completely losing track of your buddies!
                 <br /><br />
-                Fumbling with dead phones or trying to describe a meeting point "near the big tree" just wasn't cutting it. That's why <strong>Herd Search</strong> was born. 
+                Fumbling with dead phones or trying to describe a meeting point "near the big tree" just wasn't cutting it. That's why <strong>Herd Search</strong> was born.
                 <br /><br />
                 It's built for those of us who love to roam but still want to find the Herd for the headliners.
               </p>
-              
+
               <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-                <button 
+                <button
                   onClick={(e) => {
                     e.stopPropagation();
                     landingContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2355,7 +2355,7 @@ export default function App() {
 
   const renderHeader = () => {
     const isGpsSuccess = userData?.useGps && userData.lastUpdate && (Date.now() - userData.lastUpdate < 300000); // 5 mins
-    
+
     return (
       <header>
         <div className="logo-container">
@@ -2366,7 +2366,7 @@ export default function App() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {userData?.useGps && (
-            <div 
+            <div
               onClick={(e) => { e.stopPropagation(); updateGpsLocation(); }}
               style={{
                 display: 'flex',
@@ -2383,12 +2383,11 @@ export default function App() {
               title="Click to refresh location"
             >
               {isUpdatingGps ? (
-                 <>
-                   <div className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px', borderTopColor: 'var(--secondary)' }} />
-                   <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Updating...</span>
-                 </>
+                <>
+                  <div className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px', borderTopColor: 'var(--secondary)' }} />
+                </>
               ) : (
-                 isGpsSuccess ? <FaCheckCircle size={14} /> : <FaSync size={12} className="pulsate" />
+                isGpsSuccess ? <FaCheckCircle size={14} /> : <FaSync size={12} className="pulsate" />
               )}
               <FaMapMarkerAlt size={14} />
             </div>
@@ -2441,7 +2440,7 @@ export default function App() {
 
           {/* Zones Loading Error Banner */}
           {zonesLoadError && (
-            <div 
+            <div
               onClick={() => window.location.reload()}
               style={{
                 position: 'absolute',
@@ -2774,7 +2773,7 @@ export default function App() {
           {/* Check In / Vote Button */}
           <div style={{ padding: '0 4px', marginBottom: '1rem' }}>
             {selectedAreaForVote ? (
-              <button 
+              <button
                 onClick={() => startVote(selectedAreaForVote)}
                 className="btn w-full"
                 style={{
@@ -2798,7 +2797,7 @@ export default function App() {
             ) : (
               !userData?.useGps && selectedAreaForCheckIn ? (
                 <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
-                  <button 
+                  <button
                     onClick={() => handleManualCheckIn(selectedAreaForCheckIn)}
                     className="btn btn-primary"
                     style={{
@@ -2822,7 +2821,7 @@ export default function App() {
                     <FaMapMarkerAlt size={20} />
                     Check in to {selectedAreaForCheckIn.name}
                   </button>
-                  <button 
+                  <button
                     onClick={() => startVote(selectedAreaForCheckIn)}
                     className="btn"
                     style={{
@@ -2846,64 +2845,64 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-              <>
-                {/* Default State: GPS Label or Manual Check-In Button */}
-                {(() => {
-                  const isLiveAndActive = userData?.useGps && gpsHasLocation && !gpsRefreshButtonText;
-                  
-                  return (
-                    <button 
-                      onClick={async () => {
-                        if (gpsRefreshButtonText || isUpdatingGps) return;
-                        if (userData?.useGps) {
-                          updateGpsLocation();
-                        } else {
-                          selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
-                        }
-                      }}
-                      className={isLiveAndActive ? "" : "btn btn-primary w-full"}
-                      style={isLiveAndActive ? {
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid rgba(255, 255, 255, 0.05)',
-                        padding: '10px',
-                        borderRadius: '20px',
-                        color: '#888',
-                        fontSize: '0.75rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        width: 'fit-content',
-                        margin: '0 auto',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease'
-                      } : {
-                        background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                        padding: '16px',
-                        fontSize: '1.1rem',
-                        fontWeight: 'bold',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 15px rgba(3, 218, 198, 0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '12px',
-                        width: '100%',
-                        border: 'none',
-                        color: 'black'
-                      }}
-                    >
-                      <FaMapMarkerAlt size={isLiveAndActive ? 12 : 20} color={isLiveAndActive ? 'var(--primary)' : 'black'} />
-                      {gpsRefreshButtonText || (userData?.useGps
-                        ? (gpsHasLocation
-                          ? <span>Live GPS Active</span>
-                          : (gpsSearchTimeout ? "GPS taking a while? Try manual check-in" : "Searching for GPS..."))
-                        : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
-                    </button>
-                  );
-                })()}
-              </>
-            ))}
+                <>
+                  {/* Default State: GPS Label or Manual Check-In Button */}
+                  {(() => {
+                    const isLiveAndActive = userData?.useGps && gpsHasLocation && !gpsRefreshButtonText;
+
+                    return (
+                      <button
+                        onClick={async () => {
+                          if (gpsRefreshButtonText || isUpdatingGps) return;
+                          if (userData?.useGps) {
+                            updateGpsLocation();
+                          } else {
+                            selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
+                          }
+                        }}
+                        className={isLiveAndActive ? "" : "btn btn-primary w-full"}
+                        style={isLiveAndActive ? {
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                          padding: '10px',
+                          borderRadius: '20px',
+                          color: '#888',
+                          fontSize: '0.75rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          width: 'fit-content',
+                          margin: '0 auto',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease'
+                        } : {
+                          background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                          padding: '16px',
+                          fontSize: '1.1rem',
+                          fontWeight: 'bold',
+                          borderRadius: '12px',
+                          boxShadow: '0 4px 15px rgba(3, 218, 198, 0.2)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '12px',
+                          width: '100%',
+                          border: 'none',
+                          color: 'black'
+                        }}
+                      >
+                        <FaMapMarkerAlt size={isLiveAndActive ? 12 : 20} color={isLiveAndActive ? 'var(--primary)' : 'black'} />
+                        {gpsRefreshButtonText || (userData?.useGps
+                          ? (gpsHasLocation
+                            ? <span>Live GPS Active</span>
+                            : (gpsSearchTimeout ? "GPS taking a while? Try manual check-in" : "Searching for GPS..."))
+                          : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
+                      </button>
+                    );
+                  })()}
+                </>
+              ))}
           </div>
 
 
@@ -4966,14 +4965,14 @@ export default function App() {
           <div className="modal-overlay" onClick={() => { setActiveModal(null); setAlertIsUpgrade(false); setShowShareLink(false); }}>
             <div className="modal-content animate-pop-in" onClick={e => e.stopPropagation()} style={{ padding: '24px', maxWidth: '340px' }}>
               <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                <div style={{ 
-                  width: '50px', 
-                  height: '50px', 
-                  borderRadius: '50%', 
-                  background: 'rgba(3, 218, 198, 0.1)', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '50%',
+                  background: 'rgba(3, 218, 198, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   margin: '0 auto 12px',
                   color: 'var(--primary)',
                   fontSize: '1.5rem'
@@ -4992,27 +4991,27 @@ export default function App() {
               </div>
 
               <div className="modal-actions" style={{ flexDirection: 'column', gap: '10px' }}>
-                <button 
-                  onClick={() => { setActiveModal(null); setAlertIsUpgrade(false); setShowShareLink(false); }} 
+                <button
+                  onClick={() => { setActiveModal(null); setAlertIsUpgrade(false); setShowShareLink(false); }}
                   className="btn btn-primary w-full"
                   style={{ background: 'var(--primary)', color: 'black', fontWeight: 'bold', padding: '12px' }}
                 >
                   OK
                 </button>
-                
+
                 {alertIsUpgrade && (
-                  <button 
-                    onClick={() => { setActiveModal('upgrade'); setAlertIsUpgrade(false); }} 
-                    className="btn w-full" 
+                  <button
+                    onClick={() => { setActiveModal('upgrade'); setAlertIsUpgrade(false); }}
+                    className="btn w-full"
                     style={{ background: 'linear-gradient(45deg, #fdbb2d, #ff6b6b)', color: 'black', fontWeight: 'bold', padding: '12px' }}
                   >
                     Upgrade Plan ⚡
                   </button>
                 )}
-                
+
                 {showShareLink && (
-                  <button 
-                    onClick={copyInviteLink} 
+                  <button
+                    onClick={copyInviteLink}
                     className="btn w-full"
                     style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '12px' }}
                   >
