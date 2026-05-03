@@ -2046,11 +2046,9 @@ export default function App() {
               src="/logo-main.png"
               alt="Herd Search"
               style={{
-                width: '180px',
+                width: '220px',
                 height: 'auto',
                 marginBottom: '2.5rem',
-                borderRadius: '32px',
-                boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
                 animation: 'pulsate 3s infinite ease-in-out'
               }}
             />
