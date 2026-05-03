@@ -184,6 +184,7 @@ export default function App() {
   const [renamingArea, setRenamingArea] = useState<Area | null>(null);
   const [newAreaName, setNewAreaName] = useState('');
   const [selectedAreaForCheckIn, setSelectedAreaForCheckIn] = useState<Area | null>(null);
+  const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
   const [selectedMember, setSelectedMember] = useState<UserData | null>(null);
   const [selectedMemberContext, setSelectedMemberContext] = useState<'squad' | 'friend' | null>(null);
   const [incomingSquadInvites, setIncomingSquadInvites] = useState<DocumentData[]>([]);
@@ -206,6 +207,18 @@ export default function App() {
   const [gpsHasLocation, setGpsHasLocation] = useState(false);
   const [gpsSearchTimeout, setGpsSearchTimeout] = useState(false);
   const [highlightedUids, setHighlightedUids] = useState<string[]>([]);
+
+  // Selection Reset Timer
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (selectedAreaForVote || selectedAreaForCheckIn) {
+      timer = setTimeout(() => {
+        setSelectedAreaForVote(null);
+        setSelectedAreaForCheckIn(null);
+      }, 5000);
+    }
+    return () => clearTimeout(timer);
+  }, [selectedAreaForVote, selectedAreaForCheckIn]);
 
   // Wrapped Stats State
   const [showWrappedModal, setShowWrappedModal] = useState(false);
@@ -470,7 +483,6 @@ export default function App() {
     }
   };
 
-  const [selectedAreaForVote, setSelectedAreaForVote] = useState<Area | null>(null);
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
@@ -2093,6 +2105,27 @@ export default function App() {
                   📍 Turn on GPS
                 </button>
               )}
+              {userData?.useGps && (!gpsHasLocation || gpsRefreshButtonText) && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: 'var(--secondary)',
+                  background: 'rgba(3, 218, 198, 0.1)',
+                  padding: '6px 10px',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(3, 218, 198, 0.2)',
+                  marginRight: '4px'
+                }}>
+                  <div className="spinner" style={{
+                    width: '12px',
+                    height: '12px',
+                    borderWidth: '2px',
+                    borderTopColor: 'var(--secondary)'
+                  }} />
+                  <FaMapMarkerAlt size={14} />
+                </div>
+              )}
               <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
                 {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
               </div>
@@ -2429,7 +2462,7 @@ export default function App() {
                     <button onClick={() => handleManualCheckIn(selectedAreaForCheckIn)}
                       className="btn btn-primary"
                       style={{
-                        flex: 1.5,
+                        flex: 2,
                         background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
                         padding: '16px',
                         fontSize: '1.1rem',
@@ -2439,7 +2472,9 @@ export default function App() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '8px'
+                        gap: '8px',
+                        overflow: 'hidden',
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       <FaMapMarkerAlt size={20} />
@@ -2448,7 +2483,7 @@ export default function App() {
                     <button onClick={() => startVote(selectedAreaForCheckIn)}
                       className="btn"
                       style={{
-                        flex: 1,
+                        flex: 0.7,
                         background: 'linear-gradient(45deg, #ff0080, #7928ca)',
                         padding: '16px',
                         fontSize: '1.1rem',
