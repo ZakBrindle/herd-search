@@ -204,6 +204,7 @@ export default function App() {
   void gpsTimeoutCount; // Used via functional state update in GPS error handler
   const [showShareLink, setShowShareLink] = useState(false);
   const [gpsHasLocation, setGpsHasLocation] = useState(false);
+  const [gpsSearchTimeout, setGpsSearchTimeout] = useState(false);
   const [highlightedUids, setHighlightedUids] = useState<string[]>([]);
 
   // Wrapped Stats State
@@ -610,7 +611,10 @@ export default function App() {
     if (areas.length === 0) { console.log("GPS: Waiting for areas to load"); return; }
 
     console.log(`GPS: Starting live location tracking (every ${gpsRefreshInterval} seconds)`);
-    setGpsHasLocation(false); // Reset when starting GPS tracking
+    
+    // Only reset gpsHasLocation if useGps was previously false or we are just starting
+    // To avoid flickering when other dependencies change
+    // setGpsHasLocation(false); 
 
     const updateGpsLocation = async () => {
       // Double-check areas are still loaded
@@ -728,6 +732,20 @@ export default function App() {
 
     return () => clearInterval(intervalId);
   }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode, areas, gpsRefreshInterval]);
+
+  // GPS Search Timeout Logic
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (userData?.useGps && !gpsHasLocation) {
+      setGpsSearchTimeout(false);
+      timer = setTimeout(() => {
+        setGpsSearchTimeout(true);
+      }, 10000);
+    } else {
+      setGpsSearchTimeout(false);
+    }
+    return () => clearTimeout(timer);
+  }, [userData?.useGps, gpsHasLocation]);
 
   // ... (skip lines) ...
 
@@ -2042,8 +2060,10 @@ export default function App() {
       return (
         <>
           <header>
-
-            <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
+            <div className="logo-container">
+              <img src="/logo-main.png" alt="Herd Search Logo" className="logo-image" />
+              <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {!userData?.useGps && (
                 <button
@@ -2470,7 +2490,9 @@ export default function App() {
                 >
                   <FaMapMarkerAlt size={22} />
                   {gpsRefreshButtonText || (userData?.useGps
-                    ? (gpsHasLocation ? "Using Live GPS" : "Searching for GPS...")
+                    ? (gpsHasLocation 
+                        ? <span className="pulsate">Sharing Live GPS</span> 
+                        : (gpsSearchTimeout ? "GPS taking a while? Try manual check-in" : "Searching for GPS..."))
                     : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
                 </button>
               )}

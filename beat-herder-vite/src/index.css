@@ -451,3 +451,30 @@ header {
   border-top-color: #fff;
   animation: spin 1s ease-in-out infinite;
 }
+
+/* GPS Pulsate Animation */
+@keyframes pulsate {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.pulsate {
+  animation: pulsate 2s infinite ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: contain;
+}
