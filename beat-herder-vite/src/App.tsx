@@ -2931,7 +2931,10 @@ export default function App() {
       return (
         <>
           <header>
-            <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img src="/logo-main.png" alt="Herd Search Logo" className="logo-image" />
+              <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
+            </div>
             <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
               {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
             </div>
@@ -3128,7 +3131,10 @@ export default function App() {
       return (
         <>
           <header>
-            <div className="logo">Profile</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img src="/logo-main.png" alt="Herd Search Logo" className="logo-image" />
+              <div className="logo">Profile</div>
+            </div>
             {userData?.isDev && (
               <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
                 <FaCog size={24} color="var(--text-muted)" />
