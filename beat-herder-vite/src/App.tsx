@@ -1002,6 +1002,18 @@ export default function App() {
         createdAt: Date.now(),
         status: "pending"
       });
+
+      // Send to Chat
+      const friendName = getDisplayNameByUid(friendUid);
+      addDoc(collection(db, "squads", userData.squadId, "messages"), {
+        senderId: 'system',
+        senderName: 'Squad Info',
+        senderPhotoURL: '',
+        content: `${userData.displayName} invited ${friendName} to the squad!`,
+        type: 'status_update',
+        createdAt: Date.now()
+      }).catch(console.error);
+
     } catch (error) {
       console.error("Error sending squad invite:", error);
       showAlert("Failed to send squad invite.");
@@ -1136,6 +1148,17 @@ export default function App() {
     };
     try {
       await updateDoc(doc(db, "squads", userData.squadId), { activeVote: newVote });
+
+      // Send to Chat
+      addDoc(collection(db, "squads", userData.squadId, "messages"), {
+        senderId: 'system',
+        senderName: 'Squad Vote',
+        senderPhotoURL: '',
+        content: `${userData.displayName} started a vote to go to ${area.name}! 🗳️`,
+        type: 'status_update',
+        createdAt: Date.now()
+      }).catch(console.error);
+
       setSelectedAreaForVote(null); // Reset selection
     } catch (e) {
       console.error(e);
@@ -1497,6 +1520,17 @@ export default function App() {
       await updateDoc(getUserDocRef(member.uid), {
         squadId: null
       });
+
+      // Send to Chat
+      addDoc(collection(db, "squads", userData.squadId, "messages"), {
+        senderId: 'system',
+        senderName: 'Squad Info',
+        senderPhotoURL: '',
+        content: `${member.displayName} was removed from the squad.`,
+        type: 'status_update',
+        createdAt: Date.now()
+      }).catch(console.error);
+
       setSelectedMember(null);
     } catch (error) {
       console.error("Error kicking member:", error);
@@ -1519,6 +1553,16 @@ export default function App() {
       await updateDoc(doc(db, "squads", userData.squadId), {
         members: arrayRemove(currentUser.uid)
       });
+
+      // Send to Chat
+      addDoc(collection(db, "squads", userData.squadId, "messages"), {
+        senderId: 'system',
+        senderName: 'Squad Info',
+        senderPhotoURL: '',
+        content: `${userData.displayName} left the squad.`,
+        type: 'status_update',
+        createdAt: Date.now()
+      }).catch(console.error);
       const squadDoc = await addDoc(collection(db, "squads"), {
         ownerId: currentUser.uid,
         members: [currentUser.uid],
@@ -1564,6 +1608,17 @@ export default function App() {
       await updateDoc(doc(db, "squadInvites", invite.id), {
         status: "accepted"
       });
+
+      // Send to Chat
+      addDoc(collection(db, "squads", invite.squadId, "messages"), {
+        senderId: 'system',
+        senderName: 'Squad Info',
+        senderPhotoURL: '',
+        content: `${userData?.displayName} joined the squad! 🥳`,
+        type: 'status_update',
+        createdAt: Date.now()
+      }).catch(console.error);
+
       setActiveModal(null);
     } catch (error) {
       console.error("Error accepting squad invite:", error);
