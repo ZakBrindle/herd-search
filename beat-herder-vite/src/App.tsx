@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -194,7 +194,7 @@ export default function App() {
   const [currentStatusInput, setCurrentStatusInput] = useState('');
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
   const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
-  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile' | 'chat'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile' | 'chat' | 'billing'>('map');
   const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
   const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -3721,17 +3721,9 @@ export default function App() {
               </div>
 
               <button
-                onClick={() => setActiveModal('support')}
-                className="btn btn-secondary w-full"
-                style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
-              >
-                <span>💬</span> Contact Support
-              </button>
-
-              <button
                 onClick={async () => {
                   if (!currentUser) return;
-                  setActiveModal('billingHistory');
+                  setActiveTab('billing');
                   try {
                     const q = query(collection(db, "purchases"), where("userId", "==", currentUser.uid), orderBy("createdAt", "desc"));
                     const snap = await getDocs(q);
@@ -3745,6 +3737,14 @@ export default function App() {
                 style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
               >
                 <span>📜</span> Billing History
+              </button>
+
+              <button
+                onClick={() => setActiveModal('support')}
+                className="btn btn-secondary w-full"
+                style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
+              >
+                <span>💬</span> Contact Support
               </button>
 
               {/* Admin Only: View All Tickets */}
@@ -3788,39 +3788,77 @@ export default function App() {
             />
           )}
 
-          {activeModal === 'billingHistory' && (
-            <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-              <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <h3 className="modal-header">Billing History</h3>
-                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  {billingHistory.length === 0 ? (
-                    <p style={{ textAlign: 'center', color: '#888', padding: '2rem 0' }}>No purchase history found.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {billingHistory.map((item) => (
-                        <div key={item.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '12px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{item.tier} Plan</strong>
-                            <span style={{ fontWeight: 'bold' }}>{item.amount}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#888' }}>
-                            <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-                            <span style={{ color: item.status === 'completed' ? 'var(--secondary)' : 'var(--error)' }}>
-                              {item.status.toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
-                  <button onClick={() => setActiveModal(null)} className="btn btn-primary w-full">Close</button>
-                </div>
-              </div>
-            </div>
-          )}
         </>
+      )
+    }
+
+    if (activeTab === 'billing') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#121212', color: 'white' }}>
+          {/* Header with Back Button */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '20px',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            background: 'rgba(255,255,255,0.02)',
+            position: 'sticky',
+            top: 0,
+            zIndex: 10
+          }}>
+            <button
+              onClick={() => setActiveTab('profile')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--primary)',
+                fontSize: '1.2rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                padding: '0',
+                fontWeight: 'bold'
+              }}
+            >
+              <FaChevronLeft /> Back
+            </button>
+            <h2 style={{ flex: 1, textAlign: 'center', margin: 0, fontSize: '1.2rem', paddingRight: '40px' }}>Billing History</h2>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+            {billingHistory.length === 0 ? (
+              <div style={{ textAlign: 'center', color: '#888', padding: '3rem 1rem' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📜</div>
+                <p>No purchase history found.</p>
+                <p style={{ fontSize: '0.9rem' }}>When you upgrade your plan, it will appear here.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {billingHistory.map((item) => (
+                  <div key={item.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '16px', background: 'rgba(255,255,255,0.03)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <strong style={{ color: 'var(--primary)', textTransform: 'capitalize', fontSize: '1.1rem' }}>{item.tier} Plan</strong>
+                      <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.amount}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#888' }}>
+                      <span>{new Date(item.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      <span style={{
+                        color: item.status === 'completed' ? 'var(--secondary)' : 'var(--error)',
+                        fontWeight: '600',
+                        textTransform: 'uppercase',
+                        fontSize: '0.75rem',
+                        letterSpacing: '1px'
+                      }}>
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )
     }
 
