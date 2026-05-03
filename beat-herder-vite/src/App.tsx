@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -258,6 +258,7 @@ export default function App() {
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
   const [showDevStats, setShowDevStats] = useState(false);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
+  const [isUpdatingGps, setIsUpdatingGps] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 1500);
@@ -630,26 +631,10 @@ export default function App() {
     return () => unsub();
   }, [currentUser]);
 
-  // GPS Tracking Logic
-  useEffect(() => {
-    if (!userData?.uid) return;
-    if (userData?.useGps === false) { console.log("GPS: Disabled by user settings"); return; }
-    if (!mapCalibration) { console.log("GPS: Waiting for Map Calibration"); return; }
-    if (!navigator.geolocation) { console.log("GPS: Not supported"); return; }
-    if (areas.length === 0) { console.log("GPS: Waiting for areas to load"); return; }
-
-    console.log(`GPS: Starting live location tracking (every ${gpsRefreshInterval} seconds)`);
-    
-    // Only reset gpsHasLocation if useGps was previously false or we are just starting
-    // To avoid flickering when other dependencies change
-    // setGpsHasLocation(false); 
-
-    const updateGpsLocation = async () => {
-      // Double-check areas are still loaded
-      if (areas.length === 0) {
-        console.log("GPS: Areas not loaded, skipping update");
-        return;
-      }
+    const updateGpsLocation = useCallback(async () => {
+      if (!currentUser || !userData || !mapCalibration || areas.length === 0) return;
+      
+      setIsUpdatingGps(true);
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const { latitude, longitude } = pos.coords;
@@ -664,26 +649,20 @@ export default function App() {
           // Check if we are in Ghost Mode
           if (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) {
             console.log("GPS: Ghost Mode Active, skipping update");
+            setIsUpdatingGps(false);
             return;
           }
 
           // Determine which area the user is in
           let foundArea: Area | null = null;
-          // console.log(`GPS: Checking ${areas.length} areas for point (${x.toFixed(4)}, ${y.toFixed(4)})`);
-          console.log(`GPS: Point coordinates:`, newPoint);
           for (const area of areas) {
-            // console.log(`GPS: Checking area "${area.name}" with ${area.polygon.length} polygon points:`, area.polygon);
-            const isInside = isPointInPolygon(newPoint, area.polygon);
-            console.log(`GPS: Area "${area.name}" - ${isInside ? 'INSIDE ✓' : 'outside ✗'}`);
-            if (isInside) {
+            if (isPointInPolygon(newPoint, area.polygon)) {
               foundArea = area;
               break;
             }
           }
 
           const areaName = foundArea ? foundArea.name : 'Out of bounds';
-
-          console.log("GPS: Update", { latitude, longitude, x, y, area: areaName, foundArea: !!foundArea });
 
           try {
             const updateData: any = {
@@ -692,66 +671,61 @@ export default function App() {
               currentArea: areaName
             };
 
-            // Update lastKnownArea if not in Out of bounds
             if (areaName !== 'Out of bounds') {
               updateData.lastKnownArea = areaName;
             }
 
-            console.log("GPS: Updating Firestore with:", updateData);
             await updateDoc(getUserDocRef(userData.uid), updateData);
-            console.log("GPS: Firestore update successful");
-            setGpsTimeoutCount(0); // Reset timeout counter on success
-            setGpsHasLocation(true); // Mark that we have a GPS location
+            setGpsTimeoutCount(0);
+            setGpsHasLocation(true);
           } catch (e) { console.error("Error updating GPS location", e); }
+          finally {
+            setIsUpdatingGps(false);
+          }
         },
         async (err) => {
           console.error("GPS Error:", err);
+          setIsUpdatingGps(false);
 
-          // Default handler for all GPS Errors to try and disable GPS gracefully
           const handleGpsFail = async () => {
-            console.log("GPS: Failed to get location, auto-disabling GPS");
             setGpsError("Live location was disabled as app failed to grab GPS.");
             setGpsRefreshButtonText('GPS failed to connect');
             setTimeout(() => setGpsRefreshButtonText(null), 2000);
-            setGpsTimeoutCount(0); // Reset counter
+            setGpsTimeoutCount(0);
             try {
-              // Ensure we call the actual toggle logic or mimic it
-              // We don't have handleGpsToggle in scope here easily if it's defined later. 
-              // But we can update doc directly.
               await updateDoc(getUserDocRef(userData.uid), { useGps: false });
             } catch (e) {
               console.error("Failed to disable GPS:", e);
             }
           };
 
-          // Check for timeout errors (code 3)
           if (err.code === 3) {
             setGpsTimeoutCount(prevCount => {
               const newCount = prevCount + 1;
-              console.log(`GPS: Timeout error ${newCount}/3`);
-
               if (newCount >= 3) {
-                console.log("GPS: 3 consecutive timeouts, auto-disabling GPS");
                 handleGpsFail();
-                return 0; // Reset counter
+                return 0;
               }
-
               return newCount;
             });
-          }
-          // Network 403 or other perm errors
-          else if (err.message && (err.message.includes("403") || err.message.includes("network"))) {
-            await handleGpsFail();
-          }
-          // Permission Denied (code 1) or Unavailable (code 2)
-          else if (err.code === 1 || err.code === 2) {
+          } else {
             await handleGpsFail();
           }
         },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
-    };
+    }, [currentUser, userData, mapCalibration, areas, gpsRefreshButtonText]);
 
+  // GPS Tracking Logic
+  useEffect(() => {
+    if (!userData?.uid) return;
+    if (userData?.useGps === false) { console.log("GPS: Disabled by user settings"); return; }
+    if (!mapCalibration) { console.log("GPS: Waiting for Map Calibration"); return; }
+    if (!navigator.geolocation) { console.log("GPS: Not supported"); return; }
+    if (areas.length === 0) { console.log("GPS: Waiting for areas to load"); return; }
+
+    console.log(`GPS: Starting live location tracking (every ${gpsRefreshInterval} seconds)`);
+    
     // Update immediately on mount
     updateGpsLocation();
 
@@ -759,7 +733,7 @@ export default function App() {
     const intervalId = setInterval(updateGpsLocation, gpsRefreshInterval * 1000);
 
     return () => clearInterval(intervalId);
-  }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode, areas, gpsRefreshInterval]);
+  }, [userData?.useGps, mapCalibration, userData?.uid, userData?.ghostMode, areas, gpsRefreshInterval, updateGpsLocation]);
 
   // GPS Search Timeout Logic
   useEffect(() => {
@@ -2291,65 +2265,88 @@ export default function App() {
     );
   }
 
+  const renderHeader = () => {
+    const isGpsSuccess = userData?.useGps && userData.lastUpdate && (Date.now() - userData.lastUpdate < 300000); // 5 mins
+    
+    return (
+      <header>
+        <div className="logo-container">
+          <img src="/logo-main.png" alt="Herd Search Logo" className="logo-image" />
+          <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>
+            {activeTab === 'profile' ? 'Profile' : 'Herd Search'}
+          </Link>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {userData?.useGps && (
+            <div 
+              onClick={(e) => { e.stopPropagation(); updateGpsLocation(); }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: isUpdatingGps ? 'var(--secondary)' : (isGpsSuccess ? '#4caf50' : 'var(--secondary)'),
+                background: isUpdatingGps ? 'rgba(3, 218, 198, 0.1)' : (isGpsSuccess ? 'rgba(76, 175, 80, 0.1)' : 'rgba(3, 218, 198, 0.1)'),
+                padding: '6px 10px',
+                borderRadius: '20px',
+                border: `1px solid ${isUpdatingGps ? 'rgba(3, 218, 198, 0.2)' : (isGpsSuccess ? 'rgba(76, 175, 80, 0.2)' : 'rgba(3, 218, 198, 0.2)')}`,
+                cursor: 'pointer',
+                marginRight: '4px'
+              }}
+              title="Click to refresh location"
+            >
+              {isUpdatingGps ? (
+                 <div className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px', borderTopColor: 'var(--secondary)' }} />
+              ) : (
+                 isGpsSuccess ? <FaCheckCircle size={14} /> : <FaSync size={12} className="pulsate" />
+              )}
+              <FaMapMarkerAlt size={14} />
+            </div>
+          )}
+          {!userData?.useGps && activeTab === 'map' && (
+            <button
+              onClick={async () => {
+                await handleGpsToggle(true);
+              }}
+              style={{
+                background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                color: 'black',
+                fontWeight: 'bold',
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(3, 218, 198, 0.3)'
+              }}
+            >
+              📍 Turn on GPS
+            </button>
+          )}
+
+          {activeTab === 'profile' && userData?.isDev && (
+            <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
+              <FaCog size={24} color="var(--text-muted)" />
+            </div>
+          )}
+
+          {activeTab !== 'profile' && (
+            <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
+              {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
+            </div>
+          )}
+        </div>
+      </header>
+    );
+  };
+
   const renderContent = () => {
     if (activeTab === 'map') {
       return (
         <>
-          <header>
-            <div className="logo-container">
-              <img src="/logo-main.png" alt="Herd Search Logo" className="logo-image" />
-              <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {!userData?.useGps && (
-                <button
-                  onClick={async () => {
-                    await handleGpsToggle(true);
-                  }}
-                  style={{
-                    background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 16px',
-                    color: 'black',
-                    fontWeight: 'bold',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 8px rgba(3, 218, 198, 0.3)'
-                  }}
-                >
-                  📍 Turn on GPS
-                </button>
-              )}
-              {userData?.useGps && (!gpsHasLocation || gpsRefreshButtonText) && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  color: 'var(--secondary)',
-                  background: 'rgba(3, 218, 198, 0.1)',
-                  padding: '6px 10px',
-                  borderRadius: '20px',
-                  border: '1px solid rgba(3, 218, 198, 0.2)',
-                  marginRight: '4px'
-                }}>
-                  <div className="spinner" style={{
-                    width: '12px',
-                    height: '12px',
-                    borderWidth: '2px',
-                    borderTopColor: 'var(--secondary)'
-                  }} />
-                  <FaMapMarkerAlt size={14} />
-                </div>
-              )}
-              <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
-                {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
-              </div>
-            </div>
-          </header>
+          {renderHeader()}
 
           {isDevMode && (
             <div className="dev-panel">
@@ -3130,15 +3127,7 @@ export default function App() {
     if (activeTab === 'friends') {
       return (
         <>
-          <header>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <img src="/logo-main.png" alt="Herd Search Logo" className="logo-image" />
-              <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>Herd Search</Link>
-            </div>
-            <div className="user-controls" onClick={() => setActiveTab('profile')} style={{ cursor: 'pointer' }}>
-              {userData?.photoURL && <img className="avatar" src={userData.photoURL} alt="Profile" />}
-            </div>
-          </header>
+          {renderHeader()}
           {(incomingFriendRequests.length > 0 || incomingSquadInvites.length > 0) && (
             <>
               <h2 className="section-title">Requests</h2>
@@ -3330,17 +3319,7 @@ export default function App() {
       const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
       return (
         <>
-          <header>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <img src="/logo-main.png" alt="Herd Search Logo" className="logo-image" />
-              <div className="logo">Profile</div>
-            </div>
-            {userData?.isDev && (
-              <div className="user-controls" onClick={() => setActiveModal('settings')} style={{ cursor: 'pointer' }}>
-                <FaCog size={24} color="var(--text-muted)" />
-              </div>
-            )}
-          </header>
+          {renderHeader()}
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
             {userData?.photoURL && <img className="avatar-large" src={userData.photoURL} alt="Profile" />}
