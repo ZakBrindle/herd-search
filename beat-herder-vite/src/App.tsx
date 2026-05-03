@@ -3302,7 +3302,7 @@ export default function App() {
 
 
               {/* WRAPPED SECTION */}
-              <div style={{ width: '100%', marginTop: '20px' }}>
+              <div style={{ width: '100%', marginTop: '20px', boxSizing: 'border-box' }}>
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaClock color="#fdbb2d" /> Wrapped
                 </h3>
@@ -3314,6 +3314,7 @@ export default function App() {
                     className="card"
                     style={{
                       width: '100%',
+                      boxSizing: 'border-box',
                       marginBottom: '15px',
                       background: 'linear-gradient(135deg, #fdbb2d 0%, #ff6b6b 50%, #b21f1f 100%)',
                       border: 'none',
@@ -3334,6 +3335,7 @@ export default function App() {
                     className="card"
                     style={{
                       width: '100%',
+                      boxSizing: 'border-box',
                       marginBottom: '15px',
                       background: 'linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%)',
                       border: '2px dashed #444',
