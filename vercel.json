@@ -1,6 +1,6 @@
 {
-    "buildCommand": "cd beat-herder-vite && npm install && npm run build",
-    "outputDirectory": "beat-herder-vite/dist",
+    "buildCommand": "cd herd-search-vite && npm install && npm run build",
+    "outputDirectory": "herd-search-vite/dist",
     "framework": "vite",
     "rewrites": [
         {

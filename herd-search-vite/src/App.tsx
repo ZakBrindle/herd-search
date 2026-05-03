@@ -208,6 +208,15 @@ export default function App() {
   const [gpsSearchTimeout, setGpsSearchTimeout] = useState(false);
   const [highlightedUids, setHighlightedUids] = useState<string[]>([]);
   const [zonesLoadError, setZonesLoadError] = useState(false);
+  const [zonesRetryCount, setZonesRetryCount] = useState(0);
+
+  // Reset retry on login
+  useEffect(() => {
+    if (currentUser) {
+      setZonesRetryCount(0);
+      setZonesLoadError(false);
+    }
+  }, [currentUser]);
 
   // Selection Reset Timer
   useEffect(() => {
@@ -1796,9 +1805,11 @@ export default function App() {
     const unsubscribeAreas = onSnapshot(collection(db, "areas"), (snapshot) => {
       const areasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Area[];
       setAreas(areasData);
+    }, (err) => {
+      console.error("Areas fetch error:", err);
     });
     return () => unsubscribeAreas();
-  }, []);
+  }, [zonesRetryCount, currentUser?.uid]);
 
   // --- Watchdog for Area Loading ---
   useEffect(() => {
@@ -1811,13 +1822,18 @@ export default function App() {
     // Start a 10s timer. If after 10s areas is still 0, show error.
     const timer = setTimeout(() => {
       if (areas.length === 0) {
-        console.warn("Watchdog: Areas failed to load after 10 seconds.");
-        setZonesLoadError(true);
+        if (zonesRetryCount === 0) {
+          console.warn("Watchdog: Areas failed to load. Attempting automatic retry...");
+          setZonesRetryCount(1);
+        } else {
+          console.warn("Watchdog: Areas failed to load after 10 seconds.");
+          setZonesLoadError(true);
+        }
       }
     }, 10000);
 
     return () => clearTimeout(timer);
-  }, [areas.length]);
+  }, [areas.length, zonesRetryCount]);
 
   // --- Reset App State on Logout ---
   useEffect(() => {

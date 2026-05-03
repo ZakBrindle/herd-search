@@ -36,6 +36,6 @@
   ],
   "exclude": [
     "node_modules",
-    "beat-herder-vite"
+    "herd-search-vite"
   ]
 }
