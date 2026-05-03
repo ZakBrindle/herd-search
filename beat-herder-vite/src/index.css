@@ -25,7 +25,7 @@ body {
   max-width: 600px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 1rem 1rem 5rem 1rem;
+  padding: 1rem 1rem calc(5rem + env(safe-area-inset-bottom, 0px)) 1rem;
   /* Added bottom padding for nav bar */
   display: flex;
   flex-direction: column;
@@ -248,9 +248,10 @@ header {
   background: var(--bg-card);
   display: flex;
   justify-content: space-around;
-  padding: 1rem 0;
+  padding: 1rem 0 calc(1rem + env(safe-area-inset-bottom, 20px));
   border-top: 1px solid var(--border);
   z-index: 100;
+  box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
 }
 
 .nav-item {

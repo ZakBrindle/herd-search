@@ -248,6 +248,7 @@ export default function App() {
 
   // Dev Features
   const [devMapFilterDuration, setDevMapFilterDuration] = useState<'5m' | '30m' | '1h' | '24h' | null>(null);
+  const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
   const [showDevStats, setShowDevStats] = useState(false);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
@@ -538,12 +539,21 @@ export default function App() {
           const pendingPlan = localStorage.getItem('pendingPlan') as Tier | null;
           if (pendingPlan) {
             console.log("Task B: Applying pending plan:", pendingPlan);
+            const planDetails = PLANS.find(p => p.id === pendingPlan);
             updateDoc(doc(db, 'users', currentUser.uid), {
               tier: pendingPlan,
               subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
               isPaymentPending: false
-            }).then(() => {
+            }).then(async () => {
               console.log("Task B: Plan updated successfully.");
+              // Record the purchase
+              await addDoc(collection(db, "purchases"), {
+                userId: currentUser.uid,
+                tier: pendingPlan,
+                amount: planDetails?.price || 'Unknown',
+                createdAt: Date.now(),
+                status: 'completed'
+              });
             }).catch(e => console.error("Task B Update Error:", e));
           }
 
@@ -1604,9 +1614,18 @@ export default function App() {
           });
           setFriendsData(prev => prev.map(f => f.squadId === userData?.squadId ? { ...f, squadId: undefined } : f));
         } else {
+          const planDetails = PLANS.find(p => p.id === planId);
           await updateDoc(getUserDocRef(currentUser.uid), {
             tier: planId,
             subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
+          });
+          // Record purchase if it's an upgrade (not a reset to free)
+          await addDoc(collection(db, "purchases"), {
+            userId: currentUser.uid,
+            tier: planId,
+            amount: planDetails?.price || 'Unknown',
+            createdAt: Date.now(),
+            status: 'completed'
           });
         }
         setActiveModal(null);
@@ -3469,6 +3488,25 @@ export default function App() {
                 <span>💬</span> Contact Support
               </button>
 
+              <button
+                onClick={async () => {
+                  if (!currentUser) return;
+                  setActiveModal('billingHistory');
+                  try {
+                    const q = query(collection(db, "purchases"), where("userId", "==", currentUser.uid), orderBy("createdAt", "desc"));
+                    const snap = await getDocs(q);
+                    const history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    setBillingHistory(history);
+                  } catch (err) {
+                    console.error("Error fetching billing history:", err);
+                  }
+                }}
+                className="btn btn-secondary w-full"
+                style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center', gap: '8px' }}
+              >
+                <span>📜</span> Billing History
+              </button>
+
               {/* Admin Only: View All Tickets */}
               {userData?.isDev && (
                 <>
@@ -3506,8 +3544,41 @@ export default function App() {
               }}
               visible={true}
               onClose={() => setActiveModal(null)}
-              isDev={false}
+              isDev={userData?.isDev || false}
             />
+          )}
+
+          {activeModal === 'billingHistory' && (
+            <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+              <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h3 className="modal-header">Billing History</h3>
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  {billingHistory.length === 0 ? (
+                    <p style={{ textAlign: 'center', color: '#888', padding: '2rem 0' }}>No purchase history found.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {billingHistory.map((item) => (
+                        <div key={item.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '12px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <strong style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{item.tier} Plan</strong>
+                            <span style={{ fontWeight: 'bold' }}>{item.amount}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#888' }}>
+                            <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                            <span style={{ color: item.status === 'completed' ? 'var(--secondary)' : 'var(--error)' }}>
+                              {item.status.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+                  <button onClick={() => setActiveModal(null)} className="btn btn-primary w-full">Close</button>
+                </div>
+              </div>
+            </div>
           )}
         </>
       )
