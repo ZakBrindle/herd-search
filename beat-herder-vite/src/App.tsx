@@ -254,6 +254,7 @@ export default function App() {
   const page2Ref = useRef<HTMLDivElement>(null);
   const page3Ref = useRef<HTMLDivElement>(null);
   const landingContainerRef = useRef<HTMLDivElement>(null);
+  const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
   const [showDevStats, setShowDevStats] = useState(false);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
@@ -2133,65 +2134,43 @@ export default function App() {
           <h3 style={{ marginBottom: '2.5rem', textAlign: 'center', fontSize: '1.8rem', color: '#fff', fontWeight: '700' }}>Key Features</h3>
 
           <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
-              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#03dac6' }}><FaMap /></div>
-              <div>
-                <h4 style={{ margin: 0 }}>The Map</h4>
-                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                  Don't lose the group! See where your friends are in real-time on the map.
-                </p>
+            {[
+              { id: 'map', icon: <FaMap />, title: 'The Map', color: '#03dac6', desc: "Don't lose the group! See where your friends are in real-time on the map." },
+              { id: 'squads', icon: <FaUserFriends />, title: 'Squads', color: '#bb86fc', desc: "Create a Squad and share your live location with each other." },
+              { id: 'ghost', icon: <FaGhost />, title: 'Ghost Mode', color: '#cf6679', desc: "Want some privacy? Enable Ghost Mode in your profile to hide your location." },
+              { id: 'checkin', icon: <FaMapMarkerAlt />, title: 'Check In', color: '#ffc107', desc: "GPS Acting up? Manually Check In to a festival area to update your location." },
+              { id: 'voting', icon: <FaClock />, title: 'Group Voting', color: 'var(--primary)', desc: "Can't decide where to go? Start a Squad Vote and let the group decide where to head next." },
+              { id: 'schedules', icon: <FaUser />, title: 'Friend Schedules', color: '#03dac6', desc: "View your friends' personal schedules to see who they are watching and where they'll be." }
+            ].map((f) => (
+              <div
+                key={f.id}
+                onClick={() => setExpandedFeature(expandedFeature === f.id ? null : f.id)}
+                className="card"
+                style={{
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  marginBottom: '0.75rem',
+                  background: expandedFeature === f.id ? 'rgba(255,255,255,0.08)' : '#1a1a1a',
+                  padding: '16px 20px',
+                  cursor: 'pointer',
+                  transition: '0.3s all ease',
+                  border: expandedFeature === f.id ? `1px solid ${f.color}40` : '1px solid transparent'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ fontSize: '1.2rem', color: f.color, display: 'flex' }}>{f.icon}</div>
+                  <h4 style={{ margin: 0, flex: 1, fontSize: '1.05rem', color: expandedFeature === f.id ? '#fff' : '#ddd' }}>{f.title}</h4>
+                  <div style={{ fontSize: '0.8rem', color: '#555', transform: expandedFeature === f.id ? 'rotate(180deg)' : 'none', transition: '0.3s' }}>
+                    <FaChevronDown />
+                  </div>
+                </div>
+                {expandedFeature === f.id && (
+                  <p style={{ margin: '12px 0 0', fontSize: '0.9rem', color: '#ccc', lineHeight: '1.5', animation: 'fadeIn 0.3s ease' }}>
+                    {f.desc}
+                  </p>
+                )}
               </div>
-            </div>
-
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
-              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#bb86fc' }}><FaUserFriends /></div>
-              <div>
-                <h4 style={{ margin: 0 }}>Squads</h4>
-                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                  Create a Squad and share your live location with each other.
-                </p>
-              </div>
-            </div>
-
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
-              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#cf6679' }}><FaGhost /></div>
-              <div>
-                <h4 style={{ margin: 0 }}>Ghost Mode</h4>
-                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                  Want some privacy? Enable Ghost Mode in your profile to hide your location.
-                </p>
-              </div>
-            </div>
-
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
-              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#ffc107' }}><FaMapMarkerAlt /></div>
-              <div>
-                <h4 style={{ margin: 0 }}>Check In</h4>
-                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                  GPS Acting up? Manually Check In to a festival area to update your location.
-                </p>
-              </div>
-            </div>
-
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
-              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: 'var(--primary)' }}><FaClock /></div>
-              <div>
-                <h4 style={{ margin: 0 }}>Group Voting</h4>
-                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                  Can't decide where to go? Start a Squad Vote and let the group decide where to head next.
-                </p>
-              </div>
-            </div>
-
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
-              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#03dac6' }}><FaUser /></div>
-              <div>
-                <h4 style={{ margin: 0 }}>Friend Schedules</h4>
-                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                  View your friends' personal schedules to see who they are watching and where they'll be.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
 
           {/* Scroll Indicator 2 */}
@@ -2226,7 +2205,7 @@ export default function App() {
           flexDirection: 'column',
           justifyContent: 'flex-start',
           alignItems: 'center',
-          padding: '60px 20px 40px',
+          padding: '100px 20px 60px',
           background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)',
           scrollSnapAlign: 'start',
           position: 'relative',
