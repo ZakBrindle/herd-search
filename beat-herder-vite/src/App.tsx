@@ -2031,13 +2031,13 @@ export default function App() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
+          justifyContent: 'flex-start',
+          padding: '10vh 20px 20px',
           boxSizing: 'border-box',
           position: 'relative',
           scrollSnapAlign: 'start'
         }}>
-          <div style={{ marginTop: '-5vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <img
               src="/logo-main.png"
               alt="Herd Search"
@@ -2164,7 +2164,7 @@ export default function App() {
               <div>
                 <h4 style={{ margin: 0 }}>The Map</h4>
                 <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                  See where your friends are in real-time. Long press on a location to start a Squad Vote.
+                  Don't lose the group! See where your friends are in real-time on the map.
                 </p>
               </div>
             </div>
