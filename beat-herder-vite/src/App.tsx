@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -249,6 +249,7 @@ export default function App() {
   // Dev Features
   const [devMapFilterDuration, setDevMapFilterDuration] = useState<'5m' | '30m' | '1h' | '24h' | null>(null);
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
+  const [landingTab, setLandingTab] = useState<'what' | 'why'>('what');
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
   const [showDevStats, setShowDevStats] = useState(false);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
@@ -2023,67 +2024,179 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="app-container" style={{ padding: '20px', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '2rem' }}>
-          <img src="/logo-main.png" alt="Herd Search" style={{ width: '150px', height: 'auto', marginBottom: '1rem', borderRadius: '20px' }} />
-          <h1 className="logo" style={{ fontSize: '3rem', marginBottom: '2rem' }}>Herd Search</h1>
-          <button
-            onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
-            className="btn"
-            style={{ background: 'white', color: '#444', border: '1px solid #ccc', display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '1.2rem', padding: '12px 24px' }}
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="24" />
-            Sign in with Google
-          </button>
+      <div className="app-container" style={{ padding: 0, overflowY: 'auto', height: '100vh', scrollSnapType: 'y proximity' }}>
+        {/* Landing Section */}
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          boxSizing: 'border-box',
+          position: 'relative',
+          scrollSnapAlign: 'start'
+        }}>
+          <div style={{ marginTop: '-5vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <img
+              src="/logo-main.png"
+              alt="Herd Search"
+              style={{
+                width: '120px',
+                height: 'auto',
+                marginBottom: '2rem',
+                borderRadius: '24px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                animation: 'pulsate 3s infinite ease-in-out'
+              }}
+            />
+            <h1 className="logo" style={{ fontSize: '3.5rem', marginBottom: '2.5rem', textAlign: 'center' }}>Herd Search</h1>
+
+            <button
+              onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
+              className="btn primary-btn"
+              style={{
+                background: 'white',
+                color: '#1a1a1a',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                fontSize: '1.2rem',
+                padding: '16px 32px',
+                borderRadius: '50px',
+                boxShadow: '0 4px 15px rgba(255,255,255,0.2)',
+                marginBottom: '3rem',
+                fontWeight: 'bold'
+              }}
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="24" />
+              Sign in with Google
+            </button>
+          </div>
+
+          <div style={{ maxWidth: '400px', width: '100%' }}>
+            <div className="card" style={{
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              padding: 0,
+              overflow: 'hidden',
+              background: 'rgba(255,255,255,0.05)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}>
+              {/* Tabs */}
+              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                <button
+                  onClick={() => setLandingTab('what')}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: landingTab === 'what' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                    border: 'none',
+                    color: landingTab === 'what' ? 'var(--primary)' : '#888',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: '0.3s'
+                  }}
+                >
+                  What
+                </button>
+                <button
+                  onClick={() => setLandingTab('why')}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: landingTab === 'why' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                    border: 'none',
+                    color: landingTab === 'why' ? 'var(--primary)' : '#888',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: '0.3s'
+                  }}
+                >
+                  Why
+                </button>
+              </div>
+
+              {/* Content */}
+              <div style={{ padding: '20px' }}>
+                {landingTab === 'what' ? (
+                  <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: '1.6', color: '#ccc' }}>
+                    Herd Search is the ultimate festival companion. Keep track of your friends (your "Herd"), create temporary squads, and never lose your group in the crowd again.
+                  </p>
+                ) : (
+                  <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: '1.6', color: '#ccc' }}>
+                    I've been attending Beatherder for almost 10 years and it's one of my favourite places on earth, but there was one thing missing: the ability for a solo quest without losing track of your buddies! Herd Search was born.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Scroll Indicator */}
+          <div style={{
+            position: 'absolute',
+            bottom: '20px',
+            fontSize: '1.5rem',
+            color: '#555',
+            animation: 'bounce 2s infinite',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <FaChevronDown />
+            <span style={{ fontSize: '0.8rem', display: 'block', textAlign: 'center', marginTop: '4px' }}>Features</span>
+          </div>
         </div>
 
-        <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
-          <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '1rem', background: '#333' }}>
-            <h2 style={{ color: 'var(--primary)', marginTop: 0 }}>What is Herd Search?</h2>
-            <p>
-              Herd Search is the ultimate festival and event companion. Keep track of your friends (your "Herd"), create temporary squads, and never lose your group in the crowd again.
-            </p>
-          </div>
+        {/* Features Section (Off Screen) */}
+        <div style={{
+          padding: '40px 20px 80px',
+          background: '#0a0a0a',
+          scrollSnapAlign: 'start'
+        }}>
+          <h3 style={{ marginBottom: '2rem', textAlign: 'center', fontSize: '1.5rem', color: 'var(--text-muted)' }}>Key Features</h3>
 
-          <h3 style={{ marginTop: '2rem', marginBottom: '1rem', textAlign: 'center' }}>Key Features</h3>
-
-          <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#03dac6' }}><FaMap /></div>
-            <div>
-              <h4 style={{ margin: 0 }}>The Map</h4>
-              <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                See where your friends are in real-time. Long press on a location to start a Squad Vote.
-              </p>
+          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#03dac6' }}><FaMap /></div>
+              <div>
+                <h4 style={{ margin: 0 }}>The Map</h4>
+                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                  See where your friends are in real-time. Long press on a location to start a Squad Vote.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#bb86fc' }}><FaUserFriends /></div>
-            <div>
-              <h4 style={{ margin: 0 }}>Squads</h4>
-              <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                Create a Squad and share your live location with each other.
-              </p>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#bb86fc' }}><FaUserFriends /></div>
+              <div>
+                <h4 style={{ margin: 0 }}>Squads</h4>
+                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                  Create a Squad and share your live location with each other.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#cf6679' }}><FaGhost /></div>
-            <div>
-              <h4 style={{ margin: 0 }}>Ghost Mode</h4>
-              <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                Want some privacy? Enable Ghost Mode in your profile to hide your location.
-              </p>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#cf6679' }}><FaGhost /></div>
+              <div>
+                <h4 style={{ margin: 0 }}>Ghost Mode</h4>
+                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                  Want some privacy? Enable Ghost Mode in your profile to hide your location.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
-            <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#ffc107' }}><FaMapMarkerAlt /></div>
-            <div>
-              <h4 style={{ margin: 0 }}>Check In</h4>
-              <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
-                GPS Acting up? Manually Check In to a festival area to update your location.
-              </p>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#ffc107' }}><FaMapMarkerAlt /></div>
+              <div>
+                <h4 style={{ margin: 0 }}>Check In</h4>
+                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                  GPS Acting up? Manually Check In to a festival area to update your location.
+                </p>
+              </div>
             </div>
           </div>
         </div>
