@@ -2130,13 +2130,13 @@ export default function App() {
               src="/logo-main.png"
               alt="Herd Search"
               style={{
-                width: '220px',
+                width: 'min(220px, 40vw)',
                 height: 'auto',
-                marginBottom: '2.5rem',
+                marginBottom: '1.5rem',
                 animation: 'pulsate 3s infinite ease-in-out'
               }}
             />
-            <h1 className="logo" style={{ fontSize: '3.5rem', marginBottom: '2.5rem', textAlign: 'center' }}>Herd Search</h1>
+            <h1 className="logo" style={{ fontSize: 'clamp(2rem, 10vw, 3.5rem)', marginBottom: '1.5rem', textAlign: 'center' }}>Herd Search</h1>
 
             <button
               onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
@@ -2152,7 +2152,7 @@ export default function App() {
                 padding: '16px 32px',
                 borderRadius: '50px',
                 boxShadow: '0 4px 15px rgba(255,255,255,0.2)',
-                marginBottom: '4rem',
+                marginBottom: '2rem',
                 fontWeight: 'bold'
               }}
             >
@@ -2169,8 +2169,8 @@ export default function App() {
             borderRadius: '20px',
             border: '1px solid rgba(255,255,255,0.05)',
             textAlign: 'center',
-            marginTop: 'auto',
-            marginBottom: '80px'
+            marginTop: '1rem',
+            marginBottom: 'auto'
           }}>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#888', lineHeight: '1.4' }}>
               Keep track of your friends (your Herd), create squads, vote on where to go next & never lose your group in the crowd again.
@@ -2184,8 +2184,8 @@ export default function App() {
               page2Ref.current?.scrollIntoView({ behavior: 'smooth' });
             }}
             style={{
-              marginTop: 'auto',
-              paddingTop: '20px',
+              marginTop: '20px',
+              paddingBottom: '20px',
               fontSize: '1.5rem',
               color: 'var(--primary)',
               animation: 'bounce 2s infinite',
@@ -2198,7 +2198,7 @@ export default function App() {
             }}
           >
             <FaChevronDown />
-            <span style={{ fontSize: '0.9rem', display: 'block', textAlign: 'center', marginTop: '4px', fontWeight: '700', letterSpacing: '1px', color: 'var(--secondary)' }}>FEATURES</span>
+            <span style={{ fontSize: '0.8rem', display: 'block', textAlign: 'center', marginTop: '4px', fontWeight: '700', letterSpacing: '1px', color: 'var(--secondary)' }}>FEATURES</span>
           </div>
         </div>
 
@@ -2208,13 +2208,13 @@ export default function App() {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'flex-start',
-          padding: '60px 20px 40px',
+          padding: 'min(60px, 8vh) 20px 40px',
           background: '#0a0a0a',
           scrollSnapAlign: 'start',
           position: 'relative',
           boxSizing: 'border-box'
         }}>
-          <h3 style={{ marginBottom: '2.5rem', textAlign: 'center', fontSize: '1.8rem', color: '#fff', fontWeight: '700' }}>Key Features</h3>
+          <h3 style={{ marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem', color: '#fff', fontWeight: '700' }}>Key Features</h3>
 
           <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
             {[
@@ -2263,8 +2263,8 @@ export default function App() {
               page3Ref.current?.scrollIntoView({ behavior: 'smooth' });
             }}
             style={{
-              marginTop: '40px',
-              paddingTop: '20px',
+              marginTop: '20px',
+              paddingBottom: '20px',
               fontSize: '1.5rem',
               color: 'var(--primary)',
               animation: 'bounce 2s infinite',
@@ -2288,14 +2288,14 @@ export default function App() {
           flexDirection: 'column',
           justifyContent: 'flex-start',
           alignItems: 'center',
-          padding: '100px 20px 60px',
+          padding: 'min(80px, 10vh) 20px 60px',
           background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)',
           scrollSnapAlign: 'start',
           position: 'relative',
           boxSizing: 'border-box'
         }}>
           <div style={{ maxWidth: '600px', width: '100%' }}>
-            <h3 style={{ marginBottom: '2rem', textAlign: 'center', fontSize: '2rem', color: '#fff', fontWeight: '800' }}>The Story</h3>
+            <h3 style={{ marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.8rem', color: '#fff', fontWeight: '800' }}>The Story</h3>
             <div className="card" style={{
               flexDirection: 'column',
               padding: '30px',
@@ -2719,152 +2719,139 @@ export default function App() {
 
           {/* Check In / Vote Button */}
           <div style={{ padding: '0 4px', marginBottom: '1rem' }}>
-            {
-              selectedAreaForVote ? (
-                <button onClick={() => startVote(selectedAreaForVote)}
-                  className="btn w-full"
-                  style={{
-                    background: 'linear-gradient(45deg, #ff0080, #7928ca)',
-                    padding: '16px',
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '12px',
-                    color: 'white'
-                  }}
-                >
-                  <FaUserFriends size={22} />
-                  Vote we go to {selectedAreaForVote.name}
-                </button >
-              ) : (
-                !userData?.useGps && selectedAreaForCheckIn ? (
-                  <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
-                    <button onClick={() => handleManualCheckIn(selectedAreaForCheckIn)}
-                      className="btn btn-primary"
-                      style={{
-                        flex: 2,
-                        background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                        padding: '16px',
-                        fontSize: '1.1rem',
-                        fontWeight: 'bold',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        overflow: 'hidden',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      <FaMapMarkerAlt size={20} />
-                      Check in to {selectedAreaForCheckIn.name}
-                    </button>
-                    <button onClick={() => startVote(selectedAreaForCheckIn)}
-                      className="btn"
-                      style={{
-                        flex: 0.7,
-                        background: 'linear-gradient(45deg, #ff0080, #7928ca)',
-                        padding: '16px',
-                        fontSize: '1.1rem',
-                        fontWeight: 'bold',
-                        borderRadius: '12px',
-                        boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        color: 'white'
-                      }}
-                    >
-                      <FaUserFriends size={20} />
-                      Vote
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={() => {
-                    if (userData?.useGps) {
-                      if (!mapCalibration) return showAlert("Map not calibrated yet.");
-                      if (!navigator.geolocation) return showAlert("GPS not supported.");
-
-                      setGpsRefreshButtonText('Searching for GPS...');
-
-                      navigator.geolocation.getCurrentPosition(async (pos) => {
-                        const { latitude, longitude } = pos.coords;
-                        const { north, south, east, west } = mapCalibration;
-                        let x = (longitude - west) / (east - west);
-                        let y = (north - latitude) / (north - south);
-
-
-                        const newPoint = { x, y };
-
-                        // Determine which area the user is in
-                        let foundArea: Area | null = null;
-                        for (const area of areas) {
-                          if (isPointInPolygon(newPoint, area.polygon)) {
-                            foundArea = area;
-                            break;
-                          }
-                        }
-
-                        const areaName = foundArea ? foundArea.name : 'Out of bounds';
-
-                        try {
-                          const updateData: any = {
-                            location: newPoint,
-                            lastUpdate: Date.now(),
-                            currentArea: areaName
-                          };
-
-                          // Update lastKnownArea if not in Out of bounds
-                          if (areaName !== 'Out of bounds') {
-                            updateData.lastKnownArea = areaName;
-                          }
-
-                          await updateDoc(getUserDocRef(userData!.uid), updateData);
-                          setGpsRefreshButtonText('GPS Location Updated');
-                          setTimeout(() => setGpsRefreshButtonText(null), 1200);
-                        } catch (e) {
-                          console.error(e);
-                          setGpsRefreshButtonText('Failed to update');
-                          setTimeout(() => setGpsRefreshButtonText(null), 1200);
-                        }
-                      }, (err) => {
-                        showAlert("GPS Error: " + err.message);
-                        setGpsRefreshButtonText(null);
-                      }, { enableHighAccuracy: true });
-                    } else {
-                      selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
-                    }
-                  }}
-                    className="btn btn-primary w-full"
+            {selectedAreaForVote ? (
+              <button 
+                onClick={() => startVote(selectedAreaForVote)}
+                className="btn w-full"
+                style={{
+                  background: 'linear-gradient(45deg, #ff0080, #7928ca)',
+                  padding: '16px',
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                  color: 'white',
+                  border: 'none'
+                }}
+              >
+                <FaUserFriends size={22} />
+                Vote we go to {selectedAreaForVote.name}
+              </button>
+            ) : (
+              !userData?.useGps && selectedAreaForCheckIn ? (
+                <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                  <button 
+                    onClick={() => handleManualCheckIn(selectedAreaForCheckIn)}
+                    className="btn btn-primary"
                     style={{
+                      flex: 2,
                       background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
                       padding: '16px',
-                      fontSize: '1.2rem',
+                      fontSize: '1.1rem',
                       fontWeight: 'bold',
                       borderRadius: '12px',
                       boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '12px'
+                      gap: '8px',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      border: 'none',
+                      color: 'black'
                     }}
                   >
-                    <FaMapMarkerAlt size={22} />
-                    {gpsRefreshButtonText || (userData?.useGps
-                      ? (gpsHasLocation
-                        ? <span className="pulsate">Sharing Live GPS</span>
-                        : (gpsSearchTimeout ? "GPS taking a while? Try manual check-in" : "Searching for GPS..."))
-                      : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
+                    <FaMapMarkerAlt size={20} />
+                    Check in to {selectedAreaForCheckIn.name}
                   </button>
-                )
-              )}
-          </div >
+                  <button 
+                    onClick={() => startVote(selectedAreaForCheckIn)}
+                    className="btn"
+                    style={{
+                      flex: 0.7,
+                      background: 'linear-gradient(45deg, #ff0080, #7928ca)',
+                      padding: '16px',
+                      fontSize: '1.1rem',
+                      fontWeight: 'bold',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      color: 'white',
+                      border: 'none'
+                    }}
+                  >
+                    <FaUserFriends size={20} />
+                    Vote
+                  </button>
+                </div>
+              ) : (
+              <>
+                {/* Default State: GPS Label or Manual Check-In Button */}
+                {(() => {
+                  const isLiveAndActive = userData?.useGps && gpsHasLocation && !gpsRefreshButtonText;
+                  
+                  return (
+                    <button 
+                      onClick={async () => {
+                        if (gpsRefreshButtonText) return;
+                        if (userData?.useGps) {
+                          setGpsRefreshButtonText('Updating...');
+                          updateGpsLocation();
+                        } else {
+                          selectedAreaForCheckIn ? handleManualCheckIn(selectedAreaForCheckIn) : setActiveModal('checkIn');
+                        }
+                      }}
+                      className={isLiveAndActive ? "" : "btn btn-primary w-full"}
+                      style={isLiveAndActive ? {
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        padding: '10px',
+                        borderRadius: '20px',
+                        color: '#888',
+                        fontSize: '0.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        width: 'fit-content',
+                        margin: '0 auto',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                      } : {
+                        background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                        padding: '16px',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 15px rgba(3, 218, 198, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        width: '100%',
+                        border: 'none',
+                        color: 'black'
+                      }}
+                    >
+                      <FaMapMarkerAlt size={isLiveAndActive ? 12 : 20} color={isLiveAndActive ? 'var(--primary)' : 'black'} />
+                      {gpsRefreshButtonText || (userData?.useGps
+                        ? (gpsHasLocation
+                          ? <span>Live GPS Active</span>
+                          : (gpsSearchTimeout ? "GPS taking a while? Try manual check-in" : "Searching for GPS..."))
+                        : (selectedAreaForCheckIn ? `Check in to ${selectedAreaForCheckIn.name} ` : `Check In`))}
+                    </button>
+                  );
+                })()}
+              </>
+            ))}
+          </div>
 
 
 
@@ -4885,16 +4872,61 @@ export default function App() {
 
       {
         activeModal === 'alert' && (
-          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <p className="text-center">{alertMessage}</p>
-              <div className="modal-actions" style={{ justifyContent: 'center', gap: '8px' }}>
-                <button onClick={() => { setActiveModal(null); setAlertIsUpgrade(false); setShowShareLink(false); }} className="btn btn-secondary">OK</button>
+          <div className="modal-overlay" onClick={() => { setActiveModal(null); setAlertIsUpgrade(false); setShowShareLink(false); }}>
+            <div className="modal-content animate-pop-in" onClick={e => e.stopPropagation()} style={{ padding: '24px', maxWidth: '340px' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ 
+                  width: '50px', 
+                  height: '50px', 
+                  borderRadius: '50%', 
+                  background: 'rgba(3, 218, 198, 0.1)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  margin: '0 auto 12px',
+                  color: 'var(--primary)',
+                  fontSize: '1.5rem'
+                }}>
+                  {alertMessage.toLowerCase().includes('gps') ? '📍' : (alertMessage.toLowerCase().includes('error') ? '⚠️' : 'ℹ️')}
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white' }}>
+                  {alertMessage.toLowerCase().includes('gps') ? 'GPS Info' : 'Notification'}
+                </h3>
+              </div>
+
+              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.95rem', lineHeight: '1.6', textAlign: alertMessage.includes('\n') ? 'left' : 'center', marginBottom: '2rem' }}>
+                {alertMessage.split('\n').map((line, i) => (
+                  <p key={i} style={{ margin: '0 0 8px 0' }}>{line}</p>
+                ))}
+              </div>
+
+              <div className="modal-actions" style={{ flexDirection: 'column', gap: '10px' }}>
+                <button 
+                  onClick={() => { setActiveModal(null); setAlertIsUpgrade(false); setShowShareLink(false); }} 
+                  className="btn btn-primary w-full"
+                  style={{ background: 'var(--primary)', color: 'black', fontWeight: 'bold', padding: '12px' }}
+                >
+                  OK
+                </button>
+                
                 {alertIsUpgrade && (
-                  <button onClick={() => { setActiveModal('upgrade'); setAlertIsUpgrade(false); }} className="btn" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', color: 'black', fontWeight: 'bold' }}>Upgrade Plan ⚡</button>
+                  <button 
+                    onClick={() => { setActiveModal('upgrade'); setAlertIsUpgrade(false); }} 
+                    className="btn w-full" 
+                    style={{ background: 'linear-gradient(45deg, #fdbb2d, #ff6b6b)', color: 'black', fontWeight: 'bold', padding: '12px' }}
+                  >
+                    Upgrade Plan ⚡
+                  </button>
                 )}
+                
                 {showShareLink && (
-                  <button onClick={copyInviteLink} className="btn btn-primary">📋 Share Link</button>
+                  <button 
+                    onClick={copyInviteLink} 
+                    className="btn w-full"
+                    style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '12px' }}
+                  >
+                    📋 Copy Invite Link
+                  </button>
                 )}
               </div>
             </div>
