@@ -249,7 +249,10 @@ export default function App() {
   // Dev Features
   const [devMapFilterDuration, setDevMapFilterDuration] = useState<'5m' | '30m' | '1h' | '24h' | null>(null);
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
-  const [landingTab, setLandingTab] = useState<'what' | 'why'>('what');
+  
+  const page1Ref = useRef<HTMLDivElement>(null);
+  const page2Ref = useRef<HTMLDivElement>(null);
+  const page3Ref = useRef<HTMLDivElement>(null);
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
   const [showDevStats, setShowDevStats] = useState(false);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
@@ -2024,9 +2027,9 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="app-container" style={{ padding: 0, overflowY: 'auto', height: '100vh', scrollSnapType: 'y proximity' }}>
-        {/* Landing Section */}
-        <div style={{
+      <div className="app-container" style={{ padding: 0, overflowY: 'auto', height: '100vh', scrollSnapType: 'y mandatory', scrollBehavior: 'smooth' }}>
+        {/* Page 1: Landing */}
+        <div ref={page1Ref} style={{
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
@@ -2066,7 +2069,7 @@ export default function App() {
                 padding: '16px 32px',
                 borderRadius: '50px',
                 boxShadow: '0 4px 15px rgba(255,255,255,0.2)',
-                marginBottom: '3rem',
+                marginBottom: '4rem',
                 fontWeight: 'bold'
               }}
             >
@@ -2075,91 +2078,58 @@ export default function App() {
             </button>
           </div>
 
-          <div style={{ maxWidth: '400px', width: '100%' }}>
-            <div className="card" style={{
-              flexDirection: 'column',
-              alignItems: 'stretch',
-              padding: 0,
-              overflow: 'hidden',
-              background: 'rgba(255,255,255,0.05)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.1)'
-            }}>
-              {/* Tabs */}
-              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                <button
-                  onClick={() => setLandingTab('what')}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: landingTab === 'what' ? 'rgba(255,255,255,0.1)' : 'transparent',
-                    border: 'none',
-                    color: landingTab === 'what' ? 'var(--primary)' : '#888',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: '0.3s'
-                  }}
-                >
-                  What
-                </button>
-                <button
-                  onClick={() => setLandingTab('why')}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: landingTab === 'why' ? 'rgba(255,255,255,0.1)' : 'transparent',
-                    border: 'none',
-                    color: landingTab === 'why' ? 'var(--primary)' : '#888',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: '0.3s'
-                  }}
-                >
-                  Why
-                </button>
-              </div>
-
-              {/* Content */}
-              <div style={{ padding: '20px' }}>
-                {landingTab === 'what' ? (
-                  <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: '1.6', color: '#ccc' }}>
-                    Keep track of your friends (your Herd), create squads, vote on where to go next & never lose your group in the crowd again.
-                  </p>
-                ) : (
-                  <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: '1.6', color: '#ccc' }}>
-                    I've been attending Beatherder for almost 10 years and it's one of my favourite places on earth, but there was one thing missing: the ability for a solo quest without losing track of your buddies! Herd Search was born.
-                  </p>
-                )}
-              </div>
-            </div>
+          {/* Subtle Bubble Info */}
+          <div style={{
+            maxWidth: '320px',
+            background: 'rgba(255,255,255,0.03)',
+            padding: '15px 20px',
+            borderRadius: '20px',
+            border: '1px solid rgba(255,255,255,0.05)',
+            textAlign: 'center',
+            marginTop: 'auto',
+            marginBottom: '80px'
+          }}>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#888', lineHeight: '1.4' }}>
+              Keep track of your friends (your Herd), create squads, vote on where to go next & never lose your group in the crowd again.
+            </p>
           </div>
 
-          {/* Scroll Indicator */}
-          <div style={{
-            position: 'absolute',
-            bottom: '20px',
-            fontSize: '1.5rem',
-            color: '#555',
-            animation: 'bounce 2s infinite',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center'
-          }}>
+          {/* Scroll Indicator 1 */}
+          <div
+            onClick={() => page2Ref.current?.scrollIntoView({ behavior: 'smooth' })}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              fontSize: '1.5rem',
+              color: 'var(--primary)',
+              animation: 'bounce 2s infinite',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              cursor: 'pointer'
+            }}
+          >
             <FaChevronDown />
-            <span style={{ fontSize: '0.8rem', display: 'block', textAlign: 'center', marginTop: '4px' }}>Features</span>
+            <span style={{ fontSize: '0.9rem', display: 'block', textAlign: 'center', marginTop: '4px', fontWeight: '700', letterSpacing: '1px', color: 'var(--secondary)' }}>FEATURES</span>
           </div>
         </div>
 
-        {/* Features Section (Off Screen) */}
-        <div style={{
-          padding: '40px 20px 80px',
+        {/* Page 2: Features Section */}
+        <div ref={page2Ref} style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          padding: '40px 20px 100px',
           background: '#0a0a0a',
-          scrollSnapAlign: 'start'
+          scrollSnapAlign: 'start',
+          position: 'relative',
+          boxSizing: 'border-box'
         }}>
-          <h3 style={{ marginBottom: '2rem', textAlign: 'center', fontSize: '1.5rem', color: 'var(--text-muted)' }}>Key Features</h3>
+          <h3 style={{ marginBottom: '2.5rem', textAlign: 'center', fontSize: '1.8rem', color: '#fff', fontWeight: '700' }}>Key Features</h3>
 
-          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+          <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
               <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#03dac6' }}><FaMap /></div>
               <div>
                 <h4 style={{ margin: 0 }}>The Map</h4>
@@ -2169,7 +2139,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
               <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#bb86fc' }}><FaUserFriends /></div>
               <div>
                 <h4 style={{ margin: 0 }}>Squads</h4>
@@ -2179,7 +2149,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
               <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#cf6679' }}><FaGhost /></div>
               <div>
                 <h4 style={{ margin: 0 }}>Ghost Mode</h4>
@@ -2189,7 +2159,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
               <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#ffc107' }}><FaMapMarkerAlt /></div>
               <div>
                 <h4 style={{ margin: 0 }}>Check In</h4>
@@ -2199,7 +2169,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
               <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: 'var(--primary)' }}><FaClock /></div>
               <div>
                 <h4 style={{ margin: 0 }}>Group Voting</h4>
@@ -2209,13 +2179,80 @@ export default function App() {
               </div>
             </div>
 
-            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a', padding: '20px' }}>
               <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#03dac6' }}><FaUser /></div>
               <div>
                 <h4 style={{ margin: 0 }}>Friend Schedules</h4>
                 <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
                   View your friends' personal schedules to see who they are watching and where they'll be.
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Scroll Indicator 2 */}
+          <div
+            onClick={() => page3Ref.current?.scrollIntoView({ behavior: 'smooth' })}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: '1.5rem',
+              color: 'var(--primary)',
+              animation: 'bounce 2s infinite',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            <FaChevronDown />
+            <span style={{ fontSize: '0.9rem', display: 'block', textAlign: 'center', marginTop: '4px', fontWeight: '700', letterSpacing: '1px', color: 'var(--secondary)' }}>BACKSTORY</span>
+          </div>
+        </div>
+
+        {/* Page 3: Backstory Section */}
+        <div ref={page3Ref} style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: '60px 20px',
+          background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)',
+          scrollSnapAlign: 'start',
+          position: 'relative',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{ maxWidth: '600px', width: '100%' }}>
+            <h3 style={{ marginBottom: '2rem', textAlign: 'center', fontSize: '2rem', color: '#fff', fontWeight: '800' }}>The Story</h3>
+            <div className="card" style={{
+              flexDirection: 'column',
+              padding: '30px',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderRadius: '24px'
+            }}>
+              <p style={{ fontSize: '1.1rem', lineHeight: '1.8', color: '#ccc', margin: 0 }}>
+                I've been attending <strong>Beat-Herder</strong> for almost 10 years and it's one of my favorite places on earth. 
+                The vibe, the music, the people—it's magic. 
+                <br /><br />
+                But there was always one thing missing: the ability to head off on a "solo quest" to explore a new stage or find a specific snack, without completely losing track of your buddies! 
+                <br /><br />
+                Fumbling with dead phones or trying to describe a meeting point "near the big tree" just wasn't cutting it. That's why <strong>Herd Search</strong> was born. 
+                <br /><br />
+                It's built for those of us who love to roam but still want to find the Herd for the headliners.
+              </p>
+              
+              <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+                <button 
+                  onClick={() => page1Ref.current?.scrollIntoView({ behavior: 'smooth' })}
+                  className="btn btn-secondary"
+                  style={{ borderRadius: '50px', padding: '10px 24px', opacity: 0.7 }}
+                >
+                  Back to Sign In
+                </button>
               </div>
             </div>
           </div>
