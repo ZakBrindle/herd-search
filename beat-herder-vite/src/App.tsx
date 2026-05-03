@@ -2042,11 +2042,11 @@ export default function App() {
               src="/logo-main.png"
               alt="Herd Search"
               style={{
-                width: '120px',
+                width: '180px',
                 height: 'auto',
-                marginBottom: '2rem',
-                borderRadius: '24px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                marginBottom: '2.5rem',
+                borderRadius: '32px',
+                boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
                 animation: 'pulsate 3s infinite ease-in-out'
               }}
             />
@@ -2123,7 +2123,7 @@ export default function App() {
               <div style={{ padding: '20px' }}>
                 {landingTab === 'what' ? (
                   <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: '1.6', color: '#ccc' }}>
-                    Herd Search is the ultimate festival companion. Keep track of your friends (your "Herd"), create temporary squads, and never lose your group in the crowd again.
+                    Keep track of your friends (your Herd), create squads, vote on where to go next & never lose your group in the crowd again.
                   </p>
                 ) : (
                   <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: '1.6', color: '#ccc' }}>
@@ -2195,6 +2195,26 @@ export default function App() {
                 <h4 style={{ margin: 0 }}>Check In</h4>
                 <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
                   GPS Acting up? Manually Check In to a festival area to update your location.
+                </p>
+              </div>
+            </div>
+
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: 'var(--primary)' }}><FaClock /></div>
+              <div>
+                <h4 style={{ margin: 0 }}>Group Voting</h4>
+                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                  Can't decide where to go? Start a Squad Vote and let the group decide where to head next.
+                </p>
+              </div>
+            </div>
+
+            <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem', background: '#1a1a1a' }}>
+              <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#03dac6' }}><FaUser /></div>
+              <div>
+                <h4 style={{ margin: 0 }}>Friend Schedules</h4>
+                <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                  View your friends' personal schedules to see who they are watching and where they'll be.
                 </p>
               </div>
             </div>
