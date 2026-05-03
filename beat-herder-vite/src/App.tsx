@@ -253,6 +253,7 @@ export default function App() {
   const page1Ref = useRef<HTMLDivElement>(null);
   const page2Ref = useRef<HTMLDivElement>(null);
   const page3Ref = useRef<HTMLDivElement>(null);
+  const landingContainerRef = useRef<HTMLDivElement>(null);
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
   const [showDevStats, setShowDevStats] = useState(false);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
@@ -2027,15 +2028,15 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="app-container" style={{ padding: 0, overflowY: 'auto', height: '100vh', scrollSnapType: 'y mandatory', scrollBehavior: 'smooth' }}>
+      <div ref={landingContainerRef} className="app-container" style={{ padding: 0, overflowY: 'auto', height: '100dvh', scrollSnapType: 'y proximity', scrollBehavior: 'smooth' }}>
         {/* Page 1: Landing */}
         <div ref={page1Ref} style={{
-          minHeight: '100vh',
+          minHeight: '100dvh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'flex-start',
-          padding: '10vh 20px 20px',
+          padding: '10vh 20px 40px',
           boxSizing: 'border-box',
           position: 'relative',
           scrollSnapAlign: 'start'
@@ -2096,17 +2097,22 @@ export default function App() {
 
           {/* Scroll Indicator 1 */}
           <div
-            onClick={() => page2Ref.current?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={(e) => {
+              e.stopPropagation();
+              page2Ref.current?.scrollIntoView({ behavior: 'smooth' });
+            }}
             style={{
-              position: 'absolute',
-              bottom: '20px',
+              marginTop: 'auto',
+              paddingTop: '20px',
               fontSize: '1.5rem',
               color: 'var(--primary)',
               animation: 'bounce 2s infinite',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              zIndex: 100,
+              width: '100%'
             }}
           >
             <FaChevronDown />
@@ -2116,11 +2122,11 @@ export default function App() {
 
         {/* Page 2: Features Section */}
         <div ref={page2Ref} style={{
-          minHeight: '100vh',
+          minHeight: '100dvh',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
-          padding: '40px 20px 100px',
+          justifyContent: 'flex-start',
+          padding: '60px 20px 40px',
           background: '#0a0a0a',
           scrollSnapAlign: 'start',
           position: 'relative',
@@ -2192,19 +2198,22 @@ export default function App() {
 
           {/* Scroll Indicator 2 */}
           <div
-            onClick={() => page3Ref.current?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={(e) => {
+              e.stopPropagation();
+              page3Ref.current?.scrollIntoView({ behavior: 'smooth' });
+            }}
             style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '50%',
-              transform: 'translateX(-50%)',
+              marginTop: '40px',
+              paddingTop: '20px',
               fontSize: '1.5rem',
               color: 'var(--primary)',
               animation: 'bounce 2s infinite',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              zIndex: 100,
+              width: '100%'
             }}
           >
             <FaChevronDown />
@@ -2214,12 +2223,12 @@ export default function App() {
 
         {/* Page 3: Backstory Section */}
         <div ref={page3Ref} style={{
-          minHeight: '100vh',
+          minHeight: '100dvh',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
+          justifyContent: 'flex-start',
           alignItems: 'center',
-          padding: '60px 20px',
+          padding: '60px 20px 40px',
           background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)',
           scrollSnapAlign: 'start',
           position: 'relative',
@@ -2247,9 +2256,12 @@ export default function App() {
               
               <div style={{ marginTop: '2rem', textAlign: 'center' }}>
                 <button 
-                  onClick={() => page1Ref.current?.scrollIntoView({ behavior: 'smooth' })}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    landingContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   className="btn btn-secondary"
-                  style={{ borderRadius: '50px', padding: '10px 24px', opacity: 0.7 }}
+                  style={{ borderRadius: '50px', padding: '10px 24px', opacity: 0.7, cursor: 'pointer' }}
                 >
                   Back to Sign In
                 </button>
