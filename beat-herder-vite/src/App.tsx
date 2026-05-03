@@ -199,7 +199,7 @@ export default function App() {
   const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
   const [showSplash, setShowSplash] = useState(true);
   const [gpsRefreshButtonText, setGpsRefreshButtonText] = useState<string | null>(null);
-  const [gpsRefreshInterval, setGpsRefreshInterval] = useState(5); // Default 5 seconds
+  const [gpsRefreshInterval, setGpsRefreshInterval] = useState(60); // Default 60 seconds
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [gpsTimeoutCount, setGpsTimeoutCount] = useState(0);
   void gpsTimeoutCount; // Used via functional state update in GPS error handler
@@ -259,6 +259,12 @@ export default function App() {
   const [showDevStats, setShowDevStats] = useState(false);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
   const [isUpdatingGps, setIsUpdatingGps] = useState(false);
+
+  // Ref to track latest userData without triggering dependency loops
+  const userDataRef = useRef<UserData | null>(null);
+  useEffect(() => {
+    userDataRef.current = userData;
+  }, [userData]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 1500);
@@ -632,13 +638,18 @@ export default function App() {
   }, [currentUser]);
 
     const updateGpsLocation = useCallback(async () => {
-      if (!currentUser || !userData || !mapCalibration || areas.length === 0) return;
+      const currentUserUid = currentUser?.uid;
+      const currentMapCalibration = mapCalibration;
+      const currentAreas = areas;
+      const uData = userDataRef.current;
+
+      if (!currentUserUid || !uData || !currentMapCalibration || currentAreas.length === 0) return;
       
       setIsUpdatingGps(true);
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
           const { latitude, longitude } = pos.coords;
-          const { north, south, east, west } = mapCalibration;
+          const { north, south, east, west } = currentMapCalibration;
 
           // Map (Lat, Lon) to (x, y) 0-1 range
           let x = (longitude - west) / (east - west);
@@ -647,7 +658,7 @@ export default function App() {
           const newPoint = { x, y };
 
           // Check if we are in Ghost Mode
-          if (userData?.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now()) {
+          if (uData.ghostMode && uData.ghostModeExpiry && uData.ghostModeExpiry > Date.now()) {
             console.log("GPS: Ghost Mode Active, skipping update");
             setIsUpdatingGps(false);
             return;
@@ -655,7 +666,7 @@ export default function App() {
 
           // Determine which area the user is in
           let foundArea: Area | null = null;
-          for (const area of areas) {
+          for (const area of currentAreas) {
             if (isPointInPolygon(newPoint, area.polygon)) {
               foundArea = area;
               break;
@@ -675,7 +686,7 @@ export default function App() {
               updateData.lastKnownArea = areaName;
             }
 
-            await updateDoc(getUserDocRef(userData.uid), updateData);
+            await updateDoc(getUserDocRef(currentUserUid), updateData);
             setGpsTimeoutCount(0);
             setGpsHasLocation(true);
           } catch (e) { console.error("Error updating GPS location", e); }
@@ -693,7 +704,9 @@ export default function App() {
             setTimeout(() => setGpsRefreshButtonText(null), 2000);
             setGpsTimeoutCount(0);
             try {
-              await updateDoc(getUserDocRef(userData.uid), { useGps: false });
+              if (currentUserUid) {
+                await updateDoc(getUserDocRef(currentUserUid), { useGps: false });
+              }
             } catch (e) {
               console.error("Failed to disable GPS:", e);
             }
@@ -714,7 +727,7 @@ export default function App() {
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
-    }, [currentUser, userData, mapCalibration, areas, gpsRefreshButtonText]);
+    }, [currentUser?.uid, mapCalibration, areas]);
 
   // GPS Tracking Logic
   useEffect(() => {
@@ -1116,9 +1129,9 @@ export default function App() {
           console.error("Initial GPS request failed:", err);
           setGpsRefreshButtonText(null);
           if (err.code === 1) {
-            showAlert("GPS Permission Denied. Please enable it in your browser settings.");
+            showAlert("GPS Permission Denied. \n\nOn iPhone: \n1. Settings > Privacy > Location Services > Ensure 'ON'. \n2. Scroll down to 'Safari Websites' (or this app name if on Home Screen) and set to 'While Using'. \n3. Ensure 'Precise Location' is ON. \n4. Turn off 'Low Power Mode'.");
           } else {
-            showAlert(`GPS Error: ${err.message || 'Unknown error'}`);
+            showAlert(`GPS Error: ${err.message || 'Unknown error'}. Try refreshing the page.`);
           }
           // Ensure it stays off in DB if it failed
           await updateDoc(getUserDocRef(currentUser.uid), { useGps: false });
@@ -1903,7 +1916,7 @@ export default function App() {
         const data = docSnap.data();
         if (data.activeVote) {
           // Check expiry
-          if (data.activeVote.completedAt && (Date.now() - data.activeVote.completedAt > 30 * 60 * 1000)) {
+          if (data.activeVote.completedAt && (Date.now() - data.activeVote.completedAt > 2 * 60 * 60 * 1000)) {
             // Expired locally, maybe clean up later or just hide
           }
           setActiveVote(data.activeVote);
@@ -2982,7 +2995,7 @@ export default function App() {
                         )
                       }
                     </p>
-                    {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < 12 * 60 * 60 * 1000) && (
+                    {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < 2 * 60 * 60 * 1000) && (
                       <p style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0', fontStyle: 'italic', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         "{member.statusMessage}"
                       </p>
@@ -3314,7 +3327,7 @@ export default function App() {
                           )
                         }
                       </p>
-                      {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < 12 * 60 * 60 * 1000) && (
+                      {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < 2 * 60 * 60 * 1000) && (
                         <p style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0', fontStyle: 'italic' }}>
                           "{member.statusMessage}" <span style={{ color: '#666' }}>
                             ({(() => {
