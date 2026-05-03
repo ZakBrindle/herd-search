@@ -1099,12 +1099,53 @@ export default function App() {
   };
 
   const handleGpsToggle = async (useGps: boolean) => {
-    try {
-      if (!currentUser) return;
-      await updateDoc(getUserDocRef(currentUser.uid), { useGps });
-    } catch (e) {
-      console.error(e);
-      showAlert("Error updating GPS setting.");
+    if (!currentUser) return;
+
+    if (useGps) {
+      if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+        showAlert("GPS requires a secure (HTTPS) connection. Please check your URL.");
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        showAlert("GPS is not supported by this browser.");
+        return;
+      }
+
+      // Safari Fix: Trigger permission check directly in the click handler to maintain user gesture
+      setGpsRefreshButtonText('Requesting Permission...');
+      navigator.geolocation.getCurrentPosition(
+        async () => {
+          // Success! Permission granted. Now update Firestore to enable the background watch.
+          try {
+            await updateDoc(getUserDocRef(currentUser.uid), { useGps: true });
+            setGpsRefreshButtonText(null);
+          } catch (e) {
+            console.error(e);
+            showAlert("Error enabling GPS.");
+            setGpsRefreshButtonText(null);
+          }
+        },
+        async (err) => {
+          console.error("Initial GPS request failed:", err);
+          setGpsRefreshButtonText(null);
+          if (err.code === 1) {
+            showAlert("GPS Permission Denied. Please enable it in your browser settings.");
+          } else {
+            showAlert(`GPS Error: ${err.message || 'Unknown error'}`);
+          }
+          // Ensure it stays off in DB if it failed
+          await updateDoc(getUserDocRef(currentUser.uid), { useGps: false });
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } else {
+      // Turning off: Just update Firestore
+      try {
+        await updateDoc(getUserDocRef(currentUser.uid), { useGps: false });
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 

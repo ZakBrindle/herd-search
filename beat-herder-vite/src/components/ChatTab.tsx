@@ -378,7 +378,8 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                         border: 'none',
                         background: '#333',
                         color: 'white',
-                        marginBottom: 0 // Override input-field margin
+                        marginBottom: 0, // Override input-field margin
+                        fontSize: '16px' // Prevent iOS Zoom
                     }}
                 />
                 <button
