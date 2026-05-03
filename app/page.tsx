@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { 
@@ -106,7 +106,7 @@ export default function HomePage() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (showZones) {
-      areas.forEach(area => {
+      areas.forEach((area: Area) => {
         drawPolygon(ctx, area.polygon, 'rgba(29, 78, 216, 0.3)', 'rgba(29, 78, 216, 0.7)');
       });
     }
@@ -196,7 +196,7 @@ export default function HomePage() {
   };
 
   const handleDeleteArea = async (areaId: string) => {
-    const areaName = areas.find(a => a.id === areaId)?.name || 'the selected area';
+    const areaName = areas.find((a: Area) => a.id === areaId)?.name || 'the selected area';
     showConfirm(`Are you sure you want to delete "${areaName}"?`, async () => {
         try {
             await deleteDoc(doc(db, 'areas', areaId));
@@ -319,11 +319,11 @@ export default function HomePage() {
     if (useGps) {
       setSelectedAreaForCheckIn(null);
     }
-    setUserData(prev => prev ? { ...prev, useGps } : prev);
+    setUserData((prev: UserData | null) => prev ? { ...prev, useGps } : prev);
     try {
         await updateDoc(getUserDocRef(currentUser.uid), { useGps });
     } catch (error) {
-        setUserData(prev => prev ? { ...prev, useGps: !useGps } : prev);
+        setUserData((prev: UserData | null) => prev ? { ...prev, useGps: !useGps } : prev);
         console.error("Error updating GPS preference:", error);
         showAlert("Could not save setting.");
     }
@@ -345,7 +345,7 @@ export default function HomePage() {
   // --- Helper to get display name by UID ---
   const getDisplayNameByUid = (uid: string): string => {
     if (uid === userData?.uid) return userData.displayName || uid;
-    const friend = friendsData.find(f => f.uid === uid);
+    const friend = friendsData.find((f: UserData) => f.uid === uid);
     if (friend?.displayName) return friend.displayName;
     // --- ADDED: Try to get from public profile if not found locally ---
     // This is a synchronous fallback, so we use a placeholder and fetch async below.
@@ -358,11 +358,11 @@ export default function HomePage() {
   useEffect(() => {
     // Find all UIDs that need display names (from invites)
     const inviteUids = [
-      ...incomingSquadInvites.map(inv => inv.from),
-      ...outgoingSquadInvites.map(inv => inv.to)
+      ...incomingSquadInvites.map((inv: any) => inv.from),
+      ...outgoingSquadInvites.map((inv: any) => inv.to)
     ].filter(uid =>
       uid !== userData?.uid &&
-      !friendsData.some(f => f.uid === uid) &&
+      !friendsData.some((f: UserData) => f.uid === uid) &&
       !(publicProfileCache[uid])
     );
     if (inviteUids.length === 0) return;
@@ -373,7 +373,7 @@ export default function HomePage() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const profile = docSnap.data();
-          setPublicProfileCache(prev => ({
+          setPublicProfileCache((prev: Record<string, string>) => ({
             ...prev,
             [uid]: profile.displayName || uid
           }));
@@ -489,7 +489,7 @@ export default function HomePage() {
 
   // --- Data Subscription Hooks ---
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user: User | null) => {
       if (user) {
         setCurrentUser(user);
         const userRef = getUserDocRef(user.uid);
@@ -541,8 +541,8 @@ export default function HomePage() {
       }
     });
 
-    const unsubscribeAreas = onSnapshot(collection(db, "areas"), (snapshot) => {
-        const areasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Area[];
+    const unsubscribeAreas = onSnapshot(collection(db, "areas"), (snapshot: QuerySnapshot<DocumentData>) => {
+        const areasData = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() })) as Area[];
         setAreas(areasData);
     });
 
@@ -561,7 +561,7 @@ export default function HomePage() {
       return;
     }
 
-    const unsubUser = onSnapshot(getUserDocRef(currentUser.uid), (doc) => {
+    const unsubUser = onSnapshot(getUserDocRef(currentUser.uid), (doc: any) => {
       if (doc.exists()) {
         const data = doc.data() as UserData;
         setUserData(data);
@@ -577,28 +577,28 @@ export default function HomePage() {
     const friendIds = userData?.friends || [];
     
     // Create listeners for each friend in the user's list
-    const unsubscribes = friendIds.map(friendId =>
-      onSnapshot(getUserDocRef(friendId), (doc) => {
+    const unsubscribes = friendIds.map((friendId: string) =>
+      onSnapshot(getUserDocRef(friendId), (doc: any) => {
         // If a friend's document exists, add or update them in the local state
         if (doc.exists()) {
           const friendData = { uid: doc.id, ...doc.data() } as UserData;
-          setFriendsData(prevFriends => {
-            const otherFriends = prevFriends.filter(f => f.uid !== friendId);
+          setFriendsData((prevFriends: UserData[]) => {
+            const otherFriends = prevFriends.filter((f: UserData) => f.uid !== friendId);
             return [...otherFriends, friendData];
           });
         } else {
           // If a friend's document has been deleted, remove them from the local state
-          setFriendsData(prevFriends => prevFriends.filter(f => f.uid !== friendId));
+          setFriendsData((prevFriends: UserData[]) => prevFriends.filter((f: UserData) => f.uid !== friendId));
         }
       })
     );
 
     // When the friend list changes, remove any users from the UI who are no longer friends.
-    setFriendsData(prevFriends => prevFriends.filter(f => friendIds.includes(f.uid)));
+    setFriendsData((prevFriends: UserData[]) => prevFriends.filter((f: UserData) => friendIds.includes(f.uid)));
 
     // Cleanup function to detach all listeners when the component unmounts or the friends list changes
     return () => {
-      unsubscribes.forEach(unsub => unsub());
+      unsubscribes.forEach((unsub: () => void) => unsub());
     };
   }, [userData?.friends]); // T
 
@@ -629,7 +629,7 @@ export default function HomePage() {
       }
 
       updateDoc(getUserDocRef(currentUser.uid), updatePayload)
-        .catch(err => console.error("Error in mock location update: ", err));
+        .catch((err: any) => console.error("Error in mock location update: ", err));
         
     }, 20000);
 
@@ -677,12 +677,12 @@ export default function HomePage() {
     // Listen for incoming invites
     const qIn = query(collection(db, "squadInvites"), where("to", "==", currentUser.uid), where("status", "==", "pending"));
     const unsubIn = onSnapshot(qIn, (snapshot: QuerySnapshot<DocumentData>) => {
-      setIncomingSquadInvites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setIncomingSquadInvites(snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() })));
     });
     // ADDED: Listen for outgoing invites
     const qOut = query(collection(db, "squadInvites"), where("from", "==", currentUser.uid), where("status", "==", "pending"));
     const unsubOut = onSnapshot(qOut, (snapshot: QuerySnapshot<DocumentData>) => {
-      setOutgoingSquadInvites(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setOutgoingSquadInvites(snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() })));
     });
     return () => { unsubIn(); unsubOut(); };
   }, [currentUser?.uid]);
@@ -703,7 +703,10 @@ export default function HomePage() {
       <div className={styles.container}>
         {/* --- HEADER --- */}
         <header className={styles.header}>
-          <div className={styles.logo}>Herd Search</div>
+          <div className={styles.logo}>
+            <Image src="/logo-main.png" alt="Logo" width={40} height={40} className={styles.logoImage} />
+            <span><span style={{ color: '#a855f7' }}>Herd</span> <span style={{ color: '#22d3ee' }}>Search</span></span>
+          </div>
         </header>
 
         {/* --- MAP --- */}
@@ -770,13 +773,27 @@ export default function HomePage() {
     <div className={styles.container}>
       {/* --- HEADER --- */}
       <header className={styles.header}>
-        <div className={styles.logo}>Herd Search</div>
+        <div className={styles.logo}>
+          <Image src="/logo-main.png" alt="Logo" width={40} height={40} className={styles.logoImage} />
+          <span><span style={{ color: '#a855f7' }}>Herd</span> <span style={{ color: '#22d3ee' }}>Search</span></span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {userData?.photoURL && (
+            <Image 
+              src={userData.photoURL} 
+              alt="avatar" 
+              width={40} 
+              height={40} 
+              style={{ borderRadius: '50%', cursor: 'pointer', border: '2px solid #a855f7' }} 
+              onClick={() => setActiveModal('settings')}
+            />
+          )}
+        </div>
       </header>
 
       {/* --- USER/DEV CONTROLS --- */}
       <div className={styles.userControls}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          {userData?.photoURL && <Image src={userData.photoURL} alt="avatar" width={40} height={40} style={{ borderRadius: '50%' }} />}
           <span style={{ fontWeight: 600 }}>{userData?.displayName}</span>
           <button onClick={() => setActiveModal('settings')} className={styles.iconButton}><FaCog size={20} /></button>
         </div>
@@ -787,7 +804,7 @@ export default function HomePage() {
           <div className={styles.devPanel}>
               <h3 style={{fontWeight: 700}}>Developer Mode: Drawing Area</h3>
               <p>Click on the map to draw. Click near the first point to finish and name the shape ✏️ </p>
-              <button onClick={cancelDrawing} className={styles.dangerButton} style={{padding: '0.25rem 0.75rem', marginTop: '0.5rem'}}>Cancel Drawing</button>
+              <button onClick={cancelDrawing} className={`${styles.button} ${styles.dangerButton}`} style={{padding: '0.25rem 0.75rem', marginTop: '0.5rem'}}>Cancel Drawing</button>
           </div>
       )}
       
@@ -827,8 +844,8 @@ export default function HomePage() {
           </div>
         )}
         {friendsData
-          .filter(f => !!f.location && f.squadId === userData?.squadId) // MODIFIED: Only show friends in same squad
-          .map(u => (
+          .filter((f: UserData) => !!f.location && f.squadId === userData?.squadId) // MODIFIED: Only show friends in same squad
+          .map((u: UserData) => (
           <div
             key={u.uid}
             className={styles.userMarker}
@@ -855,9 +872,9 @@ export default function HomePage() {
             {/* --- MODIFIED: Sort members so leader is first --- */}
             {(() => {
               const squadMembers = [userData, ...friendsData]
-                .filter(u => u.squadId === userData.squadId);
+                .filter((u: UserData | null) => u?.squadId === userData.squadId);
               const leaderUid = getSquadLeaderUid();
-              const sortedMembers = squadMembers.sort((a, b) =>
+              const sortedMembers = squadMembers.sort((a: any, b: any) =>
                 a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0
               );
               return sortedMembers.map((member: UserData) => (
@@ -883,7 +900,7 @@ export default function HomePage() {
               ));
             })()}
             {/* ADDED: Outgoing squad invites cards */}
-            {outgoingSquadInvites.map(invite => (
+            {outgoingSquadInvites.map((invite: any) => (
               <div
                 key={invite.id}
                 className={`${styles.card} ${styles.inviteCard}`}
@@ -899,7 +916,7 @@ export default function HomePage() {
                 <strong>{getDisplayNameByUid(invite.to)}</strong>
                 </div>
                 <button
-                  className={styles.dangerButton}
+                  className={`${styles.button} ${styles.dangerButton}`}
                   style={{marginLeft: 8, fontSize: '0.9rem', padding: '0.3rem 0.8rem'}}
                   onClick={() => handleWithdrawSquadInvite(invite)}
                 >
@@ -964,7 +981,7 @@ export default function HomePage() {
       {/* --- MEMBER DETAIL POPUP --- */}
       {selectedMember && (
         <div className={styles.modalOverlay} onClick={() => setSelectedMember(null)}>
-          <div className={styles.modalContent} onClick={e => e.stopPropagation()} style={{ maxWidth: 340, padding: '2rem 1.5rem', borderRadius: 18 }}>
+          <div className={styles.modalContent} onClick={(e: React.MouseEvent) => e.stopPropagation()} style={{ maxWidth: 340, padding: '2rem 1.5rem', borderRadius: 18 }}>
             {/* MODIFIED: Centered avatar */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 18 }}>
               <Image src={selectedMember.photoURL!} alt="avatar" width={80} height={80} style={{borderRadius: '50%', marginBottom: 12, boxShadow: '0 2px 12px #0002'}} />
@@ -994,7 +1011,7 @@ export default function HomePage() {
               {/* Only show kick button if current user is squad leader and not viewing their own card */}
               {getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
                 <button
-                  className={styles.dangerButton}
+                  className={`${styles.button} ${styles.dangerButton}`}
                   onClick={() => handleKickMember(selectedMember)}
                   style={{marginTop: 0, width: '100%', fontSize: '1rem'}}
                 >
@@ -1004,14 +1021,14 @@ export default function HomePage() {
               {/* --- ADDED: Leave Squad button if viewing own card --- */}
               {selectedMember.uid === userData?.uid && (
                 <button
-                  className={styles.dangerButton}
+                  className={`${styles.button} ${styles.dangerButton}`}
                   onClick={handleLeaveSquad}
                   style={{marginTop: 0, width: '100%', fontSize: '1rem'}}
                 >
                   Leave Squad
                 </button>
               )}
-              <button className={styles.primaryButton} onClick={() => setSelectedMember(null)} style={{ width: '100%', fontSize: '1rem' }}>Close</button>
+              <button className={`${styles.button} ${styles.primaryButton}`} onClick={() => setSelectedMember(null)} style={{ width: '100%', fontSize: '1rem' }}>Close</button>
             </div>
           </div>
         </div>
@@ -1025,7 +1042,7 @@ export default function HomePage() {
           {selectedAreaForCheckIn ? (
             <button 
               onClick={() => handleManualCheckIn(selectedAreaForCheckIn)} 
-              className={styles.floatingButton}
+              className={`${styles.button} ${styles.floatingButton}`}
             >
               <FaMapMarkerAlt /> Check into {selectedAreaForCheckIn.name}
             </button>
@@ -1033,7 +1050,7 @@ export default function HomePage() {
             // Otherwise, show the generic button to open the list modal
             <button 
               onClick={() => setActiveModal('checkIn')} 
-              className={styles.floatingButton}
+              className={`${styles.button} ${styles.floatingButton}`}
             >
               <FaMapMarkerAlt />Check In
             </button>
@@ -1044,14 +1061,14 @@ export default function HomePage() {
       {/* --- MODALS --- */}
       {activeModal && (
         <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
-          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+          <div className={styles.modalContent} onClick={(e: React.MouseEvent) => e.stopPropagation()}>
 
             {activeModal === 'passcode' && (<>
               <h3 className={styles.modalHeader}>Enter Developer Passcode</h3>
-              <input type="password" value={passcode} onChange={e => setPasscode(e.target.value)} className={styles.textInput} autoFocus/>
+              <input type="password" value={passcode} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPasscode(e.target.value)} className={styles.textInput} autoFocus/>
               <div className={styles.modalActions}>
-                <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
-                <button onClick={handlePasscodeSubmit} className={styles.secondaryButton}>Submit</button>
+                <button onClick={() => setActiveModal(null)} className={`${styles.button} ${styles.neutralButton}`}>Cancel</button>
+                <button onClick={handlePasscodeSubmit} className={`${styles.button} ${styles.secondaryButton}`}>Submit</button>
               </div>
             </>)}
 
@@ -1062,9 +1079,9 @@ export default function HomePage() {
                 <div style={{ marginBottom: '1rem' }}>
                   <div>
                     {friendsData
-                      .filter(friend => friend.squadId !== userData?.squadId)
-                      .map(friend => {
-                        const inviteSent = outgoingSquadInvites.some(invite => invite.to === friend.uid && invite.status === "pending");
+                      .filter((friend: UserData) => friend.squadId !== userData?.squadId)
+                      .map((friend: UserData) => {
+                        const inviteSent = outgoingSquadInvites.some((invite: any) => invite.to === friend.uid && invite.status === "pending");
                         return (
                           <div
                             key={friend.uid}
@@ -1085,7 +1102,7 @@ export default function HomePage() {
                             />
                             <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
                             <button
-                              className={inviteSent ? styles.neutralButton : styles.secondaryButton}
+                              className={inviteSent ? `${styles.button} ${styles.neutralButton}` : `${styles.button} ${styles.secondaryButton}`}
                               style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80, opacity: inviteSent ? 0.7 : 1, cursor: inviteSent ? 'not-allowed' : 'pointer' }}
                               onClick={() => {
                                 if (!inviteSent) handleInviteToSquad(friend.uid);
@@ -1107,12 +1124,12 @@ export default function HomePage() {
                 type="email"
                 placeholder="friend@example.com"
                 value={friendEmail}
-                onChange={e => setFriendEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFriendEmail(e.target.value)}
                 className={styles.textInput}
                 autoFocus
               />
               <div className={styles.modalActions}>
-                <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
+                <button onClick={() => setActiveModal(null)} className={`${styles.button} ${styles.neutralButton}`}>Cancel</button>
                 {/* --- RESTORED: Invite by email button --- */}
                 <button
                   onClick={async () => {
@@ -1150,7 +1167,7 @@ export default function HomePage() {
                       showAlert("An error occurred while inviting by email.");
                     }
                   }}
-                  className={styles.primaryButton}
+                  className={`${styles.button} ${styles.primaryButton}`}
                   disabled={incomingSquadInvites.length > 0} // ADDED: Disable if pending invite
                 >
                   Invite by Email
@@ -1161,7 +1178,7 @@ export default function HomePage() {
             {activeModal === 'alert' && (<>
                 <p style={{marginBottom: '1rem'}}>{alertMessage}</p>
                 <div className={styles.modalActions} style={{justifyContent: 'center'}}>
-                    <button onClick={() => setActiveModal(null)} className={styles.primaryButton}>OK</button>
+                    <button onClick={() => setActiveModal(null)} className={`${styles.button} ${styles.primaryButton}`}>OK</button>
                 </div>
             </>)}
 
@@ -1169,17 +1186,17 @@ export default function HomePage() {
                 <h3 className={styles.modalHeader}>Are you sure?</h3>
                 <p>{confirmAction.message}</p>
                 <div className={styles.modalActions}>
-                    <button onClick={() => { setActiveModal(null); setConfirmAction(null); }} className={styles.neutralButton}>Cancel</button>
-                    <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); setConfirmAction(null); }} className={styles.dangerButton}>Confirm</button>
+                    <button onClick={() => { setActiveModal(null); setConfirmAction(null); }} className={`${styles.button} ${styles.neutralButton}`}>Cancel</button>
+                    <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); setConfirmAction(null); }} className={`${styles.button} ${styles.dangerButton}`}>Confirm</button>
                 </div>
             </>)}
 
             {activeModal === 'areaName' && (<>
               <h3 className={styles.modalHeader}>Name This Area</h3>
-              <input type="text" placeholder="e.g., Main Stage" value={areaName} onChange={e => setAreaName(e.target.value)} className={styles.textInput} autoFocus/>
+              <input type="text" placeholder="e.g., Main Stage" value={areaName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAreaName(e.target.value)} className={styles.textInput} autoFocus/>
               <div className={styles.modalActions}>
-                  <button onClick={() => { setActiveModal(null); currentPolygonPoints.current = []; redrawCanvas(); }} className={styles.neutralButton}>Cancel</button>
-                  <button onClick={handleSaveArea} className={styles.primaryButton}>Save</button>
+                  <button onClick={() => { setActiveModal(null); currentPolygonPoints.current = []; redrawCanvas(); }} className={`${styles.button} ${styles.neutralButton}`}>Cancel</button>
+                  <button onClick={handleSaveArea} className={`${styles.button} ${styles.primaryButton}`}>Save</button>
               </div>
             </>)}
 
@@ -1190,13 +1207,13 @@ export default function HomePage() {
               <input 
                 type="text" 
                 value={newAreaName} 
-                onChange={e => setNewAreaName(e.target.value)} 
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewAreaName(e.target.value)} 
                 className={styles.textInput} 
                 autoFocus
               />
               <div className={styles.modalActions}>
-                  <button onClick={() => { setActiveModal('locations'); setRenamingArea(null); }} className={styles.neutralButton}>Cancel</button>
-                  <button onClick={handleRenameArea} className={styles.primaryButton}>Save</button>
+                  <button onClick={() => { setActiveModal('locations'); setRenamingArea(null); }} className={`${styles.button} ${styles.neutralButton}`}>Cancel</button>
+                  <button onClick={handleRenameArea} className={`${styles.button} ${styles.primaryButton}`}>Save</button>
               </div>
             </>)}
             
@@ -1209,7 +1226,7 @@ export default function HomePage() {
                         <input
                             type="checkbox"
                             checked={userData?.useGps ?? true}
-                            onChange={e => handleGpsToggle(e.target.checked)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleGpsToggle(e.target.checked)}
                         />
                         <span className={styles.slider}></span>
                     </label>
@@ -1222,7 +1239,7 @@ export default function HomePage() {
                         <input
                             type="checkbox"
                             checked={showZones}
-                            onChange={e => setShowZones(e.target.checked)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShowZones(e.target.checked)}
                         />
                         <span className={styles.slider}></span>
                     </label>
@@ -1241,7 +1258,7 @@ export default function HomePage() {
                                   setActiveModal('passcode');
                                 }
                             }}
-                            className={styles.secondaryButton}
+                            className={`${styles.button} ${styles.secondaryButton}`}
                         >
                             Manage Locations
                         </button>
@@ -1256,32 +1273,32 @@ export default function HomePage() {
                             setIsDevMode(false);
                             signOut(auth);
                         }}
-                        className={styles.dangerButton}
+                        className={`${styles.button} ${styles.dangerButton}`}
                     >
                         Sign Out
                     </button>
-                    <button onClick={() => setActiveModal(null)} className={styles.primaryButton}>Done</button>
+                    <button onClick={() => setActiveModal(null)} className={`${styles.button} ${styles.primaryButton}`}>Done</button>
                 </div>
             </>)}
 
             {activeModal === 'checkIn' && (<>
               <h3 className={styles.modalHeader}>Check In To a Location</h3>
               <div className={styles.locationsList}>
-                {areas.length > 0 ? areas.map(area => (
+                {areas.length > 0 ? areas.map((area: Area) => (
                   <div key={area.id} className={styles.locationItem} onClick={() => handleManualCheckIn(area)}>
                     {area.name}
                   </div>
                 )) : <p>No locations defined.</p>}
               </div>
               <div className={styles.modalActions}>
-                <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
+                <button onClick={() => setActiveModal(null)} className={`${styles.button} ${styles.neutralButton}`}>Cancel</button>
               </div>
             </>)}
 
             {activeModal === 'locations' && (<>
               <h3 className={styles.modalHeader}>Manage Locations</h3>
               <div className={styles.locationsList}>
-                {areas.length > 0 ? areas.map(area => (
+                {areas.length > 0 ? areas.map((area: Area) => (
                   <div key={area.id} className={styles.locationItemManager}>
                     <span>{area.name}</span>
                     {/* --- MODIFIED --- Added a container for the action buttons */}
@@ -1292,14 +1309,14 @@ export default function HomePage() {
                           setNewAreaName(area.name);
                           setActiveModal('renameArea');
                         }} 
-                        className={styles.secondaryButton}
+                        className={`${styles.button} ${styles.secondaryButton}`}
                         aria-label={`Rename ${area.name}`}
                       >
                         <FaPencilAlt />
                       </button>
                       <button 
                         onClick={() => handleDeleteArea(area.id)} 
-                        className={styles.dangerButton}
+                        className={`${styles.button} ${styles.dangerButton}`}
                         aria-label={`Delete ${area.name}`}
                       >
                         <FaTrash />
@@ -1309,8 +1326,8 @@ export default function HomePage() {
                 )) : <p>No locations created yet.</p>}
               </div>
               <div className={styles.modalActions}>
-                <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Close</button>
-                <button onClick={() => { setActiveModal(null); setIsDevMode(true); }} className={styles.primaryButton}>Add New Location</button>
+                <button onClick={() => setActiveModal(null)} className={`${styles.button} ${styles.neutralButton}`}>Close</button>
+                <button onClick={() => { setActiveModal(null); setIsDevMode(true); }} className={`${styles.button} ${styles.primaryButton}`}>Add New Location</button>
               </div>
             </>)}
 
@@ -1322,7 +1339,7 @@ export default function HomePage() {
                 {incomingSquadInvites.length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
                     <div>
-                      {incomingSquadInvites.map(invite => (
+                      {incomingSquadInvites.map((invite: any) => (
                         <div key={invite.id} className={styles.locationItemManager}>
                           <span>
                             Squad invite from 
@@ -1331,13 +1348,13 @@ export default function HomePage() {
                           </span>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
-                              className={styles.acceptButton}
+                              className={`${styles.button} ${styles.acceptButton}`}
                               onClick={() => handleAcceptSquadInvite(invite)}
                             >
                               ✔
                             </button>
                             <button
-                              className={styles.dangerButton}
+                              className={`${styles.button} ${styles.dangerButton}`}
                               onClick={() => handleDeclineSquadInvite(invite)}
                             >
                               ✘
@@ -1349,13 +1366,13 @@ export default function HomePage() {
                   </div>
                 )}
                 {/* --- MODIFIED: Hide friends invite list if there is a pending incoming invite --- */}
-                {incomingSquadInvites.length === 0 && friendsData.filter(f => f.squadId !== userData?.squadId).length > 0 && (
+                {incomingSquadInvites.length === 0 && friendsData.filter((f: UserData) => f.squadId !== userData?.squadId).length > 0 && (
                   <div style={{ marginBottom: '1rem' }}>
                     <div>
                       {friendsData
-                        .filter(friend => friend.squadId !== userData?.squadId)
-                        .map(friend => {
-                          const inviteSent = outgoingSquadInvites.some(invite => invite.to === friend.uid && invite.status === "pending");
+                        .filter((friend: UserData) => friend.squadId !== userData?.squadId)
+                        .map((friend: UserData) => {
+                          const inviteSent = outgoingSquadInvites.some((invite: any) => invite.to === friend.uid && invite.status === "pending");
                           return (
                             <div
                               key={friend.uid}
@@ -1376,7 +1393,7 @@ export default function HomePage() {
                               />
                               <span style={{ flex: 1, fontWeight: 500 }}>{friend.displayName}</span>
                               <button
-                                className={inviteSent ? styles.neutralButton : styles.secondaryButton}
+                                className={inviteSent ? `${styles.button} ${styles.neutralButton}` : `${styles.button} ${styles.secondaryButton}`}
                                 style={{ padding: '0.4rem 1rem', fontSize: '0.85rem', minWidth: 80, opacity: inviteSent ? 0.7 : 1, cursor: inviteSent ? 'not-allowed' : 'pointer' }}
                                 onClick={() => {
                                   if (!inviteSent) handleInviteToSquad(friend.uid);
@@ -1400,11 +1417,11 @@ export default function HomePage() {
                   type="email"
                   placeholder="friend@example.com"
                   value={friendEmail}
-                  onChange={e => setFriendEmail(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFriendEmail(e.target.value)}
                   className={styles.textInput}
                 />
                 <div className={styles.modalActions}>
-                  <button onClick={() => setActiveModal(null)} className={styles.neutralButton}>Cancel</button>
+                  <button onClick={() => setActiveModal(null)} className={`${styles.button} ${styles.neutralButton}`}>Cancel</button>
                   <button
                     onClick={async () => {
                       // Try to add friend by email, then send squad invite if already a friend
@@ -1441,7 +1458,7 @@ export default function HomePage() {
                         showAlert("An error occurred while inviting by email.");
                       }
                     }}
-                    className={styles.primaryButton}
+                    className={`${styles.button} ${styles.primaryButton}`}
                     disabled={incomingSquadInvites.length > 0} // ADDED: Disable if pending invite
                   >
                     Invite by Email
