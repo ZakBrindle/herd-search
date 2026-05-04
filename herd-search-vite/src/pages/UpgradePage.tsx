@@ -68,7 +68,10 @@ const UpgradePage = () => {
                     });
                     await addDoc(collection(db, "purchases"), {
                         userId: currentUser.uid,
+                        userEmail: currentUser.email || 'Unknown',
+                        userName: userData?.displayName || 'Unknown',
                         tier: finalTier,
+                        actualTierId: planId,
                         amount: planDetails?.price || 'Unknown',
                         createdAt: Date.now(),
                         status: 'completed'
@@ -92,7 +95,22 @@ const UpgradePage = () => {
 
                 const data = await res.json();
                 if (data.url) {
+                    const planDetails = PLANS.find(p => p.id === planId);
                     localStorage.setItem('pendingPlan', planId);
+                    
+                    // Log payment start
+                    const purchaseDoc = await addDoc(collection(db, "purchases"), {
+                        userId: currentUser.uid,
+                        userEmail: currentUser.email || 'Unknown',
+                        userName: userData?.displayName || 'Unknown',
+                        tier: planId === 'dev_tier_test' ? 'basic' : planId,
+                        actualTierId: planId, // Keep original ID
+                        amount: planDetails?.price || 'Unknown',
+                        createdAt: Date.now(),
+                        status: 'started'
+                    });
+                    localStorage.setItem('pendingPurchaseId', purchaseDoc.id);
+
                     await updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: true });
                     window.location.href = data.url;
                 } else {

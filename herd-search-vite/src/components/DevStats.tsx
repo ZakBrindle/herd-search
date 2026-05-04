@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, type DocumentData } from 'firebase/firestore';
 import { db } from '../firebase';
-import { FaMapMarkerAlt, FaChartBar, FaGlobe, FaTimes, FaCalendarAlt } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaChartBar, FaGlobe, FaTimes, FaCalendarAlt, FaFileInvoiceDollar } from 'react-icons/fa';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LineChart, Line
@@ -23,11 +23,12 @@ type Props = {
     onClose: () => void;
     currentMapFilter: '5m' | '30m' | '1h' | '24h' | null;
     onSetMapFilter: (filter: '5m' | '30m' | '1h' | '24h' | null) => void;
+    onOpenBilling: () => void;
 };
 
 const COLORS = ['#03dac6', '#bb86fc', '#cf6679', '#018786', '#3700b3', '#ffc107', '#ff6b6b'];
 
-export default function DevStats({ onClose, currentMapFilter, onSetMapFilter }: Props) {
+export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, onOpenBilling }: Props) {
     const [users, setUsers] = useState<UserData[]>([]);
     const [squads, setSquads] = useState<DocumentData[]>([]);
     const [loading, setLoading] = useState(true);
@@ -182,6 +183,25 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter }: 
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <button
+                        onClick={onOpenBilling}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            background: 'rgba(187, 134, 252, 0.1)',
+                            border: '1px solid #bb86fc',
+                            color: '#bb86fc',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        <FaFileInvoiceDollar />
+                        View Global Billing
+                    </button>
+
                     <span style={{ color: '#888' }}>Global Map Overlay:</span>
                     <button
                         onClick={() => onSetMapFilter(currentMapFilter ? null : '1h')}

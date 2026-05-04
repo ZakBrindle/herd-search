@@ -24,9 +24,10 @@ import DevStats from './components/DevStats';
 import InstallModal from './components/modals/InstallModal';
 import PaymentResultModal from './components/modals/PaymentResultModal';
 import ChatTab from './components/ChatTab';
-import WrappedModal from './components/modals/WrappedModal'; // Import WrappedModal
-import ScheduleModal from './components/modals/ScheduleModal'; // Import ScheduleModal
-import { increment } from 'firebase/firestore'; // Import increment
+import WrappedModal from './components/modals/WrappedModal';
+import ScheduleModal from './components/modals/ScheduleModal';
+import BillingPage from './pages/BillingPage';
+import { increment } from 'firebase/firestore';
 
 
 type Area = { id: string; name: string; polygon: Point[] };
@@ -249,6 +250,8 @@ export default function App() {
 
 
   // Dev Features
+  const [showDevStats, setShowDevStats] = useState(false);
+  const [showAdminBilling, setShowAdminBilling] = useState(false);
   const [devMapFilterDuration, setDevMapFilterDuration] = useState<'5m' | '30m' | '1h' | '24h' | null>(null);
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
 
@@ -258,7 +261,6 @@ export default function App() {
   const landingContainerRef = useRef<HTMLDivElement>(null);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
-  const [showDevStats, setShowDevStats] = useState(false);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
   const [isUpdatingGps, setIsUpdatingGps] = useState(false);
 
@@ -563,14 +565,28 @@ export default function App() {
               isPaymentPending: false
             }).then(async () => {
               console.log("Task B: Plan updated successfully.");
-              // Record the purchase
-              await addDoc(collection(db, "purchases"), {
-                userId: currentUser.uid,
-                tier: finalTier,
-                amount: planDetails?.price || 'Unknown',
-                createdAt: Date.now(),
-                status: 'completed'
-              });
+              
+              // Record the purchase or update started one
+              const pendingPurchaseId = localStorage.getItem('pendingPurchaseId');
+              if (pendingPurchaseId) {
+                await updateDoc(doc(db, "purchases", pendingPurchaseId), {
+                  status: 'completed',
+                  tier: finalTier,
+                  amount: planDetails?.price || 'Unknown',
+                  updatedAt: Date.now()
+                });
+                localStorage.removeItem('pendingPurchaseId');
+              } else {
+                await addDoc(collection(db, "purchases"), {
+                  userId: currentUser.uid,
+                  userEmail: currentUser.email || 'Unknown',
+                  userName: userData?.displayName || 'Unknown',
+                  tier: finalTier,
+                  amount: planDetails?.price || 'Unknown',
+                  createdAt: Date.now(),
+                  status: 'completed'
+                });
+              }
             }).catch(e => console.error("Task B Update Error:", e));
           }
 
@@ -613,7 +629,17 @@ export default function App() {
       updateDoc(doc(db, 'users', userData.uid), { isPaymentPending: false })
         .catch(err => console.error("Error clearing pending flag:", err));
 
-      // 2. Show success and cleanup local storage
+      // 2. Update purchase record if exists
+      const pendingPurchaseId = localStorage.getItem('pendingPurchaseId');
+      if (pendingPurchaseId) {
+        updateDoc(doc(db, "purchases", pendingPurchaseId), {
+          status: 'completed',
+          updatedAt: Date.now()
+        }).catch(e => console.error("Webhook fallback purchase update error:", e));
+        localStorage.removeItem('pendingPurchaseId');
+      }
+
+      // 3. Show success and cleanup local storage
       setPaymentStatus('success');
       setActiveModal('paymentResult');
       localStorage.removeItem('pendingPlan');
@@ -3637,10 +3663,16 @@ export default function App() {
                     fontSize: '0.8rem'
                   }}>{tier}</span>
                 </div>
-                <p style={{ width: '100%', boxSizing: 'border-box' }}>
+                <p style={{ width: '100%', boxSizing: 'border-box', marginBottom: '0.5rem' }}>
                   {tier === 'free' && "You are on the Free Tier. You can join squads but cannot create your own."}
                   {tier !== 'free' && `You can invite up to ${TIER_LIMITS[tier]} friends to your squad.`}
                 </p>
+                {userData?.subscriptionExpiry && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FaClock size={12} />
+                    Active Subscription until {new Date(userData.subscriptionExpiry).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </div>
+                )}
               </div>
 
               {tier !== 'festival' && (
@@ -3956,9 +3988,10 @@ export default function App() {
                   if (!currentUser) return;
                   setActiveTab('billing');
                   try {
-                    const q = query(collection(db, "purchases"), where("userId", "==", currentUser.uid), orderBy("createdAt", "desc"));
+                    const q = query(collection(db, "purchases"), where("userId", "==", currentUser.uid));
                     const snap = await getDocs(q);
-                    const history = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    const history = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                      .sort((a: any, b: any) => b.createdAt - a.createdAt); // Client side sort to avoid index requirements
                     setBillingHistory(history);
                   } catch (err) {
                     console.error("Error fetching billing history:", err);
@@ -5199,7 +5232,17 @@ export default function App() {
             onClose={() => setShowDevStats(false)}
             currentMapFilter={devMapFilterDuration}
             onSetMapFilter={setDevMapFilterDuration}
+            onOpenBilling={() => {
+              setShowDevStats(false);
+              setShowAdminBilling(true);
+            }}
           />
+        </div>
+      )}
+
+      {showAdminBilling && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#121212', zIndex: 4000, overflowY: 'auto' }}>
+          <BillingPage onClose={() => setShowAdminBilling(false)} />
         </div>
       )}
 
