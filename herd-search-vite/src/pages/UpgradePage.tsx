@@ -142,8 +142,8 @@ const UpgradePage = () => {
                 >
                     <FaChevronLeft />
                 </button>
-                <img src="/logo-main.png" alt="Herd Search Logo" style={{ height: '40px' }} />
-                <div style={{ width: '40px' }} /> {/* Spacer for centering */}
+                <img src="/logo-main.png" alt="Herd Search Logo" style={{ height: '65px' }} />
+                <div style={{ width: '65px' }} /> {/* Spacer for centering */}
             </div>
 
             <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
