@@ -169,12 +169,16 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {purchases.map(p => (
+                    {purchases.map(p => {
+                        const isExpired = p.status === 'started' && (Date.now() - p.createdAt > 3600000);
+                        const displayStatus = isExpired ? 'failed' : p.status;
+
+                        return (
                         <div key={p.id} style={{ 
                             padding: '1rem', 
                             background: 'rgba(255,255,255,0.02)', 
                             borderRadius: '8px',
-                            borderLeft: `4px solid ${p.status === 'completed' ? '#03dac6' : p.status === 'started' ? '#ffc107' : '#cf6679'}`,
+                            borderLeft: `4px solid ${displayStatus === 'completed' ? '#03dac6' : displayStatus === 'started' ? '#ffc107' : '#cf6679'}`,
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center'
@@ -192,15 +196,15 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <span className="status-badge" style={{ 
-                                    backgroundColor: p.status === 'completed' ? 'rgba(3, 218, 198, 0.1)' : p.status === 'started' ? 'rgba(255, 193, 7, 0.1)' : 'rgba(207, 102, 121, 0.1)',
-                                    color: p.status === 'completed' ? '#03dac6' : p.status === 'started' ? '#ffc107' : '#cf6679'
+                                    backgroundColor: displayStatus === 'completed' ? 'rgba(3, 218, 198, 0.1)' : displayStatus === 'started' ? 'rgba(255, 193, 7, 0.1)' : 'rgba(207, 102, 121, 0.1)',
+                                    color: displayStatus === 'completed' ? '#03dac6' : displayStatus === 'started' ? '#ffc107' : '#cf6679'
                                 }}>
-                                    {p.status === 'completed' ? <FaCheckCircle style={{ marginRight: '4px' }} /> : p.status === 'started' ? <FaSpinner className="spin" style={{ marginRight: '4px' }} /> : <FaTimesCircle style={{ marginRight: '4px' }} />}
-                                    {p.status}
+                                    {displayStatus === 'completed' ? <FaCheckCircle style={{ marginRight: '4px' }} /> : displayStatus === 'started' ? <FaSpinner className="spin" style={{ marginRight: '4px' }} /> : <FaTimesCircle style={{ marginRight: '4px' }} />}
+                                    {displayStatus}
                                 </span>
                             </div>
                         </div>
-                    ))}
+                    )})}
                     {purchases.length === 0 && (
                         <div style={{ textAlign: 'center', padding: '2rem', color: '#555' }}>No payment activity yet.</div>
                     )}
