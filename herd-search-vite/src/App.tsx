@@ -3672,7 +3672,7 @@ export default function App() {
               {tier !== 'festival' && (
                 <>
                   <button
-                    onClick={() => setActiveModal('upgrade')}
+                    onClick={() => navigate('/upgrade')}
                     className="btn btn-primary w-full"
                     disabled={!upgradesEnabled && !userData?.isDev}
                     style={{
@@ -5207,7 +5207,8 @@ export default function App() {
             window.location.reload();
           }}
           onRetry={() => {
-            setActiveModal('upgrade');
+            navigate('/upgrade');
+            setActiveModal(null);
             setPaymentStatus(null);
             window.history.replaceState({}, '', window.location.pathname);
           }}
