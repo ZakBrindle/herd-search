@@ -502,7 +502,7 @@ export default function App() {
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
 
   // Check for payment return from Stripe
   // --- TASK A: TRAP PARAMS (Run ONCE on mount) ---
@@ -621,7 +621,13 @@ export default function App() {
     }
   }, [userData?.tier, userData?.isPaymentPending, userData?.uid]);
 
-
+  // --- Payment Pending UI Trigger ---
+  useEffect(() => {
+    if (userData?.isPaymentPending && !activeModal && paymentStatus !== 'success' && paymentStatus !== 'failed') {
+      setPaymentStatus('pending');
+      setActiveModal('paymentResult');
+    }
+  }, [userData?.isPaymentPending, activeModal, paymentStatus]);
 
   useEffect(() => {
     setCurrentStatusInput(userData?.statusMessage || '');
@@ -3043,41 +3049,7 @@ export default function App() {
 
 
 
-          {/* Payment Pending Widget */}
-          {
-            userData?.isPaymentPending && !activeModal && (
-              <div style={{
-                position: 'absolute',
-                top: '70px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 1000,
-                backgroundColor: '#333',
-                border: '2px solid var(--primary)',
-                borderRadius: '12px',
-                padding: '16px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px',
-                width: '80%',
-                maxWidth: '300px'
-              }}>
-                <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid rgba(255,255,255,0.3)', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                <span style={{ fontWeight: 'bold' }}>Checking Payment...</span>
-                <p style={{ fontSize: '0.8rem', color: '#aaa', textAlign: 'center', margin: 0 }}>
-                  Waiting for confirmation from payment provider.
-                </p>
-                {/* Only show cancel if WE are not currently processing a success url params flow, or if it's been a while? 
-                   Actually, if they are seeing this and NO success modal is up, they are stuck.
-               */}
-                <button onClick={clearPendingPayment} className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '4px 12px' }}>
-                  Cancel / Close
-                </button>
-              </div>
-            )
-          }
+          {/* Payment Pending Widget - Now handled by PaymentResultModal */}
 
           {renderVoteWidget()}
 
@@ -5197,6 +5169,9 @@ export default function App() {
         <PaymentResultModal
           paymentStatus={paymentStatus}
           onClose={() => {
+            if (paymentStatus === 'pending') {
+              clearPendingPayment();
+            }
             setActiveModal(null);
             setPaymentStatus(null);
             window.history.replaceState({}, '', window.location.pathname);
