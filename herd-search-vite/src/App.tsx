@@ -243,6 +243,7 @@ export default function App() {
   // QR Code Modal State
   const [activeQRModal, setActiveQRModal] = useState<'friend' | 'squad' | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [lastSubVerify, setLastSubVerify] = useState(0);
 
   // --- QR Scanner Effect ---
   useEffect(() => {
@@ -747,6 +748,70 @@ export default function App() {
 
     processQrLinks();
   }, [currentUser, userData]); // Run when user is fully loaded
+
+  // --- Subscription Guard: Auto-verify active subs on login ---
+  useEffect(() => {
+    if (!currentUser || !userData || (Date.now() - lastSubVerify < 300000)) return; // Only verify once every 5 mins
+
+    const verifySubscription = async () => {
+      try {
+        console.log("Subscription Guard: Verifying subscription status...");
+        setLastSubVerify(Date.now());
+
+        // Query the latest completed purchase for this user
+        const q = query(
+          collection(db, "purchases"),
+          where("userId", "==", currentUser.uid),
+          where("status", "==", "completed"),
+          orderBy("createdAt", "desc"),
+          limit(1)
+        );
+
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const latestPurchase = snap.docs[0].data();
+          const purchaseDate = latestPurchase.createdAt;
+          const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+
+          if (purchaseDate > thirtyDaysAgo) {
+            // This user HAS a valid recent purchase.
+            const hasActive = hasActiveSubscription(userData);
+            const correctExpiry = purchaseDate + (30 * 24 * 60 * 60 * 1000);
+            
+            // If tier doesn't match or expiry is significantly off (more than 1 min difference)
+            if (!hasActive || userData.tier !== latestPurchase.tier || Math.abs((userData.subscriptionExpiry || 0) - correctExpiry) > 60000) {
+              console.log("Subscription Guard: Active purchase found but user profile is outdated. Fixing...");
+              await updateDoc(getUserDocRef(currentUser.uid), {
+                tier: latestPurchase.tier,
+                subscriptionExpiry: correctExpiry,
+                isPaymentPending: false
+              });
+            }
+          } else {
+            // Latest purchase is older than 30 days
+            if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev) {
+              console.log("Subscription Guard: Subscription expired. Resetting to free.");
+              await updateDoc(getUserDocRef(currentUser.uid), {
+                tier: 'free',
+                subscriptionExpiry: null
+              });
+            }
+          }
+        } else if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev) {
+           // No purchases found at all, and they are not free/dev
+           console.log("Subscription Guard: No purchases found and not Dev. Resetting to free.");
+           await updateDoc(getUserDocRef(currentUser.uid), {
+             tier: 'free',
+             subscriptionExpiry: null
+           });
+        }
+      } catch (e) {
+        console.error("Subscription Guard Error:", e);
+      }
+    };
+
+    verifySubscription();
+  }, [currentUser?.uid, userData?.tier]);
 
   // --- Remote Payment Success Listener (Webhook Fail-safe) ---
   // Watches for the tier to change while we are "pending payment". 
