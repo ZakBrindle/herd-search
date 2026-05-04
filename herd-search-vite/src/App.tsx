@@ -25,7 +25,7 @@ import AllUsersPage from './pages/AllUsersPage';
 import InstallModal from './components/modals/InstallModal';
 import PaymentResultModal from './components/modals/PaymentResultModal';
 import QRCode from 'react-qr-code';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import ChatTab from './components/ChatTab';
 import WrappedModal from './components/modals/WrappedModal';
 import ScheduleModal from './components/modals/ScheduleModal';
@@ -249,12 +249,10 @@ export default function App() {
 
   // --- QR Scanner Effect ---
   useEffect(() => {
+    let html5QrCode: Html5Qrcode | null = null;
+
     if (isScannerOpen) {
-      const scanner = new Html5QrcodeScanner(
-        "qr-reader",
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        false
-      );
+      html5QrCode = new Html5Qrcode("qr-reader");
 
       const onScanSuccess = (decodedText: string) => {
         try {
@@ -268,21 +266,49 @@ export default function App() {
           if (addFriend) localStorage.setItem('parkedAddFriend', addFriend);
           if (inviteSquad && inviter) localStorage.setItem('parkedInviteSquad', JSON.stringify({ squadId: inviteSquad, inviter }));
 
-          scanner.clear().catch(e => console.error(e));
-          setIsScannerOpen(false);
-          setActiveQRModal(null);
-          //processQrLinks() will run due to state change if we trigger it, but 
-          //since we used localStorage, the existing useEffect will pick it up on re-render.
+          if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+              html5QrCode?.clear();
+              setIsScannerOpen(false);
+              setActiveQRModal(null);
+            }).catch(e => console.error("Stop failed", e));
+          }
         } catch (e) {
           console.error("Invalid QR code scanned:", decodedText);
           showAlert("Invalid QR code. Please scan a Herd Search link.");
         }
       };
 
-      scanner.render(onScanSuccess, () => {});
+      const startScanner = async () => {
+        try {
+          const devices = await Html5Qrcode.getCameras();
+          if (devices && devices.length > 0) {
+            // Find back camera, fallback to first available
+            const backCamera = devices.find(d => d.label.toLowerCase().includes('back')) || devices[0];
+            
+            await html5QrCode?.start(
+              backCamera.id,
+              { fps: 10, qrbox: { width: 250, height: 250 } },
+              onScanSuccess,
+              () => {} // silent error handler for frames
+            );
+          } else {
+            showAlert("No cameras found on this device.");
+            setIsScannerOpen(false);
+          }
+        } catch (err) {
+          console.error("Camera access failed:", err);
+          showAlert("Camera access failed. Please ensure you've granted permission.");
+          setIsScannerOpen(false);
+        }
+      };
+
+      startScanner();
 
       return () => {
-        scanner.clear().catch(e => console.warn("Scanner cleanup failed", e));
+        if (html5QrCode?.isScanning) {
+          html5QrCode.stop().then(() => html5QrCode?.clear()).catch(e => console.warn("Cleanup failed", e));
+        }
       };
     }
   }, [isScannerOpen]);
@@ -525,6 +551,7 @@ export default function App() {
           const lastSeenDate = new Date(lastSeen).toISOString().split('T')[0];
           if (latestAvailable > lastSeenDate) {
             setNewWrappedAvailable(latestAvailable);
+            localStorage.setItem(lastShownKey, today);
           }
         }
       }
@@ -5819,6 +5846,9 @@ export default function App() {
                   />
                 </div>
                 <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <p style={{ fontSize: '0.8rem', color: '#666' }}>
+                    Show this code to a friend, or scan theirs!
+                  </p>
                   <button 
                     className="btn btn-primary w-full" 
                     onClick={() => setIsScannerOpen(true)}
@@ -5826,9 +5856,6 @@ export default function App() {
                   >
                     <FaCamera style={{ marginRight: '8px' }} /> Open Camera to Scan
                   </button>
-                  <p style={{ fontSize: '0.8rem', color: '#666' }}>
-                    Show this code to a friend, or scan theirs!
-                  </p>
                 </div>
               </>
             )}
