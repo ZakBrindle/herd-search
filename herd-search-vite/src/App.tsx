@@ -70,22 +70,7 @@ type ConfirmAction = {
   onConfirm: () => void;
 };
 
-const TIER_LIMITS = {
-  free: 0,
-  basic: 1,
-  standard: 3,
-  premium: 8,
-  festival: 20,
-  dev_tier_test: 3
-};
-
-const PLANS = [
-  { id: 'basic', name: 'Just the 2 of us', price: '£2.99', limit: 1 },
-  { id: 'standard', name: 'Squad of 4', price: '£4.99', limit: 3 },
-  { id: 'premium', name: 'Full Squad', price: '£9.99', limit: 8 },
-  { id: 'festival', name: 'Festival Group', price: '£15.99', limit: 20 },
-  { id: 'dev_tier_test', name: 'Dev Test', price: '£0.50', limit: 3 } // Added for dev testing
-];
+import { PLANS, TIER_LIMITS } from './constants/plans';
 
 // --- Helper Components ---
 const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: string }) => {
@@ -4778,7 +4763,7 @@ export default function App() {
               </p>
               <div className="modal-actions">
                 <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Okay</button>
-                <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>Upgrade Plan ⚡</button>
+                <button onClick={() => navigate('/upgrade')} className="btn btn-primary" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>Upgrade Plan ⚡</button>
               </div>
             </div>
           </div>
@@ -4902,66 +4887,6 @@ export default function App() {
         )
       }
 
-      {
-        activeModal === 'upgrade' && (
-          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content wide" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">💎 Upgrade Plan</h3>
-              <div className="pricing-grid">
-                {useSandboxStripe && (
-                  <div className="pricing-card" onClick={() => handleUpgrade('free' as Tier)}>
-                    <h3>Free</h3>
-                    <p className="price">£0.00</p>
-                    <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Max 0 Friends in Squad (Solo)</p>
-                    <button className="btn btn-primary w-full">Select Free</button>
-                  </div>
-
-                )}
-
-                {/* Dev Test Plan - Only for Admin */}
-                {currentUser?.email === 'z4kbrindle@gmail.com' && (
-                  <div style={{ padding: '10px', border: '1px dashed cyan', marginBottom: '10px', borderRadius: '8px', background: 'rgba(0, 255, 255, 0.1)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <h4 style={{ margin: 0, color: 'cyan' }}>Dev Tier 🛠️</h4>
-                        <p style={{ margin: 0, fontSize: '0.8rem' }}>Test Plan (3 friends)</p>
-                      </div>
-                      <button
-                        onClick={() => handleUpgrade('dev_tier_test' as Tier)}
-                        className="btn btn-sm"
-                        style={{ background: 'cyan', color: 'black', fontWeight: 'bold' }}
-                      >
-                        £0.50
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {PLANS.filter(p => p.id !== 'dev_tier_test' && (useSandboxStripe || p.limit > TIER_LIMITS[userData?.tier || 'free'])).map(plan => (
-                  <div key={plan.id} className="pricing-card" onClick={() => handleUpgrade(plan.id as Tier)}>
-                    <h3>{plan.name}</h3>
-                    <div style={{ margin: '8px 0', fontSize: '1.5rem', color: 'var(--primary)', letterSpacing: '4px' }}>
-                      {plan.id === 'basic' && <img src="/tier_2_people.png" alt="2 People" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />}
-                      {plan.id === 'standard' && <img src="/tier_4_people.png" alt="Squad of 4" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />}
-                      {plan.id === 'premium' && <img src="/tier_9_people.png" alt="Full Squad" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />}
-                      {plan.id === 'festival' && <img src="/tier_21_people.png" alt="Festival Group" style={{ width: '100%', height: 'auto', borderRadius: '8px' }} />}
-                      {/* Or simpler representative icons */}
-                    </div>
-                    <p className="price">{plan.price}</p>
-                    <p style={{ margin: '10px 0', fontSize: '0.9rem' }}>Max {plan.limit} Friends in Squad</p>
-                    <button className="btn btn-primary w-full" disabled={!upgradesEnabled}>
-                      {!upgradesEnabled ? "Upgrades Paused 🚧" : "Select"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="modal-actions">
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
-              </div>
-            </div>
-          </div>
-        )
-      }
 
 
       {
@@ -5062,7 +4987,7 @@ export default function App() {
                       return (
                         <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '16px', border: '1px solid #333' }}>
                           <p style={{ fontSize: '1rem', margin: '0 0 12px 0', fontWeight: 'bold' }}>You have 0 spots left.</p>
-                          <button onClick={() => setActiveModal('upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>Upgrade Plan ⚡</button>
+                          <button onClick={() => navigate('/upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>Upgrade Plan ⚡</button>
                         </div>
                       )
                     } else {
@@ -5224,7 +5149,7 @@ export default function App() {
 
                 {alertIsUpgrade && (
                   <button
-                    onClick={() => { setActiveModal('upgrade'); setAlertIsUpgrade(false); }}
+                    onClick={() => { navigate('/upgrade'); setAlertIsUpgrade(false); }}
                     className="btn w-full"
                     style={{ background: 'linear-gradient(45deg, #fdbb2d, #ff6b6b)', color: 'black', fontWeight: 'bold', padding: '12px' }}
                   >
