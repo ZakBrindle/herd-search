@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -21,7 +21,6 @@ import { getToken, onMessage } from "firebase/messaging";
 // --- Type Definitions ---
 import LocationPicker from './components/LocationPicker';
 import DevStats from './components/DevStats';
-import AllUsersPage from './pages/AllUsersPage';
 import InstallModal from './components/modals/InstallModal';
 import PaymentResultModal from './components/modals/PaymentResultModal';
 import QRCode from 'react-qr-code';
@@ -206,6 +205,10 @@ export default function App() {
   const [highlightedUids, setHighlightedUids] = useState<string[]>([]);
   const [zonesLoadError, setZonesLoadError] = useState(false);
   const [zonesRetryCount, setZonesRetryCount] = useState(0);
+  const [isJiggling, setIsJiggling] = useState<number | null>(null);
+  const [ratingNote, setRatingNote] = useState('');
+  const [showRatingThanks, setShowRatingThanks] = useState(false);
+  const [ratingValue, setRatingValue] = useState(0);
 
   // Reset retry on login
   useEffect(() => {
@@ -243,7 +246,6 @@ export default function App() {
   const [scheduleViewingUser, setScheduleViewingUser] = useState<UserData | null>(null);
 
   // QR Code Modal State
-  const [showAllUsers, setShowAllUsers] = useState(false);
   const [activeQRModal, setActiveQRModal] = useState<'friend' | 'squad' | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [lastSubVerify, setLastSubVerify] = useState(0);
@@ -368,6 +370,100 @@ export default function App() {
   }, [userData]);
 
   // Fetch GPS refresh interval from Firestore config
+  const getWeekKey = () => {
+    const d = new Date();
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${weekNo}`;
+  };
+
+  const handleRateApp = async (val: number) => {
+    if (!currentUser || !userData) return;
+    setIsJiggling(val);
+    setTimeout(() => setIsJiggling(null), 1000);
+
+    if (val <= 3) {
+      setActiveModal('ratingFeedback');
+      setRatingValue(val);
+    } else {
+      // Direct save for 4/5 stars
+      await saveFeedback(val, '');
+    }
+  };
+
+  const saveFeedback = async (rating: number, note: string) => {
+    if (!currentUser || !userData) return;
+    const weekKey = getWeekKey();
+    try {
+      await addDoc(collection(db, "feedback"), {
+        uid: currentUser.uid,
+        displayName: userData.displayName || 'Unknown',
+        tier: hasActiveSubscription(userData) ? (userData.tier || 'free') : 'free',
+        rating,
+        note,
+        timestamp: Date.now(),
+        weekKey
+      });
+      await updateDoc(getUserDocRef(currentUser.uid), {
+        lastRatedWeek: weekKey
+      });
+      setShowRatingThanks(true);
+      setTimeout(() => setShowRatingThanks(false), 3000);
+      setActiveModal(null);
+    } catch (e) {
+      console.error("Error saving feedback:", e);
+      showAlert("Failed to save feedback.");
+    }
+  };
+
+  const renderStarRating = () => {
+    const now = new Date();
+    const day = now.getDay(); // 0 is Sun, 1 is Mon, 2 is Tue
+    const weekKey = getWeekKey();
+    const hasRatedThisWeek = userData?.lastRatedWeek === weekKey;
+    
+    // Show Sun/Mon, hide Tue if not filled.
+    if (! (day === 0 || day === 1)) return null;
+    if (hasRatedThisWeek) return null;
+
+    if (showRatingThanks) {
+      return (
+        <div style={{ textAlign: 'center', padding: '10px', background: 'rgba(3, 218, 198, 0.1)', borderRadius: '12px', marginBottom: '15px', color: 'var(--primary)' }}>
+          Thanks for your feedback! 🎉
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ 
+        textAlign: 'center', 
+        padding: '15px', 
+        background: 'rgba(255,255,255,0.03)', 
+        borderRadius: '12px', 
+        marginBottom: '15px',
+        border: '1px solid rgba(255,255,255,0.05)'
+      }}>
+        <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '8px' }}>How's your weekend going?</div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+          {[1, 2, 3, 4, 5].map(star => (
+            <div 
+              key={star} 
+              onClick={() => handleRateApp(star)}
+              className={isJiggling && star <= isJiggling ? 'jiggle' : ''}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
+            >
+              {star <= (isJiggling || 0) ? 
+                <FaStar size={24} color="#FFD700" /> : 
+                <FaRegStar size={24} color="#555" />
+              }
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "config", "gps"), (doc) => {
       if (doc.exists() && doc.data().refreshInterval) {
@@ -3470,6 +3566,7 @@ export default function App() {
           {/* Payment Pending Widget - Now handled by PaymentResultModal */}
 
           {renderVoteWidget()}
+          {renderStarRating()}
 
           <h2 className="section-title">My Squad</h2>
           <div className="squad-list horizontal" style={{ display: 'flex', overflowX: 'auto', gap: '8px', paddingBottom: '8px' }}>
@@ -5109,6 +5206,11 @@ export default function App() {
                   Calibrate Map GPS
                 </button>
 
+                {userData?.isDev && (
+                  <button onClick={() => { setActiveModal(null); navigate('/feedback'); }} className="btn btn-secondary w-full" style={{ marginBottom: '1rem', background: '#333', border: '1px solid #555' }}>
+                    View Feedback Logs
+                  </button>
+                )}
                 <button onClick={() => { setActiveModal(null); setShowDevStats(true); }} className="btn btn-secondary w-full" style={{ marginBottom: '1rem', background: '#333', border: '1px solid #555' }}>
                   View Dev Stats 📊
                 </button>
@@ -5653,8 +5755,32 @@ export default function App() {
         )
       }
 
-      {
-        activeModal === 'confirm' && confirmAction && (
+      {activeModal === 'ratingFeedback' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-container" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-header">We value your feedback</h3>
+            <p style={{ fontSize: '0.9rem', marginBottom: '1rem', color: '#888' }}>You rated us {ratingValue} stars. Could you tell us more so we can improve?</p>
+            <textarea
+              value={ratingNote}
+              onChange={e => setRatingNote(e.target.value)}
+              placeholder="What can we do better?"
+              className="input-field"
+              style={{ minHeight: '100px', marginBottom: '1rem' }}
+            />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setActiveModal(null)} className="btn btn-secondary flex-1">Cancel</button>
+              <button 
+                onClick={() => saveFeedback(ratingValue, ratingNote)} 
+                className="btn btn-primary flex-1"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'confirm' && confirmAction && (
           <div className="modal-overlay">
             <div className="modal-content">
               <h3 className="modal-header">Confirm</h3>
@@ -5712,14 +5838,10 @@ export default function App() {
             }}
             onOpenAllUsers={() => {
               setShowDevStats(false);
-              setShowAllUsers(true);
+              navigate('/all-users');
             }}
           />
         </div>
-      )}
-
-      {showAllUsers && (
-        <AllUsersPage onClose={() => setShowAllUsers(false)} />
       )}
 
       {showAdminBilling && (
@@ -6009,6 +6131,6 @@ export default function App() {
         </div>
       )}
 
-    </div >
+    </div>
   );
 }

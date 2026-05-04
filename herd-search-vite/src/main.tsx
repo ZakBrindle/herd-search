@@ -15,6 +15,8 @@ import { RequireAuth } from './components/RequireAuth'
 import ScrollToTop from './components/ScrollToTop'
 
 import UpgradePage from './pages/UpgradePage'
+import AllUsersPage from './pages/AllUsersPage'
+import FeedbackPage from './pages/FeedbackPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -28,6 +30,8 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/about" element={<RequireAuth><AboutPage /></RequireAuth>} />
           <Route path="/install" element={<RequireAuth><InstallInstructionsPage /></RequireAuth>} />
           <Route path="/admin/support" element={<RequireAuth><AdminSupportPage /></RequireAuth>} />
+          <Route path="/all-users" element={<RequireAuth><AllUsersPage /></RequireAuth>} />
+          <Route path="/feedback" element={<RequireAuth><FeedbackPage /></RequireAuth>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

@@ -23,11 +23,11 @@ interface UserAuditData {
     squadSize: number;
 }
 
-interface AllUsersPageProps {
-    onClose: () => void;
-}
+import { useNavigate } from 'react-router-dom';
 
-const AllUsersPage: React.FC<AllUsersPageProps> = ({ onClose }) => {
+const AllUsersPage: React.FC = () => {
+    const navigate = useNavigate();
+    const onClose = () => navigate('/');
     const [users, setUsers] = useState<DocumentData[]>([]);
     const [squads, setSquads] = useState<DocumentData[]>([]);
     const [purchases, setPurchases] = useState<DocumentData[]>([]);
