@@ -85,7 +85,7 @@ const UpgradePage = () => {
                         tierId: planId,
                         userId: currentUser.uid,
                         sandboxMode: useSandboxStripe,
-                        successUrl: window.location.origin,
+                        successUrl: window.location.origin + '?checkout_success=true',
                         cancelUrl: window.location.origin,
                     })
                 });

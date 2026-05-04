@@ -510,12 +510,13 @@ export default function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentIntent = urlParams.get('payment_intent');
     const redirectStatus = urlParams.get('redirect_status');
+    const checkoutSuccess = urlParams.get('checkout_success');
 
-    if (paymentIntent && redirectStatus) {
-      console.log("Task A: TRAPPED Stripe Params from URL:", { paymentIntent, redirectStatus });
+    if ((paymentIntent && redirectStatus) || checkoutSuccess === 'true') {
+      console.log("Task A: TRAPPED Stripe Params from URL:", { paymentIntent, redirectStatus, checkoutSuccess });
       localStorage.setItem('parkedStripeParams', JSON.stringify({
-        paymentIntent,
-        redirectStatus,
+        paymentIntent: paymentIntent || 'checkout_session',
+        redirectStatus: redirectStatus || 'succeeded',
         timestamp: Date.now()
       }));
 
