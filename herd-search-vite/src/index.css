@@ -533,3 +533,35 @@ header {
 .sparkle:nth-child(4) { right: 30%; bottom: 20%; animation-delay: 1.8s; width: 6px; height: 6px; }
 .sparkle:nth-child(5) { left: 50%; top: -5%; animation-delay: 0.4s; width: 4px; height: 4px; }
 .sparkle:nth-child(6) { right: 40%; top: 90%; animation-delay: 2.1s; width: 5px; height: 5px; }
+
+/* QR Scanner Styling */
+#qr-reader {
+  border: 1px solid var(--border) !important;
+  border-radius: 12px;
+  overflow: hidden;
+  background: black;
+}
+
+#qr-reader button {
+  background: var(--primary) !important;
+  color: black !important;
+  border: none !important;
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+  margin: 10px 0 !important;
+}
+
+#qr-reader__dashboard_section_csr button {
+  background: var(--secondary) !important;
+}
+
+#qr-reader video {
+  border-radius: 8px;
+}
+
+#qr-reader__status_span {
+  color: var(--text-muted) !important;
+  font-size: 0.8rem !important;
+}

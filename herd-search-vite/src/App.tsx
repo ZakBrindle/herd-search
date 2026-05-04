@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -24,6 +24,7 @@ import DevStats from './components/DevStats';
 import InstallModal from './components/modals/InstallModal';
 import PaymentResultModal from './components/modals/PaymentResultModal';
 import QRCode from 'react-qr-code';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import ChatTab from './components/ChatTab';
 import WrappedModal from './components/modals/WrappedModal';
 import ScheduleModal from './components/modals/ScheduleModal';
@@ -241,6 +242,47 @@ export default function App() {
 
   // QR Code Modal State
   const [activeQRModal, setActiveQRModal] = useState<'friend' | 'squad' | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
+  // --- QR Scanner Effect ---
+  useEffect(() => {
+    if (isScannerOpen) {
+      const scanner = new Html5QrcodeScanner(
+        "qr-reader",
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        false
+      );
+
+      const onScanSuccess = (decodedText: string) => {
+        try {
+          const url = new URL(decodedText);
+          const params = new URLSearchParams(url.search);
+          
+          const addFriend = params.get('addFriend');
+          const inviteSquad = params.get('inviteSquad');
+          const inviter = params.get('inviter');
+
+          if (addFriend) localStorage.setItem('parkedAddFriend', addFriend);
+          if (inviteSquad && inviter) localStorage.setItem('parkedInviteSquad', JSON.stringify({ squadId: inviteSquad, inviter }));
+
+          scanner.clear().catch(e => console.error(e));
+          setIsScannerOpen(false);
+          setActiveQRModal(null);
+          //processQrLinks() will run due to state change if we trigger it, but 
+          //since we used localStorage, the existing useEffect will pick it up on re-render.
+        } catch (e) {
+          console.error("Invalid QR code scanned:", decodedText);
+          showAlert("Invalid QR code. Please scan a Herd Search link.");
+        }
+      };
+
+      scanner.render(onScanSuccess, (err) => {});
+
+      return () => {
+        scanner.clear().catch(e => console.warn("Scanner cleanup failed", e));
+      };
+    }
+  }, [isScannerOpen]);
 
   const statsRef = useRef({
     lastUpdate: Date.now(),
@@ -588,17 +630,21 @@ export default function App() {
           if (pendingPlan) {
             console.log("Task B: Applying pending plan:", pendingPlan);
             const planDetails = PLANS.find(p => p.id === pendingPlan);
-            const finalTier = pendingPlan === 'dev_tier_test' ? 'basic' : pendingPlan;
+            const finalTier = pendingPlan === 'dev_tier_test' ? 'basic' : (pendingPlan || 'free') as Tier;
+            
+            console.log("Task B: Final update payload:", { finalTier, uid: currentUser.uid });
+
             updateDoc(doc(db, 'users', currentUser.uid), {
               tier: finalTier,
               subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
               isPaymentPending: false
             }).then(async () => {
-              console.log("Task B: Plan updated successfully.");
+              console.log("Task B: Firestore user doc updated successfully.");
               
               // Record the purchase or update started one
               const pendingPurchaseId = localStorage.getItem('pendingPurchaseId');
               if (pendingPurchaseId) {
+                console.log("Task B: Updating purchase doc:", pendingPurchaseId);
                 await updateDoc(doc(db, "purchases", pendingPurchaseId), {
                   status: 'completed',
                   tier: finalTier,
@@ -607,6 +653,7 @@ export default function App() {
                 });
                 localStorage.removeItem('pendingPurchaseId');
               } else {
+                console.log("Task B: Creating new purchase doc (none pending).");
                 await addDoc(collection(db, "purchases"), {
                   userId: currentUser.uid,
                   userEmail: currentUser.email || 'Unknown',
@@ -617,7 +664,10 @@ export default function App() {
                   status: 'completed'
                 });
               }
-            }).catch(e => console.error("Task B Update Error:", e));
+            }).catch(e => {
+              console.error("Task B Update Error (Users Coll):", e);
+              showAlert("Payment was successful but we failed to update your account. Please contact support.");
+            });
           }
 
           localStorage.removeItem('pendingPlan');
@@ -5430,7 +5480,7 @@ export default function App() {
 
 
       {/* New Wrapped Popup (Map Page Only) */}
-      {(newWrappedAvailable && activeTab === 'map') && (() => {
+      {(newWrappedAvailable && activeTab === 'map' && !activeModal) && (() => {
         const dayOfWeek = new Date().getDay();
         const isMonday = dayOfWeek === 1;
 
@@ -5657,28 +5707,45 @@ export default function App() {
 
       {/* QR Code Modal */}
       {activeQRModal && currentUser && (
-        <div className="modal-overlay" onClick={() => setActiveQRModal(null)}>
+        <div className="modal-overlay" onClick={() => { setActiveQRModal(null); setIsScannerOpen(false); }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center', padding: '30px' }}>
             <h2 style={{ marginBottom: '10px' }}>{activeQRModal === 'friend' ? 'Add a Friend' : 'Invite to Squad'}</h2>
-            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '30px' }}>
-              {activeQRModal === 'friend' ? 'Scan to instantly become friends!' : 'Scan to join this squad!'}
+            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '20px' }}>
+              {isScannerOpen ? 'Point your camera at a QR code' : (activeQRModal === 'friend' ? 'Scan to instantly become friends!' : 'Scan to join this squad!')}
             </p>
-            <div style={{ background: 'white', padding: '20px', borderRadius: '16px', display: 'inline-block' }}>
-              <QRCode 
-                value={
-                  activeQRModal === 'friend' 
-                    ? `${window.location.origin}/?addFriend=${currentUser.uid}`
-                    : `${window.location.origin}/?inviteSquad=${userData?.squadId}&inviter=${currentUser.uid}`
-                } 
-                size={220}
-                style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                viewBox={`0 0 256 256`}
-              />
-            </div>
-            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '20px' }}>
-              Requires the Herd Search app to scan.
-            </p>
-            <button className="btn w-full mt-4" onClick={() => setActiveQRModal(null)}>Close</button>
+            
+            {isScannerOpen ? (
+              <div id="qr-reader" style={{ width: '100%', marginBottom: '20px' }}></div>
+            ) : (
+              <>
+                <div style={{ background: 'white', padding: '20px', borderRadius: '16px', display: 'inline-block' }}>
+                  <QRCode 
+                    value={
+                      activeQRModal === 'friend' 
+                        ? `${window.location.origin}/?addFriend=${currentUser.uid}`
+                        : `${window.location.origin}/?inviteSquad=${userData?.squadId}&inviter=${currentUser.uid}`
+                    } 
+                    size={220}
+                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                    viewBox={`0 0 256 256`}
+                  />
+                </div>
+                <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button 
+                    className="btn btn-primary w-full" 
+                    onClick={() => setIsScannerOpen(true)}
+                    style={{ background: 'var(--secondary)', color: 'black' }}
+                  >
+                    <FaCamera style={{ marginRight: '8px' }} /> Open Camera to Scan
+                  </button>
+                  <p style={{ fontSize: '0.8rem', color: '#666' }}>
+                    Show this code to a friend, or scan theirs!
+                  </p>
+                </div>
+              </>
+            )}
+            
+            <button className="btn w-full mt-4" onClick={() => { setActiveQRModal(null); setIsScannerOpen(false); }}>Close</button>
           </div>
         </div>
       )}
