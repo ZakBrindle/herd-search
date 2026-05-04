@@ -59,6 +59,35 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
     // Get top 5 spots for festival
     const top5Spots = stats.topAreas.slice(0, 5);
 
+    const getBackground = () => {
+        if (!isFestival) {
+            return 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)';
+        }
+
+        // Festival mode gradients
+        if (slideIndex === 0) return 'linear-gradient(135deg, #FF0080, #7928CA)'; // Intro: Vibrant Pink/Purple
+        if (slideIndex === 1) return 'linear-gradient(135deg, #40E0D0, #FF8C00, #FF0080)'; // Top 5: Multi-color vibe
+
+        const dailyDataLength = stats.dailyData?.length || 0;
+        
+        // Daily slides
+        if (slideIndex >= 2 && slideIndex < 2 + dailyDataLength) {
+            const dayGradients = [
+                'linear-gradient(135deg, #00d2ff, #3a7bd5)', // Thursday: Cool Blue
+                'linear-gradient(135deg, #12c2e9, #c471ed, #f64f59)', // Friday: Sunset
+                'linear-gradient(135deg, #f7971e, #ffd200)', // Saturday: Gold/Sun
+                'linear-gradient(135deg, #FC466B, #3F5EFB)', // Sunday: Pink/Blue
+            ];
+            return dayGradients[(slideIndex - 2) % dayGradients.length];
+        }
+
+        // Bestie slide
+        if (slideIndex === 2 + dailyDataLength) return 'linear-gradient(135deg, #ee0979, #ff6a00)'; // Bestie: Hot Pink/Orange
+        
+        // Final Recap
+        return 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)'; // Recap: Deep Space
+    };
+
     return (
         <div className="modal-overlay" style={{ zIndex: 10000, background: 'black' }} onClick={nextSlide}>
             <div className="wrapped-container" style={{
@@ -72,13 +101,12 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                 justifyContent: 'center',
                 alignItems: 'center',
                 padding: '40px 20px',
-                background: isFestival
-                    ? 'linear-gradient(135deg, #fdbb2d, #ff6b6b, #b21f1f)'
-                    : 'linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d)',
+                background: getBackground(),
                 position: 'relative',
                 color: 'white',
                 textAlign: 'center',
-                borderRadius: '20px'
+                borderRadius: '20px',
+                transition: 'background 0.8s ease'
             }}>
 
                 {/* Progress Bar */}
