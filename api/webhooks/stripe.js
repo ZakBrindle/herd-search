@@ -58,15 +58,17 @@ export default async (req, res) => {
             try {
                 const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days from now
                 const subscriptionEndDate = new Date(expiresAt).toISOString();
+                
+                const finalTier = tierId === 'dev_tier_test' ? 'basic' : tierId;
 
                 await db.collection('users').doc(userId).update({
-                    tier: tierId, // Used by Frontend
+                    tier: finalTier, // Used by Frontend
                     subscriptionExpiry: expiresAt, // Used by Frontend
                     subscriptionEndDate: subscriptionEndDate, // Readable Date
-                    tier_level: tierId, // Requested by User
+                    tier_level: finalTier, // Requested by User
                     tier_expires_at: expiresAt // Requested by User
                 });
-                console.log(`Updated user ${userId} to tier ${tierId}`);
+                console.log(`Updated user ${userId} to tier ${finalTier}`);
             } catch (error) {
                 console.error('Error updating user in Firestore:', error);
                 return res.status(500).json({ error: 'Firestore update failed' });

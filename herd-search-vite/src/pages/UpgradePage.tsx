@@ -61,13 +61,14 @@ const UpgradePage = () => {
                     });
                 } else {
                     const planDetails = PLANS.find(p => p.id === planId);
+                    const finalTier = planId === 'dev_tier_test' ? 'basic' : planId;
                     await updateDoc(getUserDocRef(currentUser.uid), {
-                        tier: planId,
+                        tier: finalTier,
                         subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000
                     });
                     await addDoc(collection(db, "purchases"), {
                         userId: currentUser.uid,
-                        tier: planId,
+                        tier: finalTier,
                         amount: planDetails?.price || 'Unknown',
                         createdAt: Date.now(),
                         status: 'completed'
@@ -193,7 +194,7 @@ const UpgradePage = () => {
                     </div>
                 )}
 
-                {PLANS.filter(p => p.id !== 'dev_tier_test' && (useSandboxStripe || p.limit > TIER_LIMITS[currentTier])).map(plan => (
+                {PLANS.filter(p => (p.id !== 'dev_tier_test' || userData?.isDev) && (useSandboxStripe || p.limit > TIER_LIMITS[currentTier])).map(plan => (
                     <div 
                         key={plan.id} 
                         className="pricing-card"

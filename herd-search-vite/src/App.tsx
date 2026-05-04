@@ -555,8 +555,9 @@ export default function App() {
           if (pendingPlan) {
             console.log("Task B: Applying pending plan:", pendingPlan);
             const planDetails = PLANS.find(p => p.id === pendingPlan);
+            const finalTier = pendingPlan === 'dev_tier_test' ? 'basic' : pendingPlan;
             updateDoc(doc(db, 'users', currentUser.uid), {
-              tier: pendingPlan,
+              tier: finalTier,
               subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
               isPaymentPending: false
             }).then(async () => {
@@ -564,7 +565,7 @@ export default function App() {
               // Record the purchase
               await addDoc(collection(db, "purchases"), {
                 userId: currentUser.uid,
-                tier: pendingPlan,
+                tier: finalTier,
                 amount: planDetails?.price || 'Unknown',
                 createdAt: Date.now(),
                 status: 'completed'
