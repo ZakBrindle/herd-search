@@ -5,7 +5,8 @@ import {
     orderBy,
     onSnapshot,
     addDoc,
-    where
+    where,
+    getDocs
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { UserData } from '../contexts/AuthContext';
@@ -116,6 +117,36 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                 content: msgContent,
                 createdAt: Date.now()
             });
+
+            // --- Send Push Notifications ---
+            try {
+                // Fetch other squad members' tokens
+                const q = query(collection(db, 'users'), where('squadId', '==', squadId));
+                const snap = await getDocs(q);
+                const tokens = snap.docs
+                    .map(d => d.data())
+                    .filter(u => u.uid !== userData.uid && u.fcmToken)
+                    .map(u => u.fcmToken);
+
+                if (tokens.length > 0) {
+                    fetch('/api/send-notification', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tokens,
+                            title: `New Message from ${userData.displayName?.split(' ')[0]}`,
+                            body: msgContent.length > 50 ? msgContent.substring(0, 47) + '...' : msgContent,
+                            data: {
+                                type: 'chat',
+                                squadId: squadId
+                            }
+                        })
+                    }).catch(err => console.error("Notification API failed:", err));
+                }
+            } catch (e) {
+                console.warn("Could not send push notifications:", e);
+            }
+
             scrollToBottom();
         } catch (error) {
             console.error("Error sending message:", error);

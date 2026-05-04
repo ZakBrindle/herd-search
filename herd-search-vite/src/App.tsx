@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -1037,6 +1037,27 @@ export default function App() {
         createdAt: Date.now()
       }).catch(console.error);
 
+      // --- Send Push Notification (Squad Invite) ---
+      try {
+        const friendSnap = await getDoc(getUserDocRef(friendUid));
+        if (friendSnap.exists()) {
+          const fData = friendSnap.data();
+          if (fData.fcmToken) {
+            fetch('/api/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tokens: [fData.fcmToken],
+                title: 'Squad Invite! 🤝',
+                body: `${userData.displayName?.split(' ')[0]} invited you to join their squad!`,
+                data: { type: 'squad_invite', squadId: userData.squadId }
+              })
+            }).catch(err => console.error("Notification API failed:", err));
+          }
+        }
+      } catch (e) { console.warn("Could not send squad invite notification:", e); }
+
+      showAlert("Squad invite sent!");
     } catch (error) {
       console.error("Error sending squad invite:", error);
       showAlert("Failed to send squad invite.");
@@ -1182,6 +1203,29 @@ export default function App() {
         createdAt: Date.now()
       }).catch(console.error);
 
+      // --- Send Push Notifications ---
+      try {
+        const q = query(collection(db, 'users'), where('squadId', '==', userData.squadId));
+        const snap = await getDocs(q);
+        const tokens = snap.docs
+          .map(d => d.data())
+          .filter(u => u.uid !== userData.uid && u.fcmToken)
+          .map(u => u.fcmToken);
+
+        if (tokens.length > 0) {
+          fetch('/api/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tokens,
+              title: 'Squad Vote Started!',
+              body: `${userData.displayName?.split(' ')[0]} wants to go to ${area.name}. Vote now!`,
+              data: { type: 'vote_start', squadId: userData.squadId }
+            })
+          }).catch(err => console.error("Notification API failed:", err));
+        }
+      } catch (e) { console.warn("Could not send vote start notification:", e); }
+
       setSelectedAreaForVote(null); // Reset selection
     } catch (e) {
       console.error(e);
@@ -1222,6 +1266,29 @@ export default function App() {
           type: 'vote_ended',
           createdAt: Date.now()
         }).catch(console.error);
+
+        // --- Send Push Notifications (Vote Ended) ---
+        try {
+          const q = query(collection(db, 'users'), where('squadId', '==', userData.squadId));
+          const snap = await getDocs(q);
+          const tokens = snap.docs
+            .map(d => d.data())
+            .filter(u => u.uid !== userData.uid && u.fcmToken)
+            .map(u => u.fcmToken);
+
+          if (tokens.length > 0) {
+            fetch('/api/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tokens,
+                title: 'Squad Vote Result!',
+                body: resultString,
+                data: { type: 'vote_end', squadId: userData.squadId }
+              })
+            }).catch(err => console.error("Notification API failed:", err));
+          }
+        } catch (e) { console.warn("Could not send vote end notification:", e); }
       }
 
       await updateDoc(squadRef, updateData);
@@ -1249,6 +1316,26 @@ export default function App() {
           createdAt: Date.now()
         }).catch(console.error);
       }
+
+      // --- Send Push Notification (Searching For You) ---
+      try {
+        const targetSnap = await getDoc(getUserDocRef(member.uid));
+        if (targetSnap.exists()) {
+          const tData = targetSnap.data();
+          if (tData.fcmToken) {
+            fetch('/api/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tokens: [tData.fcmToken],
+                title: 'Someone is looking for you! 🏮',
+                body: `${userData.displayName?.split(' ')[0]} is searching for you on the map!`,
+                data: { type: 'searching_for_you', fromUid: userData.uid }
+              })
+            }).catch(err => console.error("Notification API failed:", err));
+          }
+        }
+      } catch (e) { console.warn("Could not send searching notification:", e); }
 
       showAlert(`Searching for ${member.displayName?.split(' ')[0]}! They've been notified.`);
       setSelectedMember(null);
@@ -2059,7 +2146,7 @@ export default function App() {
   }, [currentUser?.uid]);
 
   const handleSendFriendRequest = async (friendUid: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !userData) return;
     try {
       // Check if already friends
       if (userData?.friends?.includes(friendUid)) {
@@ -2072,6 +2159,27 @@ export default function App() {
         status: 'pending',
         createdAt: Date.now()
       });
+
+      // --- Send Push Notification (Friend Request) ---
+      try {
+        const friendSnap = await getDoc(getUserDocRef(friendUid));
+        if (friendSnap.exists()) {
+          const fData = friendSnap.data();
+          if (fData.fcmToken) {
+            fetch('/api/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tokens: [fData.fcmToken],
+                title: 'New Friend Request! 👥',
+                body: `${userData.displayName?.split(' ')[0]} sent you a friend request!`,
+                data: { type: 'friend_request', fromUid: userData.uid }
+              })
+            }).catch(err => console.error("Notification API failed:", err));
+          }
+        }
+      } catch (e) { console.warn("Could not send friend request notification:", e); }
+
       showAlert("Friend request sent!");
       setFriendEmail('');
     } catch (e) {
@@ -2409,27 +2517,45 @@ export default function App() {
             </div>
           )}
           {!userData?.useGps && activeTab === 'map' && (
-            <button
-              onClick={async () => {
-                await handleGpsToggle(true);
-              }}
-              style={{
-                background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                border: 'none',
+            gpsRefreshButtonText ? (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: '8px',
                 padding: '8px 16px',
-                color: 'black',
-                fontWeight: 'bold',
+                color: '#888',
                 fontSize: '0.85rem',
-                cursor: 'pointer',
+                fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 8px rgba(3, 218, 198, 0.3)'
-              }}
-            >
-              📍 Turn on GPS
-            </button>
+                gap: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.1)'
+              }}>
+                <div className="spinner" style={{ width: '12px', height: '12px', borderWidth: '2px', borderTopColor: 'var(--secondary)' }} />
+                <span>{gpsRefreshButtonText === 'Requesting Permission...' ? 'Requesting...' : 'Working...'}</span>
+              </div>
+            ) : (
+              <button
+                onClick={async () => {
+                  await handleGpsToggle(true);
+                }}
+                style={{
+                  background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  color: 'black',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 8px rgba(3, 218, 198, 0.3)'
+                }}
+              >
+                📍 Turn on GPS
+              </button>
+            )
           )}
 
           {activeTab === 'profile' && userData?.isDev && (
@@ -3296,14 +3422,7 @@ export default function App() {
               </div>
             );
           })}
-          {outgoingSquadInvites.map(invite => (
-            <div key={invite.id} className="card" style={{ opacity: 0.7 }}>
-              <span>To {getDisplayNameByUid(invite.to)} (Squad Invite)</span>
-              <button className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleWithdrawSquadInvite(invite)}>Withdraw</button>
-            </div>
-          ))}
-
-          {(incomingFriendRequests.length === 0 && incomingSquadInvites.length === 0 && outgoingFriendRequests.length === 0 && outgoingSquadInvites.length === 0) && (
+          {(incomingFriendRequests.length === 0 && incomingSquadInvites.length === 0 && outgoingFriendRequests.length === 0) && (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginBottom: '1rem', fontStyle: 'italic' }}>No pending requests.</p>
           )}
 
@@ -3401,10 +3520,87 @@ export default function App() {
 
 
 
+            {(() => {
+              const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
+              return pendingInvites.map(invite => {
+                const friend = friendsData.find(f => f.uid === invite.to);
+                return (
+                  <div key={invite.id} className="card" style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    opacity: 0.9,
+                    border: '1px dashed #ffc107',
+                    background: 'rgba(255, 193, 7, 0.05)',
+                    padding: '12px'
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {friend?.photoURL ? (
+                          <img src={friend.photoURL} className="avatar" style={{ border: '1px solid #ffc107', width: '35px', height: '35px' }} alt="Avatar" />
+                        ) : (
+                          <div className="avatar" style={{ background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #ffc107', color: '#ffc107' }}>?</div>
+                        )}
+                        <span style={{ fontWeight: 'bold' }}>{friend?.displayName || getDisplayNameByUid(invite.to)}</span>
+                      </div>
+                      <p style={{ fontSize: '0.75rem', margin: 0, color: '#ffc107' }}>
+                        Invited...
+                      </p>
+                    </div>
+
+                    <button
+                      className="btn btn-danger"
+                      style={{
+                        padding: '0',
+                        width: '40px',
+                        height: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'rgba(207, 102, 121, 0.2)',
+                        border: '1px solid var(--error)',
+                        borderRadius: '8px'
+                      }}
+                      onClick={(e) => { e.stopPropagation(); handleWithdrawSquadInvite(invite); }}
+                      title="Withdraw Invite"
+                    >
+                      <FaTimes size={16} />
+                    </button>
+                  </div>
+                );
+              });
+            })()}
+
             {/* Only allow adding friends if they are the leader */}
             {getSquadLeaderUid() === userData?.uid && (
-              <div className="card" onClick={() => setActiveModal('inviteToSquad')} style={{ cursor: 'pointer', justifyContent: 'center' }}>
-                <h3>+ Invite Friends to Squad</h3>
+              <div
+                className="card"
+                onClick={() => setActiveModal('inviteToSquad')}
+                style={{
+                  cursor: 'pointer',
+                  justifyContent: 'center',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px dashed #444',
+                  color: 'var(--text-muted)',
+                  gap: '12px',
+                  padding: '16px'
+                }}>
+                <FaUserFriends size={24} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Invite Friends to Squad</span>
+                  <span style={{ fontSize: '0.8rem' }}>
+                    {(() => {
+                      const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                      const limit = TIER_LIMITS[tier];
+                      const currentMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+                      const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
+                      const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
+                      const remaining = Math.max(0, limit - usedFriendSpots);
+                      return `${remaining} left`;
+                    })()}
+                  </span>
+                </div>
               </div>
             )}
 
@@ -3428,8 +3624,9 @@ export default function App() {
               </div>
             ))}
             {/* Reuse the Invite Friends modal logic to add new friends via email */}
-            <div className="card" onClick={() => setActiveModal('addFriend')} style={{ cursor: 'pointer', justifyContent: 'center', marginTop: '1rem', borderStyle: 'dashed' }}>
-              <p>+ Add Friend by Email</p>
+            <div className="card" onClick={() => setActiveModal('addFriend')} style={{ cursor: 'pointer', justifyContent: 'center', marginTop: '1rem', borderStyle: 'dashed', gap: '8px' }}>
+              <FaPlus size={14} />
+              <p style={{ margin: 0 }}>Add Friend</p>
             </div>
           </div>
         </>
