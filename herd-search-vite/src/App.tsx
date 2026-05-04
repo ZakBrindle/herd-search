@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -23,6 +23,7 @@ import LocationPicker from './components/LocationPicker';
 import DevStats from './components/DevStats';
 import InstallModal from './components/modals/InstallModal';
 import PaymentResultModal from './components/modals/PaymentResultModal';
+import QRCode from 'react-qr-code';
 import ChatTab from './components/ChatTab';
 import WrappedModal from './components/modals/WrappedModal';
 import ScheduleModal from './components/modals/ScheduleModal';
@@ -235,10 +236,11 @@ export default function App() {
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
   const [lastSeenChatTime, setLastSeenChatTime] = useState(() => Number(localStorage.getItem('lastSeenChatTime') || 0));
 
-  // Schedule Modal State
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleViewingUser, setScheduleViewingUser] = useState<UserData | null>(null);
 
+  // QR Code Modal State
+  const [activeQRModal, setActiveQRModal] = useState<'friend' | 'squad' | null>(null);
 
   const statsRef = useRef({
     lastUpdate: Date.now(),
@@ -521,11 +523,39 @@ export default function App() {
         redirectStatus: redirectStatus || 'succeeded',
         timestamp: Date.now()
       }));
-
-      // Clean URL to prevent re-triggering? Optional, but good practice.
-      // window.history.replaceState({}, document.title, window.location.pathname);
+      
+      urlParams.delete('payment_intent');
+      urlParams.delete('payment_intent_client_secret');
+      urlParams.delete('redirect_status');
+      urlParams.delete('checkout_success');
     } else {
       console.log("Task A: No Stripe params in URL to trap.");
+    }
+
+    // --- QR Code Deep Link Trap ---
+    const addFriendParam = urlParams.get('addFriend');
+    const inviteSquadParam = urlParams.get('inviteSquad');
+    const inviterParam = urlParams.get('inviter');
+    let hasQrParams = false;
+
+    if (addFriendParam) {
+      console.log("TRAPPED Add Friend Request:", addFriendParam);
+      localStorage.setItem('parkedAddFriend', addFriendParam);
+      urlParams.delete('addFriend');
+      hasQrParams = true;
+    }
+
+    if (inviteSquadParam && inviterParam) {
+      console.log("TRAPPED Squad Invite:", { squadId: inviteSquadParam, inviter: inviterParam });
+      localStorage.setItem('parkedInviteSquad', JSON.stringify({ squadId: inviteSquadParam, inviter: inviterParam }));
+      urlParams.delete('inviteSquad');
+      urlParams.delete('inviter');
+      hasQrParams = true;
+    }
+
+    if (paymentIntent || checkoutSuccess || hasQrParams) {
+      const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+      window.history.replaceState(null, '', newUrl);
     }
   }, []); // <--- EMPTY DEPENDENCY ARRAY IS CRITICAL
 
@@ -603,6 +633,70 @@ export default function App() {
       }
     }
   }, [currentUser]);
+
+  // --- QR Code Deep Link Processor ---
+  useEffect(() => {
+    if (!currentUser || !userData) return;
+
+    const processQrLinks = async () => {
+      const parkedAddFriend = localStorage.getItem('parkedAddFriend');
+      const parkedInviteSquadStr = localStorage.getItem('parkedInviteSquad');
+
+      if (parkedAddFriend) {
+        if (parkedAddFriend !== currentUser.uid) { // Don't add self
+          try {
+            console.log("Processing Add Friend QR for:", parkedAddFriend);
+            await updateDoc(getUserDocRef(currentUser.uid), { friends: arrayUnion(parkedAddFriend) });
+            await updateDoc(getUserDocRef(parkedAddFriend), { friends: arrayUnion(currentUser.uid) });
+            showAlert("Added new friend from QR code! 🤝");
+            setActiveTab('friends'); // Switch to friends tab to see them
+          } catch (e) {
+            console.error("Error adding friend from QR:", e);
+            showAlert("Failed to add friend. They may need to add you back.");
+          }
+        }
+        localStorage.removeItem('parkedAddFriend');
+      }
+
+      if (parkedInviteSquadStr) {
+        try {
+          const { squadId, inviter } = JSON.parse(parkedInviteSquadStr);
+          if (inviter !== currentUser.uid) { // Don't invite self
+            console.log("Processing Squad Invite QR:", { squadId, inviter });
+            // 1. Mutually add friends if needed
+            await updateDoc(getUserDocRef(currentUser.uid), { friends: arrayUnion(inviter) }).catch(e => console.warn(e));
+            await updateDoc(getUserDocRef(inviter), { friends: arrayUnion(currentUser.uid) }).catch(e => console.warn(e));
+
+            // 2. Add to squad
+            const squadRef = doc(db, 'squads', squadId);
+            const squadSnap = await getDoc(squadRef);
+            if (squadSnap.exists()) {
+              const members = squadSnap.data().members || [];
+              if (!members.includes(currentUser.uid)) {
+                await updateDoc(squadRef, { members: arrayUnion(currentUser.uid) });
+                await updateDoc(getUserDocRef(currentUser.uid), { 
+                  squadId: squadId,
+                  squadOwnerId: squadSnap.data().ownerId
+                });
+                showAlert("Joined squad via QR code! 🎉");
+                setActiveTab('map'); // Switch to map to see squad
+              } else {
+                showAlert("You are already in this squad.");
+              }
+            } else {
+              showAlert("Squad not found or no longer exists.");
+            }
+          }
+        } catch (e) {
+          console.error("Error processing squad invite from QR:", e);
+          showAlert("Failed to join squad. The link might be invalid.");
+        }
+        localStorage.removeItem('parkedInviteSquad');
+      }
+    };
+
+    processQrLinks();
+  }, [currentUser, userData]); // Run when user is fully loaded
 
   // --- Remote Payment Success Listener (Webhook Fail-safe) ---
   // Watches for the tier to change while we are "pending payment". 
@@ -3576,33 +3670,68 @@ export default function App() {
 
             {/* Only allow adding friends if they are the leader */}
             {getSquadLeaderUid() === userData?.uid && (
-              <div
-                className="card"
-                onClick={() => setActiveModal('inviteToSquad')}
-                style={{
-                  cursor: 'pointer',
-                  justifyContent: 'center',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px dashed #444',
-                  color: 'var(--text-muted)',
-                  gap: '12px',
-                  padding: '16px'
-                }}>
-                <FaUserFriends size={24} />
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Invite to Squad</span>
-                  <span style={{ fontSize: '0.8rem' }}>
-                    {(() => {
-                      const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
-                      const limit = TIER_LIMITS[tier];
-                      const currentMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
-                      const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
-                      const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
-                      const remaining = Math.max(0, limit - usedFriendSpots);
-                      return `${remaining} left`;
-                    })()}
-                  </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div
+                  className="card"
+                  onClick={() => setActiveModal('inviteToSquad')}
+                  style={{
+                    flex: 1,
+                    cursor: 'pointer',
+                    justifyContent: 'center',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px dashed #444',
+                    color: 'var(--text-muted)',
+                    gap: '12px',
+                    padding: '16px'
+                  }}>
+                  <FaUserFriends size={24} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Invite to Squad</span>
+                    <span style={{ fontSize: '0.8rem' }}>
+                      {(() => {
+                        const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                        const limit = TIER_LIMITS[tier];
+                        const currentMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+                        const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
+                        const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
+                        const remaining = Math.max(0, limit - usedFriendSpots);
+                        return `${remaining} left`;
+                      })()}
+                    </span>
+                  </div>
                 </div>
+                {/* QR Button */}
+                {(() => {
+                  const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                  const limit = TIER_LIMITS[tier];
+                  const currentMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+                  const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
+                  const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
+                  const remaining = Math.max(0, limit - usedFriendSpots);
+                  
+                  if (tier !== 'free' && remaining > 0) {
+                    return (
+                      <div 
+                        className="card"
+                        onClick={() => setActiveQRModal('squad')}
+                        style={{
+                           width: '70px',
+                           cursor: 'pointer',
+                           justifyContent: 'center',
+                           background: 'rgba(255, 255, 255, 0.05)',
+                           border: '1px dashed var(--primary)',
+                           color: 'var(--primary)',
+                           padding: '16px',
+                           display: 'flex',
+                           alignItems: 'center',
+                           flexDirection: 'column'
+                        }}>
+                        <FaQrcode size={24} />
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
 
@@ -3626,9 +3755,27 @@ export default function App() {
               </div>
             ))}
             {/* Reuse the Invite Friends modal logic to add new friends via email */}
-            <div className="card" onClick={() => setActiveModal('addFriend')} style={{ cursor: 'pointer', justifyContent: 'center', marginTop: '1rem', borderStyle: 'dashed', gap: '8px' }}>
-              <FaPlus size={14} />
-              <p style={{ margin: 0 }}>Add Friend</p>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
+              <div className="card" onClick={() => setActiveModal('addFriend')} style={{ flex: 1, cursor: 'pointer', justifyContent: 'center', margin: 0, borderStyle: 'dashed', gap: '8px' }}>
+                <FaPlus size={14} />
+                <p style={{ margin: 0 }}>Add Friend</p>
+              </div>
+              <div 
+                className="card"
+                onClick={() => setActiveQRModal('friend')}
+                style={{
+                  width: '70px',
+                  cursor: 'pointer',
+                  justifyContent: 'center',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px dashed var(--primary)',
+                  color: 'var(--primary)',
+                  margin: 0,
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                <FaQrcode size={24} />
+              </div>
             </div>
           </div>
         </>
@@ -5490,6 +5637,34 @@ export default function App() {
           showAlert={showAlert}
           showConfirm={showConfirm}
         />
+      )}
+
+      {/* QR Code Modal */}
+      {activeQRModal && currentUser && (
+        <div className="modal-overlay" onClick={() => setActiveQRModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center', padding: '30px' }}>
+            <h2 style={{ marginBottom: '10px' }}>{activeQRModal === 'friend' ? 'Add a Friend' : 'Invite to Squad'}</h2>
+            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '30px' }}>
+              {activeQRModal === 'friend' ? 'Scan to instantly become friends!' : 'Scan to join this squad!'}
+            </p>
+            <div style={{ background: 'white', padding: '20px', borderRadius: '16px', display: 'inline-block' }}>
+              <QRCode 
+                value={
+                  activeQRModal === 'friend' 
+                    ? `${window.location.origin}/?addFriend=${currentUser.uid}`
+                    : `${window.location.origin}/?inviteSquad=${userData?.squadId}&inviter=${currentUser.uid}`
+                } 
+                size={220}
+                style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                viewBox={`0 0 256 256`}
+              />
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '20px' }}>
+              Requires the Herd Search app to scan.
+            </p>
+            <button className="btn w-full mt-4" onClick={() => setActiveQRModal(null)}>Close</button>
+          </div>
+        </div>
       )}
 
     </div >
