@@ -1,6 +1,6 @@
 
 import { useNavigate } from 'react-router-dom';
-import { FaMap, FaUserFriends, FaGhost, FaMapMarkerAlt, FaChevronLeft, FaCloudDownloadAlt } from 'react-icons/fa';
+import { FaMap, FaUserFriends, FaGhost, FaMapMarkerAlt, FaChevronLeft, FaCloudDownloadAlt, FaClock, FaUser } from 'react-icons/fa';
 
 export default function AboutPage() {
     const navigate = useNavigate();
@@ -75,8 +75,28 @@ export default function AboutPage() {
                     </div>
                 </div>
 
+                <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: 'var(--primary)' }}><FaClock /></div>
+                    <div>
+                        <h4 style={{ margin: 0 }}>Group Voting</h4>
+                        <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                            Can't decide where to go? Start a Squad Vote and let the group decide where to head next.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="card" style={{ flexDirection: 'row', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div style={{ marginRight: '1rem', fontSize: '1.5rem', color: '#03dac6' }}><FaUser /></div>
+                    <div>
+                        <h4 style={{ margin: 0 }}>Friend Schedules</h4>
+                        <p style={{ margin: '5px 0 0', fontSize: '0.9rem', color: '#ccc' }}>
+                            View your friends' personal schedules to see who they are watching and where they'll be.
+                        </p>
+                    </div>
+                </div>
+
                 <div style={{ marginTop: '3rem', textAlign: 'center', color: '#666', fontSize: '0.8rem' }}>
-                    <p>Herd Search &copy; 2025</p>
+                    <p>Herd Search &copy; 2026</p>
                     <p>Version 1.0.1 (Beta)</p>
                 </div>
 

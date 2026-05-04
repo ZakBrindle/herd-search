@@ -118,18 +118,17 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter }: 
             });
         }
 
-        // 4. Squad Metrics (General, not just active users, usually) based on active users presence?
-        // Let's stick to showing stats for the filtered users + general context.
-        const multiPersonSquads = squads.filter(s => s.members && s.members.length > 1).length;
-        const totalSquads = squads.length;
+        // 4. Squad Metrics
+        const activeSquads = squads.filter(s => s.members && s.members.length > 1);
+        const squadsInTimeframe = squads.filter(s => s.createdAt && (now - s.createdAt < ms));
 
         return {
             totalActive: activeUsers.length,
             tierData,
             topAreasData,
             timelineData: timelineDataArray,
-            multiPersonSquads,
-            totalSquads
+            activeSquadsCount: activeSquads.length,
+            newSquadsInTimeframe: squadsInTimeframe.length
         };
 
     }, [users, squads, timeFrame]);
@@ -220,9 +219,9 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter }: 
                         <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#03dac6' }}>{stats.totalActive}</div>
                     </div>
                     <div className="card" style={{ background: '#1e1e1e', padding: '1.5rem', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ color: '#888', marginBottom: '0.5rem' }}>Total Squads</span>
-                        <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#bb86fc' }}>{stats.totalSquads}</div>
-                        <span style={{ fontSize: '0.8rem', color: '#666' }}>{stats.multiPersonSquads} have {'>'}1 member</span>
+                        <span style={{ color: '#888', marginBottom: '0.5rem' }}>Active Squads ({'>'}1 member)</span>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#bb86fc' }}>{stats.activeSquadsCount}</div>
+                        <span style={{ fontSize: '0.8rem', color: '#666' }}>{stats.newSquadsInTimeframe} new squads created in {timeFrame}</span>
                     </div>
                 </div>
 
