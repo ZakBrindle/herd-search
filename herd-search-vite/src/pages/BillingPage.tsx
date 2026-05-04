@@ -22,12 +22,18 @@ interface BillingPageProps {
 const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
     const [purchases, setPurchases] = useState<Purchase[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const q = query(collection(db, "purchases"), orderBy("createdAt", "desc"));
         const unsub = onSnapshot(q, (snap) => {
             const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Purchase));
             setPurchases(data);
+            setLoading(false);
+            setError(null);
+        }, (err) => {
+            console.error("Firestore error in BillingPage:", err);
+            setError(err.message);
             setLoading(false);
         });
         return () => unsub();
@@ -68,8 +74,11 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
     if (loading) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#121212', color: 'white' }}>
-                <FaSpinner className="spin" style={{ fontSize: '2rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }} />
-                <p>Loading Billing Data...</p>
+                <img src="/logo-main.png" alt="Logo" style={{ width: '120px', marginBottom: '2.5rem', animation: 'pulsate 3s infinite ease-in-out' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <FaSpinner className="spin" style={{ fontSize: '1.2rem', color: 'var(--primary)' }} />
+                    <p style={{ margin: 0, fontWeight: 'bold', fontSize: '1.1rem' }}>Loading Billing Data...</p>
+                </div>
             </div>
         );
     }
@@ -141,7 +150,25 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
                 <h3 style={{ marginTop: 0, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <FaHistory /> Payment Feed
                 </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+                {error ? (
+                    <div style={{ 
+                        padding: '1.5rem', 
+                        background: 'rgba(207, 102, 121, 0.1)', 
+                        border: '1px solid #cf6679', 
+                        borderRadius: '8px',
+                        color: '#cf6679',
+                        textAlign: 'center'
+                    }}>
+                        <FaTimesCircle style={{ fontSize: '2rem', marginBottom: '1rem' }} />
+                        <h4>Access Denied or Connection Error</h4>
+                        <p style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>{error}</p>
+                        <p style={{ fontSize: '0.8rem', opacity: 0.8 }}>
+                            Tip: Ensure your Firestore rules allow 'list' access on the 'purchases' collection for developers.
+                        </p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     {purchases.map(p => (
                         <div key={p.id} style={{ 
                             padding: '1rem', 
@@ -178,6 +205,7 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
                         <div style={{ textAlign: 'center', padding: '2rem', color: '#555' }}>No payment activity yet.</div>
                     )}
                 </div>
+                )}
             </div>
         </div>
     );

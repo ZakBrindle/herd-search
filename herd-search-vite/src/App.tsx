@@ -2264,17 +2264,27 @@ export default function App() {
   // --- Render ---
   if (authLoading) {
     return (
-      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#121212', color: 'white' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+      <div className="app-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#121212', color: 'white' }}>
+        <img 
+          src="/logo-main.png" 
+          alt="Herd Search" 
+          style={{ 
+            width: 'min(180px, 40vw)', 
+            height: 'auto', 
+            marginBottom: '2.5rem',
+            animation: 'pulsate 3s infinite ease-in-out'
+          }} 
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <div className="spinner" style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid rgba(255,255,255,0.1)',
-            borderTop: '4px solid var(--primary)',
+            width: '24px',
+            height: '24px',
+            border: '3px solid rgba(255,255,255,0.1)',
+            borderTop: '3px solid var(--primary)',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite'
           }}></div>
-          <p>Restoring Session...</p>
+          <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', letterSpacing: '0.5px' }}>Restoring Session...</p>
         </div>
       </div>
     );
