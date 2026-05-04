@@ -3791,7 +3791,23 @@ export default function App() {
           {renderHeader()}
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
-            {userData?.photoURL && <img className="avatar-large" src={userData.photoURL} alt="Profile" />}
+            {userData?.photoURL && (
+              tier !== 'free' ? (
+                <div className="premium-avatar-container">
+                  <img className="avatar-large" src={userData.photoURL} alt="Profile" />
+                  <div className="sparkles-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                    <div className="sparkle"></div>
+                    <div className="sparkle"></div>
+                    <div className="sparkle"></div>
+                    <div className="sparkle"></div>
+                    <div className="sparkle"></div>
+                    <div className="sparkle"></div>
+                  </div>
+                </div>
+              ) : (
+                <img className="avatar-large" src={userData.photoURL} alt="Profile" />
+              )
+            )}
             <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
             <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
 
