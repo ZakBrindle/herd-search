@@ -277,7 +277,7 @@ export default function App() {
         }
       };
 
-      scanner.render(onScanSuccess, (err) => {});
+      scanner.render(onScanSuccess, () => {});
 
       return () => {
         scanner.clear().catch(e => console.warn("Scanner cleanup failed", e));
@@ -758,8 +758,8 @@ export default function App() {
         console.log("Subscription Guard: Verifying subscription status...");
         setLastSubVerify(Date.now());
 
-        // Query the latest completed purchase for this user
-        const q = query(
+        // Query the latest completed purchase for this user (By UID first)
+        let q = query(
           collection(db, "purchases"),
           where("userId", "==", currentUser.uid),
           where("status", "==", "completed"),
@@ -767,7 +767,21 @@ export default function App() {
           limit(1)
         );
 
-        const snap = await getDocs(q);
+        let snap = await getDocs(q);
+
+        // Fallback to Email if UID search fails
+        if (snap.empty && currentUser.email) {
+          console.log("Subscription Guard: No purchases found by UID, trying email fallback...");
+          q = query(
+            collection(db, "purchases"),
+            where("userEmail", "==", currentUser.email.toLowerCase()),
+            where("status", "==", "completed"),
+            orderBy("createdAt", "desc"),
+            limit(1)
+          );
+          snap = await getDocs(q);
+        }
+
         if (!snap.empty) {
           const latestPurchase = snap.docs[0].data();
           const purchaseDate = latestPurchase.createdAt;

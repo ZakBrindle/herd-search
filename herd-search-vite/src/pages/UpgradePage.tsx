@@ -126,6 +126,64 @@ const UpgradePage = () => {
         }
     };
 
+    const handleRestorePurchase = async () => {
+        if (!currentUser) return;
+        setLoading(true);
+        try {
+            console.log("Starting manual purchase restoration...");
+            // Try by UID first
+            let q = query(
+                collection(db, "purchases"),
+                where("userId", "==", currentUser.uid),
+                where("status", "==", "completed")
+            );
+            let snap = await getDocs(q);
+
+            // If not found by UID, try by Email
+            if (snap.empty && currentUser.email) {
+                console.log("No purchases found by UID, trying by email...");
+                q = query(
+                    collection(db, "purchases"),
+                    where("userEmail", "==", currentUser.email.toLowerCase()),
+                    where("status", "==", "completed")
+                );
+                snap = await getDocs(q);
+            }
+
+            if (snap.empty) {
+                alert("No recent completed purchases found for your account.");
+                return;
+            }
+
+            // Find the most recent one
+            const sorted = snap.docs
+                .map(d => d.data())
+                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            
+            const latest = sorted[0];
+            const purchaseDate = latest.createdAt;
+            const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+
+            if (purchaseDate > thirtyDaysAgo) {
+                console.log("Valid purchase found! Updating profile...");
+                await updateDoc(getUserDocRef(currentUser.uid), {
+                    tier: latest.tier,
+                    subscriptionExpiry: purchaseDate + (30 * 24 * 60 * 60 * 1000),
+                    isPaymentPending: false
+                });
+                alert(`Successfully restored ${latest.tier.toUpperCase()} plan!`);
+                navigate('/');
+            } else {
+                alert("Your last purchase was more than 30 days ago and has expired.");
+            }
+        } catch (error) {
+            console.error("Restore failed:", error);
+            alert("Something went wrong while restoring. Please try again later.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const hasActiveSubscription = (user: any) => {
         if (!user) return false;
         if (user.isDev) return true;
@@ -252,14 +310,32 @@ const UpgradePage = () => {
                 ))}
             </div>
 
-            {/* Legal Text */}
-            <div style={{ textAlign: 'center', padding: '0 1rem' }}>
+            <div style={{ textAlign: 'center', padding: '0 1rem', marginBottom: '2rem' }}>
                 <p style={{ color: '#666', fontSize: '0.85rem', lineHeight: '1.4' }}>
                     By purchasing a plan, you agree to our <Link to="/terms" style={{ color: 'var(--primary, #03dac6)', textDecoration: 'underline' }}>Terms of Service</Link>.
                 </p>
                 <p style={{ color: '#555', fontSize: '0.75rem', marginTop: '1rem' }}>
                     All plans are one-time payments for 30 days of access.
                 </p>
+
+                <div style={{ marginTop: '2rem', borderTop: '1px solid #333', paddingTop: '2rem' }}>
+                    <p style={{ color: '#888', fontSize: '0.8rem', marginBottom: '1rem' }}>Already paid but still on Free?</p>
+                    <button 
+                        onClick={handleRestorePurchase}
+                        disabled={loading}
+                        style={{ 
+                            background: 'transparent',
+                            border: '1px solid #444',
+                            color: '#aaa',
+                            padding: '10px 20px',
+                            borderRadius: '8px',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            fontSize: '0.9rem'
+                        }}
+                    >
+                        {loading ? 'Checking...' : 'Restore Purchase'}
+                    </button>
+                </div>
             </div>
         </div>
     );
