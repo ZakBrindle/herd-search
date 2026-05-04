@@ -21,6 +21,7 @@ import { getToken, onMessage } from "firebase/messaging";
 // --- Type Definitions ---
 import LocationPicker from './components/LocationPicker';
 import DevStats from './components/DevStats';
+import AllUsersPage from './pages/AllUsersPage';
 import InstallModal from './components/modals/InstallModal';
 import PaymentResultModal from './components/modals/PaymentResultModal';
 import QRCode from 'react-qr-code';
@@ -241,6 +242,7 @@ export default function App() {
   const [scheduleViewingUser, setScheduleViewingUser] = useState<UserData | null>(null);
 
   // QR Code Modal State
+  const [showAllUsers, setShowAllUsers] = useState(false);
   const [activeQRModal, setActiveQRModal] = useState<'friend' | 'squad' | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [lastSubVerify, setLastSubVerify] = useState(0);
@@ -2452,7 +2454,6 @@ export default function App() {
         console.warn("Could not add self to other user's friend list (Permission/Missing Field). They may need to add you back manually.", err);
         // We do NOT throw here, so we can still delete the request.
         // However, the "Auto-Desync" feature might remove them later if they don't have us.
-        // Ideally, we'd inform the user.
         showAlert("Friend accepted! Note: You might not appear in their list until they add you too.");
         warningShown = true;
       }
@@ -5538,8 +5539,16 @@ export default function App() {
               setShowDevStats(false);
               setShowAdminBilling(true);
             }}
+            onOpenAllUsers={() => {
+              setShowDevStats(false);
+              setShowAllUsers(true);
+            }}
           />
         </div>
+      )}
+
+      {showAllUsers && (
+        <AllUsersPage onClose={() => setShowAllUsers(false)} />
       )}
 
       {showAdminBilling && (

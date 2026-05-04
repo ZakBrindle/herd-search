@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, onSnapshot, query, where, type DocumentData } from 'firebase/firestore';
+import { collection, getDocs, query, where, type DocumentData } from 'firebase/firestore';
 import { db } from '../firebase';
 import { 
-    FaChevronLeft, FaSearch, FaFilter, FaUser, FaUserFriends, 
+    FaChevronLeft, FaSearch, FaUser, FaUserFriends, 
     FaMapMarkerAlt, FaClock, FaCheckCircle, FaTimesCircle, 
-    FaDollarSign, FaCrown, FaUsers, FaSatellite 
+    FaDollarSign, FaUsers, FaSatellite 
 } from 'react-icons/fa';
 
 interface UserAuditData {
