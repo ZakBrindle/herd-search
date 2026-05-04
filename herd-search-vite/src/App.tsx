@@ -439,24 +439,22 @@ export default function App() {
     return (
       <div style={{ 
         textAlign: 'center', 
-        padding: '15px', 
-        background: 'rgba(255,255,255,0.03)', 
-        borderRadius: '12px', 
-        marginBottom: '15px',
-        border: '1px solid rgba(255,255,255,0.05)'
+        padding: '20px 0', 
+        marginBottom: '20px',
+        width: '100%'
       }}>
-        <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '8px' }}>How's your weekend going?</div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'white', marginBottom: '15px', letterSpacing: '0.5px' }}>How's the app?</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '0 15px' }}>
           {[1, 2, 3, 4, 5].map(star => (
             <div 
               key={star} 
               onClick={() => handleRateApp(star)}
               className={isJiggling && star <= isJiggling ? 'jiggle' : ''}
-              style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
+              style={{ cursor: 'pointer', transition: 'transform 0.2s', flex: 1, display: 'flex', justifyContent: 'center' }}
             >
               {star <= (isJiggling || 0) ? 
-                <FaStar size={24} color="#FFD700" /> : 
-                <FaRegStar size={24} color="#555" />
+                <FaStar size={48} color="#FFD700" /> : 
+                <FaRegStar size={48} color="#333" />
               }
             </div>
           ))}
