@@ -33,9 +33,11 @@ const formatDuration = (ms: number) => {
 
 export default function WrappedModal({ stats, friendsData, onClose, isFestival }: WrappedModalProps) {
     const [slideIndex, setSlideIndex] = useState(0);
+    // Filter out days with 0 active time
+    const activeDays = (stats.dailyData || []).filter(day => day.totalTimeActiveMs > 0);
 
     // Calculate total slides based on mode
-    const totalSlides = isFestival ? (4 + (stats.dailyData?.length || 0)) : 4;
+    const totalSlides = isFestival ? (4 + activeDays.length) : 4;
 
     const nextSlide = () => {
         if (slideIndex < totalSlides - 1) {
@@ -68,7 +70,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
         if (slideIndex === 0) return 'linear-gradient(135deg, #FF0080, #7928CA)'; // Intro: Vibrant Pink/Purple
         if (slideIndex === 1) return 'linear-gradient(135deg, #40E0D0, #FF8C00, #FF0080)'; // Top 5: Multi-color vibe
 
-        const dailyDataLength = stats.dailyData?.length || 0;
+        const dailyDataLength = activeDays.length;
         
         // Daily slides
         if (slideIndex >= 2 && slideIndex < 2 + dailyDataLength) {
@@ -78,6 +80,8 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                 'linear-gradient(135deg, #f7971e, #ffd200)', // Saturday: Gold/Sun
                 'linear-gradient(135deg, #FC466B, #3F5EFB)', // Sunday: Pink/Blue
             ];
+            // Match gradient to the actual day of the festival if possible, 
+            // but for now we'll just cycle through them for the active days.
             return dayGradients[(slideIndex - 2) % dayGradients.length];
         }
 
@@ -188,7 +192,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                         )}
 
                         {/* Slides 2-5: Daily Highlights */}
-                        {stats.dailyData?.map((day, dayIndex) => {
+                        {activeDays.map((day, dayIndex) => {
                             if (slideIndex === 2 + dayIndex) {
                                 const dayTopAreas = Object.entries(day.areasVisited)
                                     .map(([name, timeMs]) => ({ name: name.replace(/_/g, '.'), timeMs }))
@@ -241,7 +245,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                         })}
 
                         {/* Slide after days: Squad Bestie */}
-                        {slideIndex === 2 + (stats.dailyData?.length || 0) && (
+                        {slideIndex === 2 + activeDays.length && (
                             <div className="slide-content animate-slide-up">
                                 <h2 style={{ fontSize: '1.5rem', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '40px' }}>Festival Bestie</h2>
 
@@ -270,7 +274,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                         )}
 
                         {/* Slide after bestie: Final Recap */}
-                        {slideIndex === 3 + (stats.dailyData?.length || 0) && (
+                        {slideIndex === 3 + activeDays.length && (
                             <div className="slide-content animate-slide-up">
                                 <h2 style={{ fontSize: '2rem', marginBottom: '30px' }}>The Recap</h2>
 
