@@ -54,6 +54,13 @@ interface DailyStats {
   topAreas: { name: string; timeMs: number }[];
   topFriends: { uid: string; timeMs: number }[];
   totalTimeActiveMs: number;
+  dailyData?: {
+    dayName: string;
+    date: string;
+    areasVisited: Record<string, number>;
+    friendsProximity: Record<string, number>;
+    totalTimeActiveMs: number;
+  }[];
 }
 
 
@@ -3588,7 +3595,7 @@ export default function App() {
                 }}>
                 <FaUserFriends size={24} />
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Invite Friends to Squad</span>
+                  <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Invite to Squad</span>
                   <span style={{ fontSize: '0.8rem' }}>
                     {(() => {
                       const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
@@ -4153,7 +4160,7 @@ export default function App() {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const data = snap.data();
-        processAndShowStats(dateStr, data);
+        processAndShowStats(dateStr, data, []);
 
         // Update last seen
         const lastSeen = userData.lastSeenWrapped || '1970-01-01';
@@ -4259,27 +4266,30 @@ export default function App() {
         }
       }
 
-      processAndShowStats("Festival Wrapped", aggregated);
+      processAndShowStats("Festival Wrapped", aggregated, aggregated.dailyData);
 
     } catch (e) {
       console.error("Error loading festival stats", e);
     }
   };
 
-  const processAndShowStats = (label: string, data: any) => {
+  const processAndShowStats = (label: string, data: any, dailyData: any[] = []) => {
     const areasList = Object.entries(data.areasVisited || {})
       .map(([name, time]) => ({ name: name.replace(/_/g, '.'), timeMs: time as number }))
+      .filter(a => a.timeMs > 0)
       .sort((a, b) => b.timeMs - a.timeMs);
 
     const friendsList = Object.entries(data.friendsProximity || {})
       .map(([uid, time]) => ({ uid, timeMs: time as number }))
+      .filter(f => f.timeMs > 0)
       .sort((a, b) => b.timeMs - a.timeMs);
 
     setSelectedWrappedStats({
       date: label,
       topAreas: areasList,
       topFriends: friendsList,
-      totalTimeActiveMs: data.totalTimeActiveMs || 0
+      totalTimeActiveMs: data.totalTimeActiveMs || 0,
+      dailyData: dailyData
     });
     setShowWrappedModal(true);
   };

@@ -35,7 +35,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
     const [slideIndex, setSlideIndex] = useState(0);
 
     // Calculate total slides based on mode
-    const totalSlides = isFestival ? (10 + (stats.dailyData?.length || 0)) : 4;
+    const totalSlides = isFestival ? (4 + (stats.dailyData?.length || 0)) : 4;
 
     const nextSlide = () => {
         if (slideIndex < totalSlides - 1) {
@@ -123,32 +123,39 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                         {slideIndex === 1 && (
                             <div className="slide-content animate-slide-up">
                                 <h2 style={{ fontSize: '1.5rem', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '30px' }}>Your Top 5 Spots</h2>
-                                {top5Spots.map((area, index) => (
-                                    <div key={area.name} style={{
-                                        background: 'rgba(255,255,255,0.1)',
-                                        padding: '15px 20px',
-                                        borderRadius: '12px',
-                                        marginBottom: '10px',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                            <div style={{
-                                                fontSize: '1.5rem',
-                                                fontWeight: 'bold',
-                                                width: '30px',
-                                                opacity: index === 0 ? 1 : 0.7
-                                            }}>
-                                                {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
+                                {top5Spots.length > 0 ? (
+                                    top5Spots.map((area, index) => (
+                                        <div key={area.name} style={{
+                                            background: 'rgba(255,255,255,0.1)',
+                                            padding: '15px 20px',
+                                            borderRadius: '12px',
+                                            marginBottom: '10px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                <div style={{
+                                                    fontSize: '1.5rem',
+                                                    fontWeight: 'bold',
+                                                    width: '30px',
+                                                    opacity: index === 0 ? 1 : 0.7
+                                                }}>
+                                                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
+                                                </div>
+                                                <div style={{ textAlign: 'left' }}>
+                                                    <div style={{ fontWeight: 'bold', fontSize: index === 0 ? '1.2rem' : '1rem' }}>{area.name}</div>
+                                                </div>
                                             </div>
-                                            <div style={{ textAlign: 'left' }}>
-                                                <div style={{ fontWeight: 'bold', fontSize: index === 0 ? '1.2rem' : '1rem' }}>{area.name}</div>
-                                            </div>
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{formatDuration(area.timeMs)}</div>
                                         </div>
-                                        <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{formatDuration(area.timeMs)}</div>
+                                    ))
+                                ) : (
+                                    <div style={{ marginTop: '40px' }}>
+                                        <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🏃‍♂️</div>
+                                        <p style={{ fontSize: '1.2rem' }}>You were a true wanderer!<br />You explored the Wilds all weekend.</p>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         )}
 
@@ -247,7 +254,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                                 <div className="stat-card" style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '15px', width: '100%', marginBottom: '15px' }}>
                                     <div style={{ fontSize: '0.9rem', textTransform: 'uppercase', opacity: 0.7 }}>Top Spot</div>
                                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{topSpot?.name || "The Wilds"}</div>
-                                    <div style={{ fontSize: '1rem', marginTop: '5px' }}>{formatDuration(topSpot?.timeMs || 0)}</div>
+                                    {topSpot && <div style={{ fontSize: '1rem', marginTop: '5px' }}>{formatDuration(topSpot.timeMs)}</div>}
                                 </div>
 
                                 <div className="stat-card" style={{ background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '15px', width: '100%', marginBottom: '15px' }}>
