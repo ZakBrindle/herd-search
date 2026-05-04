@@ -187,6 +187,7 @@ export default function App() {
   const [outgoingSquadInvites, setOutgoingSquadInvites] = useState<DocumentData[]>([]);
   const [incomingFriendRequests, setIncomingFriendRequests] = useState<DocumentData[]>([]);
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
+  const [incomingSquadJoinRequests, setIncomingSquadJoinRequests] = useState<DocumentData[]>([]);
   const [currentStatusInput, setCurrentStatusInput] = useState('');
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
   const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
@@ -724,16 +725,7 @@ export default function App() {
 
       if (parkedAddFriend) {
         if (parkedAddFriend !== currentUser.uid) { // Don't add self
-          try {
-            console.log("Processing Add Friend QR for:", parkedAddFriend);
-            await updateDoc(getUserDocRef(currentUser.uid), { friends: arrayUnion(parkedAddFriend) });
-            await updateDoc(getUserDocRef(parkedAddFriend), { friends: arrayUnion(currentUser.uid) });
-            showAlert("Added new friend from QR code! 🤝");
-            setActiveTab('friends'); // Switch to friends tab to see them
-          } catch (e) {
-            console.error("Error adding friend from QR:", e);
-            showAlert("Failed to add friend. They may need to add you back.");
-          }
+          handleSendFriendRequest(parkedAddFriend);
         }
         localStorage.removeItem('parkedAddFriend');
       }
@@ -742,34 +734,12 @@ export default function App() {
         try {
           const { squadId, inviter } = JSON.parse(parkedInviteSquadStr);
           if (inviter !== currentUser.uid) { // Don't invite self
-            console.log("Processing Squad Invite QR:", { squadId, inviter });
-            // 1. Mutually add friends if needed
-            await updateDoc(getUserDocRef(currentUser.uid), { friends: arrayUnion(inviter) }).catch(e => console.warn(e));
-            await updateDoc(getUserDocRef(inviter), { friends: arrayUnion(currentUser.uid) }).catch(e => console.warn(e));
-
-            // 2. Add to squad
-            const squadRef = doc(db, 'squads', squadId);
-            const squadSnap = await getDoc(squadRef);
-            if (squadSnap.exists()) {
-              const members = squadSnap.data().members || [];
-              if (!members.includes(currentUser.uid)) {
-                await updateDoc(squadRef, { members: arrayUnion(currentUser.uid) });
-                await updateDoc(getUserDocRef(currentUser.uid), { 
-                  squadId: squadId,
-                  squadOwnerId: squadSnap.data().ownerId
-                });
-                showAlert("Joined squad via QR code! 🎉");
-                setActiveTab('map'); // Switch to map to see squad
-              } else {
-                showAlert("You are already in this squad.");
-              }
-            } else {
-              showAlert("Squad not found or no longer exists.");
-            }
+            console.log("Processing Squad Request QR:", { squadId, inviter });
+            handleSendSquadJoinRequest(squadId, inviter);
           }
         } catch (e) {
-          console.error("Error processing squad invite from QR:", e);
-          showAlert("Failed to join squad. The link might be invalid.");
+          console.error("Error processing squad join request from QR:", e);
+          showAlert("Failed to send squad request. The link might be invalid.");
         }
         localStorage.removeItem('parkedInviteSquad');
       }
@@ -2420,22 +2390,54 @@ export default function App() {
       setOutgoingFriendRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    return () => { unsubIn(); unsubOut(); unsubFreqIn(); unsubFreqOut(); };
+    const qJoinIn = query(collection(db, "squadJoinRequests"), where("to", "==", currentUser.uid), where("status", "==", "pending"));
+    const unsubJoinIn = onSnapshot(qJoinIn, (snapshot) => {
+      setIncomingSquadJoinRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => { unsubIn(); unsubOut(); unsubFreqIn(); unsubFreqOut(); unsubJoinIn(); };
   }, [currentUser?.uid]);
 
   const handleSendFriendRequest = async (friendUid: string) => {
     if (!currentUser || !userData) return;
     try {
-      // Check if already friends
+      // 1. Check if already friends
       if (userData?.friends?.includes(friendUid)) {
         showAlert("You are already friends!");
         return;
       }
+
+      // 2. Check if request already pending or recently declined (2h cooldown)
+      const q = query(
+        collection(db, "friendRequests"),
+        where("from", "==", currentUser.uid),
+        where("to", "==", friendUid),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const existing = snap.docs[0].data();
+        if (existing.status === 'pending') {
+          showAlert("Friend request is already pending.");
+          return;
+        }
+        if (existing.status === 'declined') {
+          const diff = Date.now() - (existing.updatedAt || 0);
+          if (diff < 2 * 60 * 60 * 1000) {
+            const minsLeft = Math.ceil((2 * 60 * 60 * 1000 - diff) / 60000);
+            showAlert(`Request declined recently. Try again in ${minsLeft} minutes.`);
+            return;
+          }
+        }
+      }
+
       await addDoc(collection(db, "friendRequests"), {
         from: currentUser.uid,
         to: friendUid,
         status: 'pending',
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        updatedAt: Date.now()
       });
 
       // --- Send Push Notification (Friend Request) ---
@@ -2508,7 +2510,136 @@ export default function App() {
 
   const handleDeclineFriendRequest = async (request: DocumentData) => {
     try {
-      await deleteDoc(doc(db, "friendRequests", request.id));
+      await updateDoc(doc(db, "friendRequests", request.id), {
+        status: "declined",
+        updatedAt: Date.now()
+      });
+      showAlert("Friend request declined.");
+    } catch (e) { console.error(e); }
+  };
+
+  const handleSendSquadJoinRequest = async (squadId: string, leaderUid: string) => {
+    if (!currentUser || !userData) return;
+    try {
+      if (userData.squadId === squadId) {
+        showAlert("You are already in this squad!");
+        return;
+      }
+
+      // Check cooldown (2h)
+      const q = query(
+        collection(db, "squadJoinRequests"),
+        where("from", "==", currentUser.uid),
+        where("to", "==", leaderUid),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const existing = snap.docs[0].data();
+        if (existing.status === 'pending') {
+          showAlert("Join request already pending.");
+          return;
+        }
+        if (existing.status === 'declined') {
+          const diff = Date.now() - (existing.updatedAt || 0);
+          if (diff < 2 * 60 * 60 * 1000) {
+            const minsLeft = Math.ceil((2 * 60 * 60 * 1000 - diff) / 60000);
+            showAlert(`Request declined recently. Try again in ${minsLeft} minutes.`);
+            return;
+          }
+        }
+      }
+
+      await addDoc(collection(db, "squadJoinRequests"), {
+        from: currentUser.uid,
+        to: leaderUid,
+        squadId: squadId,
+        status: 'pending',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+
+      showAlert("Squad join request sent to leader!");
+
+      // Notification to leader
+      try {
+        const leaderSnap = await getDoc(getUserDocRef(leaderUid));
+        if (leaderSnap.exists() && leaderSnap.data().fcmToken) {
+          fetch('/api/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tokens: [leaderSnap.data().fcmToken],
+              title: 'New Squad Request! 🛡️',
+              body: `${userData.displayName?.split(' ')[0]} wants to join your squad.`,
+              data: { type: 'squad_request', fromUid: userData.uid }
+            })
+          });
+        }
+      } catch (e) { console.warn(e); }
+
+    } catch (e) {
+      console.error(e);
+      showAlert("Error sending squad request.");
+    }
+  };
+
+  const handleAcceptSquadJoinRequest = async (request: DocumentData) => {
+    if (!userData || !userData.squadId) return;
+    try {
+      // 1. Check squad limit
+      const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+      const limit = TIER_LIMITS[tier];
+      const squadRef = doc(db, 'squads', userData.squadId);
+      const squadSnap = await getDoc(squadRef);
+      if (!squadSnap.exists()) return;
+      
+      const members = squadSnap.data().members || [];
+      if (members.length >= limit + 1) {
+        showAlert("Your squad is full! Upgrade to add more people.");
+        return;
+      }
+
+      // 2. Accept
+      await updateDoc(squadRef, { members: arrayUnion(request.from) });
+      await updateDoc(getUserDocRef(request.from), {
+        squadId: userData.squadId,
+        squadOwnerId: userData.uid
+      });
+      await updateDoc(doc(db, "squadJoinRequests", request.id), {
+        status: 'accepted',
+        updatedAt: Date.now()
+      });
+
+      // 3. Optional: Add as friends too (mutual)
+      await updateDoc(getUserDocRef(userData.uid), { friends: arrayUnion(request.from) }).catch(console.error);
+      await updateDoc(getUserDocRef(request.from), { friends: arrayUnion(userData.uid) }).catch(console.error);
+
+      // 4. Send to Chat
+      addDoc(collection(db, "squads", userData.squadId, "messages"), {
+        senderId: 'system',
+        senderName: 'Squad Info',
+        senderPhotoURL: '',
+        content: `${request.fromName || 'Someone'} joined the squad! 🛡️`,
+        type: 'status_update',
+        createdAt: Date.now()
+      }).catch(console.error);
+
+      showAlert("Request accepted! They are now in your squad.");
+    } catch (e) {
+      console.error(e);
+      showAlert("Error accepting request.");
+    }
+  };
+
+  const handleDeclineSquadJoinRequest = async (request: DocumentData) => {
+    try {
+      await updateDoc(doc(db, "squadJoinRequests", request.id), {
+        status: 'declined',
+        updatedAt: Date.now()
+      });
+      showAlert("Join request declined.");
     } catch (e) { console.error(e); }
   };
 
@@ -3630,10 +3761,10 @@ export default function App() {
       return (
         <>
           {renderHeader()}
-          {(incomingFriendRequests.length > 0 || incomingSquadInvites.length > 0) && (
+          {(incomingFriendRequests.length > 0 || incomingSquadInvites.length > 0 || incomingSquadJoinRequests.length > 0) && (
             <>
               <h2 className="section-title">Requests</h2>
-              {/* Incoming Requests */}
+              {/* Incoming Friend Requests */}
               {incomingFriendRequests.map(req => (
                 <div key={req.id} className="card">
                   <div>
@@ -3645,6 +3776,19 @@ export default function App() {
                   </div>
                 </div>
               ))}
+              {/* Incoming Squad Join Requests (Someone wants to join ME) */}
+              {incomingSquadJoinRequests.map(req => (
+                <div key={req.id} className="card" style={{ borderLeft: '4px solid var(--secondary)' }}>
+                  <div>
+                    <strong>{getDisplayNameByUid(req.from)}</strong> wants to join your squad.
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleAcceptSquadJoinRequest(req)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
+                    <button onClick={() => handleDeclineSquadJoinRequest(req)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+                  </div>
+                </div>
+              ))}
+              {/* Incoming Squad Invites (A leader invited ME) */}
               {incomingSquadInvites.map(invite => (
                 <div key={invite.id} className="card">
                   <div>
@@ -3675,7 +3819,7 @@ export default function App() {
               </div>
             );
           })}
-          {(incomingFriendRequests.length === 0 && incomingSquadInvites.length === 0 && outgoingFriendRequests.length === 0) && (
+          {(incomingFriendRequests.length === 0 && incomingSquadInvites.length === 0 && incomingSquadJoinRequests.length === 0 && outgoingFriendRequests.length === 0) && (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginBottom: '1rem', fontStyle: 'italic' }}>No pending requests.</p>
           )}
 
