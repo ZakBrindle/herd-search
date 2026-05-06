@@ -90,7 +90,7 @@ const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: str
     }
 
     // Subscribe to that squad to check member count
-    const unsub = onSnapshot(doc(db, "squads", friend.squadId), (sDoc) => {
+    const unsub = onSnapshot(doc(db, "squads", friend.squadId), (sDoc: any) => {
       if (sDoc.exists()) {
         const data = sDoc.data();
         if (data?.members && data.members.length > 1) {
@@ -274,7 +274,7 @@ export default function App() {
               html5QrCode?.clear();
               setIsScannerOpen(false);
               setActiveQRModal(null);
-            }).catch(e => console.error("Stop failed", e));
+            }).catch((e: any) => console.error("Stop failed", e));
           }
         } catch (e) {
           console.error("Invalid QR code scanned:", decodedText);
@@ -287,7 +287,7 @@ export default function App() {
           const devices = await Html5Qrcode.getCameras();
           if (devices && devices.length > 0) {
             // Find back camera, fallback to first available
-            const backCamera = devices.find(d => d.label.toLowerCase().includes('back')) || devices[0];
+            const backCamera = devices.find((d: any) => d.label.toLowerCase().includes('back')) || devices[0];
             
             await html5QrCode?.start(
               backCamera.id,
@@ -310,7 +310,7 @@ export default function App() {
 
       return () => {
         if (html5QrCode?.isScanning) {
-          html5QrCode.stop().then(() => html5QrCode?.clear()).catch(e => console.warn("Cleanup failed", e));
+          html5QrCode.stop().then(() => html5QrCode?.clear()).catch((e: any) => console.warn("Cleanup failed", e));
         }
       };
     }
@@ -505,8 +505,8 @@ export default function App() {
         }
 
         const active = snap.docs
-          .map(d => d.data() as UserData)
-          .filter(u => u.lastUpdate && (now - u.lastUpdate < durationMs));
+          .map((d: any) => d.data() as UserData)
+          .filter((u: any) => u.lastUpdate && (now - u.lastUpdate < durationMs));
 
         setAllUsersOnMap(active);
       } catch (e) { console.error("Dev Map Fetch Error:", e); }
@@ -551,7 +551,7 @@ export default function App() {
       statsRef.current.totalTime += delta;
 
       // Log Friends Proximity
-      friendsData.forEach(friend => {
+      friendsData.forEach((friend: any) => {
         if (friend.squadId === userData.squadId && friend.location && userData.location) {
           const dx = friend.location.x - userData.location.x;
           const dy = friend.location.y - userData.location.y;
@@ -616,6 +616,12 @@ export default function App() {
       let latestAvailable = null;
 
       for (const day of daysToCheck) {
+        // Only include Thu (4), Fri (5), Sat (6), Sun (0)
+        const d = new Date(day + 'T12:00:00');
+        const dayOfWeek = d.getDay(); 
+        const isFestivalDay = [0, 4, 5, 6].includes(dayOfWeek);
+        if (!isFestivalDay) continue;
+
         const docRef = doc(db, 'users', userData.uid, 'dailyStats', day);
         const snap = await getDoc(docRef);
         if (snap.exists()) {
@@ -649,6 +655,8 @@ export default function App() {
             localStorage.setItem(lastShownKey, today);
           }
         }
+      } else {
+        setNewWrappedAvailable(null);
       }
     };
 
@@ -1065,7 +1073,7 @@ export default function App() {
         };
 
         if (err.code === 3) {
-          setGpsTimeoutCount(prevCount => {
+          setGpsTimeoutCount((prevCount: number) => {
             const newCount = prevCount + 1;
             if (newCount >= 3) {
               handleGpsFail();
@@ -1193,7 +1201,7 @@ export default function App() {
     }
 
     const friendsUpcoming: any[] = [];
-    friendsData.forEach(friend => {
+    friendsData.forEach((friend: any) => {
       if (friend.squadId === userData.squadId && friend.schedule) {
         Object.values(friend.schedule as Record<string, any>).forEach(item => {
           if (item.day === currentFestivalDay) {
@@ -1349,7 +1357,7 @@ export default function App() {
     }
 
     // Check Squad Size Limit
-    const squadMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+    const squadMembers = [userData, ...friendsData].filter((u: any) => u.squadId === userData.squadId);
     if (squadMembers.length >= (TIER_LIMITS[myTier] + 1)) { // +1 for self
       setActiveModal('limitReached');
       return;
@@ -1582,7 +1590,7 @@ export default function App() {
       const squadRef = doc(db, "squads", userData.squadId);
 
       // Check if everyone has voted OR majority reached
-      const squadMembers = (squadData?.members) || [userData.uid, ...(friendsData.filter(f => f.squadId === userData.squadId).map(f => f.uid))];
+      const squadMembers = (squadData?.members) || [userData.uid, ...(friendsData.filter((f: any) => f.squadId === userData.squadId).map((f: any) => f.uid))];
       const squadSize = squadMembers.length;
 
       const yesVotes = Object.values(updatedVotes).filter(v => v === 'yes').length;
@@ -1718,7 +1726,7 @@ export default function App() {
     const totalVotes = Object.keys(activeVote.votes).length;
 
     // Squad members count (me + friends in squad)
-    const squadMembers = (squadData?.members) || [userData.uid, ...(friendsData.filter(f => f.squadId === userData.squadId).map(f => f.uid))];
+    const squadMembers = (squadData?.members) || [userData.uid, ...(friendsData.filter((f: any) => f.squadId === userData.squadId).map((f: any) => f.uid))];
     const squadSize = squadMembers.length;
 
     const yesCount = Object.values(activeVote.votes).filter(v => v === 'yes').length;
@@ -1925,13 +1933,13 @@ export default function App() {
 
   const getSquadLeaderUid = () => {
     if (!userData?.squadId) return null;
-    const leader = [userData, ...friendsData].find(u => u.uid === userData.squadOwnerId);
+    const leader = [userData, ...friendsData].find((u: any) => u.uid === userData.squadOwnerId);
     return leader ? leader.uid : userData.squadOwnerId || userData.uid;
   };
 
   const getDisplayNameByUid = (uid: string): string => {
     if (uid === userData?.uid) return userData.displayName || uid;
-    const friend = friendsData.find(f => f.uid === uid);
+    const friend = friendsData.find((f: any) => f.uid === uid);
     if (friend?.displayName) return friend.displayName;
     return publicProfileCache[uid] || uid;
   };
@@ -1944,7 +1952,7 @@ export default function App() {
       ...outgoingFriendRequests.map(req => req.to)
     ].filter(uid =>
       uid !== userData?.uid &&
-      !friendsData.some(f => f.uid === uid) &&
+      !friendsData.some((f: any) => f.uid === uid) &&
       !(publicProfileCache[uid])
     );
     if (inviteUids.length === 0) return;
@@ -2314,7 +2322,7 @@ export default function App() {
  
     const desyncedFriends: string[] = [];
  
-    friendsData.forEach(friend => {
+    friendsData.forEach((friend: any) => {
       // Check if the friend still has us in their friends list
       // We check explicit absence. Use optional chaining in case field is missing.
       const IsInTheirList = friend.friends?.includes(currentUser.uid);
@@ -2331,7 +2339,7 @@ export default function App() {
       updateDoc(getUserDocRef(currentUser.uid), {
         friends: arrayRemove(...desyncedFriends)
       }).then(() => {
-        const names = friendsData.filter(f => desyncedFriends.includes(f.uid)).map(f => f.displayName).join(", ");
+        const names = friendsData.filter((f: any) => desyncedFriends.includes(f.uid)).map((f: any) => f.displayName).join(", ");
         showAlert(`Connection with ${names} was out of sync and has been reset.`);
       }).catch(console.error);
     }
@@ -3248,7 +3256,7 @@ export default function App() {
 
               // Friends (in squad, not ghost)
               if (!devMapFilterDuration) {
-                const visibleFriends = friendsData.filter(f => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()));
+                const visibleFriends = friendsData.filter((f: any) => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()));
                 visibleMembers.push(...visibleFriends);
               }
 
@@ -3376,7 +3384,7 @@ export default function App() {
             {/* Dev Mode: All Users Markers */}
             {devMapFilterDuration && allUsersOnMap.map(u => {
               if (!u.location) return null;
-              const isFriend = friendsData.some(f => f.uid === u.uid);
+              const isFriend = friendsData.some((f: any) => f.uid === u.uid);
               const isMe = u.uid === userData?.uid;
               let borderColor = '#999'; // Default
               if (isMe) borderColor = 'var(--primary)';
@@ -3569,7 +3577,7 @@ export default function App() {
           <h2 className="section-title">My Squad</h2>
           <div className="squad-list horizontal" style={{ display: 'flex', overflowX: 'auto', gap: '8px', paddingBottom: '8px' }}>
             {userData?.squadId && (() => {
-              const squadMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+              const squadMembers = [userData, ...friendsData].filter((u: any) => u.squadId === userData.squadId);
               const leaderUid = getSquadLeaderUid();
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
@@ -3667,7 +3675,7 @@ export default function App() {
             {(() => {
               const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
               return pendingInvites.map(invite => {
-                const friend = friendsData.find(f => f.uid === invite.to);
+                const friend = friendsData.find((f: any) => f.uid === invite.to);
                 return (
                   <div key={invite.id} className="card" style={{
                     minWidth: '200px',
@@ -3762,7 +3770,7 @@ export default function App() {
                   {(() => {
                     const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
                     const limit = TIER_LIMITS[tier];
-                    const currentMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+                    const currentMembers = [userData, ...friendsData].filter((u: any) => u.squadId === userData.squadId);
                     const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
                     const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
                     const remaining = Math.max(0, limit - usedFriendSpots);
@@ -3921,7 +3929,7 @@ export default function App() {
           <h2 className="section-title">My Squad</h2>
           <div className="squad-list">
             {userData?.squadId && (() => {
-              const squadMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+              const squadMembers = [userData, ...friendsData].filter((u: any) => u.squadId === userData.squadId);
               const leaderUid = getSquadLeaderUid();
               return squadMembers
                 .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
@@ -4015,7 +4023,7 @@ export default function App() {
             {(() => {
               const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
               return pendingInvites.map(invite => {
-                const friend = friendsData.find(f => f.uid === invite.to);
+                const friend = friendsData.find((f: any) => f.uid === invite.to);
                 return (
                   <div key={invite.id} className="card" style={{
                     flexDirection: 'row',
@@ -4087,7 +4095,7 @@ export default function App() {
                       {(() => {
                         const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
                         const limit = TIER_LIMITS[tier];
-                        const currentMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+                        const currentMembers = [userData, ...friendsData].filter((u: any) => u.squadId === userData.squadId);
                         const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
                         const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
                         const remaining = Math.max(0, limit - usedFriendSpots);
@@ -4100,7 +4108,7 @@ export default function App() {
                 {(() => {
                   const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
                   const limit = TIER_LIMITS[tier];
-                  const currentMembers = [userData, ...friendsData].filter(u => u.squadId === userData.squadId);
+                  const currentMembers = [userData, ...friendsData].filter((u: any) => u.squadId === userData.squadId);
                   const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
                   const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
                   const remaining = Math.max(0, limit - usedFriendSpots);
@@ -4141,7 +4149,7 @@ export default function App() {
 
           <h2 style={{ paddingTop: '1rem' }} className="section-title">All Friends</h2>
           <div className="squad-list">
-            {friendsData.filter(f => userData?.friends?.includes(f.uid)).map(friend => (
+            {friendsData.filter((f: any) => userData?.friends?.includes(f.uid)).map((friend: any) => (
               <div key={friend.uid} className="card" onClick={() => { setSelectedMember(friend); setSelectedMemberContext('friend'); }}>
                 <img src={friend.photoURL || "/default-avatar.png"} className="avatar" alt="Avatar" />
                 <div>
@@ -4453,7 +4461,7 @@ export default function App() {
                   {['Thursday', 'Friday', 'Saturday', 'Sunday'].map((dayName, index) => {
                     // Find if we have data for this day
                     const dayDate = wrappedDays.find(date => {
-                      const d = new Date(date);
+                      const d = new Date(date + 'T12:00:00');
                       return d.toLocaleDateString(undefined, { weekday: 'long' }) === dayName;
                     });
 
@@ -4696,7 +4704,7 @@ export default function App() {
     }
 
     if (activeTab === 'chat') {
-      const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter(f => f.squadId === userData?.squadId).map(f => f.uid))].filter(Boolean);
+      const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
       // Double check validation if they somehow got here without a squad
       if (!userData?.squadId || squadMembers.length <= 1) {
         // Redirect back to map if requirements not met
@@ -4884,7 +4892,7 @@ export default function App() {
 
         {/* Chat Tab - Only visible if in a squad with > 1 person */}
         {(() => {
-          const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter(f => f.squadId === userData?.squadId).map(f => f.uid))].filter(Boolean);
+          const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
           if (userData?.squadId && squadMembers.length > 1) {
             return (
               <button className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')} style={{ position: 'relative' }}>
@@ -5560,7 +5568,7 @@ export default function App() {
                   {(() => {
                     const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
                     const limit = TIER_LIMITS[tier];
-                    const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
+                    const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
                     const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
                     const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
 
@@ -5584,7 +5592,7 @@ export default function App() {
 
                   <h4>Invite from Friends List</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '50vh', overflowY: 'auto' }}>
-                    {friendsData.filter(f => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
+                    {friendsData.filter((f: any) => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
 
                     {friendsData
                       .filter(f => f.squadId !== userData.squadId) // Only show friends NOT in my squad
@@ -5600,7 +5608,7 @@ export default function App() {
                         // Recalculate spots for disable logic
                         const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
                         const limit = TIER_LIMITS[tier];
-                        const currentCount = [userData, ...friendsData].filter(u => u.squadId === userData?.squadId).length - 1;
+                        const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
                         const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
                         const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
 
@@ -5639,7 +5647,7 @@ export default function App() {
               )}
 
               <div className="modal-actions" style={{ marginTop: '1rem', justifyContent: 'space-between' }}>
-                {friendsData.filter(f => f.squadId !== userData?.squadId).length === 0 ? (
+                {friendsData.filter((f: any) => f.squadId !== userData?.squadId).length === 0 ? (
                   <button onClick={() => setActiveModal('addFriend')} className="btn btn-primary">Invite a Friend +</button>
                 ) : <div />}
                 <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
@@ -5859,7 +5867,7 @@ export default function App() {
 
 
       {/* New Wrapped Popup (Map Page Only) */}
-      {(newWrappedAvailable && activeTab === 'map' && !activeModal) && (() => {
+      {(newWrappedAvailable && activeTab === 'map' && !activeModal && [0, 4, 5, 6].includes(new Date(newWrappedAvailable + 'T12:00:00').getDay())) && (() => {
         const dayOfWeek = new Date().getDay();
         const isMonday = dayOfWeek === 1;
 
@@ -5964,7 +5972,7 @@ export default function App() {
         }
 
         // Otherwise show the day-specific wrapped
-        const wrappedDate = new Date(newWrappedAvailable);
+        const wrappedDate = new Date(newWrappedAvailable + 'T12:00:00');
         const dayName = wrappedDate.toLocaleDateString(undefined, { weekday: 'long' });
 
         return (
