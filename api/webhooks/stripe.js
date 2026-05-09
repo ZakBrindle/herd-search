@@ -52,7 +52,7 @@ export default async (req, res) => {
 
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const { userId, tierId } = session.metadata;
+        const { userId, tierId, purchaseId } = session.metadata;
 
         if (userId && tierId) {
             try {
@@ -61,16 +61,27 @@ export default async (req, res) => {
                 
                 const finalTier = tierId === 'dev_tier_test' ? 'basic' : tierId;
 
+                // Update User Profile
                 await db.collection('users').doc(userId).update({
-                    tier: finalTier, // Used by Frontend
-                    subscriptionExpiry: expiresAt, // Used by Frontend
-                    subscriptionEndDate: subscriptionEndDate, // Readable Date
-                    tier_level: finalTier, // Requested by User
-                    tier_expires_at: expiresAt // Requested by User
+                    tier: finalTier,
+                    subscriptionExpiry: expiresAt,
+                    subscriptionEndDate: subscriptionEndDate,
+                    tier_level: finalTier,
+                    tier_expires_at: expiresAt,
+                    isPaymentPending: false
                 });
-                console.log(`Updated user ${userId} to tier ${finalTier}`);
+
+                // Update Purchase Record
+                if (purchaseId) {
+                    await db.collection('purchases').doc(purchaseId).update({
+                        status: 'completed',
+                        updatedAt: Date.now()
+                    });
+                }
+
+                console.log(`Successfully processed payment for user ${userId} (Purchase: ${purchaseId})`);
             } catch (error) {
-                console.error('Error updating user in Firestore:', error);
+                console.error('Error updating Firestore in webhook:', error);
                 return res.status(500).json({ error: 'Firestore update failed' });
             }
         }

@@ -14,7 +14,7 @@ export default async (req, res) => {
         return res.status(405).end('Method Not Allowed');
     }
 
-    const { tierId, userId, successUrl, cancelUrl, sandboxMode } = req.body;
+    const { tierId, userId, purchaseId, successUrl, cancelUrl, sandboxMode } = req.body;
 
     if (!tierId || !userId || !PRICES[tierId]) {
         return res.status(400).json({ error: 'Invalid parameters' });
@@ -51,6 +51,7 @@ export default async (req, res) => {
             metadata: {
                 userId,
                 tierId,
+                purchaseId, // Include Firestore ID
             },
             success_url: successUrl,
             cancel_url: cancelUrl,

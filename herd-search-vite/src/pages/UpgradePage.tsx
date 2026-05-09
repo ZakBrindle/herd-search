@@ -87,9 +87,10 @@ const UpgradePage = () => {
                     body: JSON.stringify({
                         tierId: planId,
                         userId: currentUser.uid,
+                        purchaseId: purchaseDoc.id, // Pass the Firestore document ID
                         sandboxMode: useSandboxStripe,
                         successUrl: window.location.origin + '?checkout_success=true',
-                        cancelUrl: window.location.origin,
+                        cancelUrl: window.location.origin + '?checkout_cancel=true',
                     })
                 });
 

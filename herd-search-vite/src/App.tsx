@@ -681,13 +681,13 @@ export default function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentIntent = urlParams.get('payment_intent');
     const redirectStatus = urlParams.get('redirect_status');
-    const checkoutSuccess = urlParams.get('checkout_success');
+    const checkoutCancel = urlParams.get('checkout_cancel');
 
-    if ((paymentIntent && redirectStatus) || checkoutSuccess === 'true') {
-      console.log("Task A: TRAPPED Stripe Params from URL:", { paymentIntent, redirectStatus, checkoutSuccess });
+    if ((paymentIntent && redirectStatus) || checkoutSuccess === 'true' || checkoutCancel === 'true') {
+      console.log("Task A: TRAPPED Stripe Params from URL:", { paymentIntent, redirectStatus, checkoutSuccess, checkoutCancel });
       localStorage.setItem('parkedStripeParams', JSON.stringify({
         paymentIntent: paymentIntent || 'checkout_session',
-        redirectStatus: redirectStatus || 'succeeded',
+        redirectStatus: checkoutCancel === 'true' ? 'cancelled' : (redirectStatus || 'succeeded'),
         timestamp: Date.now()
       }));
       
@@ -695,6 +695,7 @@ export default function App() {
       urlParams.delete('payment_intent_client_secret');
       urlParams.delete('redirect_status');
       urlParams.delete('checkout_success');
+      urlParams.delete('checkout_cancel');
     } else {
       console.log("Task A: No Stripe params in URL to trap.");
     }
@@ -746,57 +747,48 @@ export default function App() {
 
         console.log("Task B: PROCESSING Payment:", { paymentIntent, redirectStatus });
 
-        if (redirectStatus === 'succeeded') {
-          setPaymentStatus('success');
+        if (redirectStatus === 'succeeded' || redirectStatus === 'cancelled') {
           setActiveModal('paymentResult');
+          setPaymentStatus('pending'); // Start with checking...
 
-          // Fallback Plan Update
-          const pendingPlan = localStorage.getItem('pendingPlan') as Tier | null;
-          if (pendingPlan) {
-            console.log("Task B: Applying pending plan:", pendingPlan);
-            const planDetails = PLANS.find(p => p.id === pendingPlan);
-            const finalTier = pendingPlan === 'dev_tier_test' ? 'basic' : (pendingPlan || 'free') as Tier;
-            
-            console.log("Task B: Final update payload:", { finalTier, uid: currentUser.uid });
-
-            updateDoc(doc(db, 'users', currentUser.uid), {
-              tier: finalTier,
-              subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
-              isPaymentPending: false
-            }).then(async () => {
-              console.log("Task B: Firestore user doc updated successfully.");
-              
-              // Record the purchase or update started one
-              const pendingPurchaseId = localStorage.getItem('pendingPurchaseId');
-              if (pendingPurchaseId) {
-                console.log("Task B: Updating purchase doc:", pendingPurchaseId);
-                await updateDoc(doc(db, "purchases", pendingPurchaseId), {
-                  status: 'completed',
-                  tier: finalTier,
-                  amount: planDetails?.price || 'Unknown',
-                  updatedAt: Date.now()
+          const purchaseId = localStorage.getItem('pendingPurchaseId');
+          
+          if (redirectStatus === 'cancelled') {
+            setPaymentStatus('failed');
+            if (purchaseId) {
+                updateDoc(doc(db, "purchases", purchaseId), { status: 'failed', updatedAt: Date.now() }).catch(console.error);
+                updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false }).catch(console.error);
+            }
+            localStorage.removeItem('pendingPlan');
+            localStorage.removeItem('pendingPurchaseId');
+            localStorage.removeItem('parkedStripeParams');
+          } else {
+            // Succeeded - Start listener to verify against DB (Webhook confirmation)
+            if (purchaseId) {
+                const unsub = onSnapshot(doc(db, "purchases", purchaseId), (snap) => {
+                    if (snap.exists() && snap.data().status === 'completed') {
+                        setPaymentStatus('success');
+                        localStorage.removeItem('pendingPlan');
+                        localStorage.removeItem('pendingPurchaseId');
+                        localStorage.removeItem('parkedStripeParams');
+                        unsub();
+                    }
                 });
-                localStorage.removeItem('pendingPurchaseId');
-              } else {
-                console.log("Task B: Creating new purchase doc (none pending).");
-                await addDoc(collection(db, "purchases"), {
-                  userId: currentUser.uid,
-                  userEmail: currentUser.email || 'Unknown',
-                  userName: userData?.displayName || 'Unknown',
-                  tier: finalTier,
-                  amount: planDetails?.price || 'Unknown',
-                  createdAt: Date.now(),
-                  status: 'completed'
-                });
-              }
-            }).catch(e => {
-              console.error("Task B Update Error (Users Coll):", e);
-              showAlert("Payment was successful but we failed to update your account. Please contact support.");
-            });
+                
+                // Fallback timeout: If webhook takes > 15s, show failure or manual check
+                setTimeout(() => {
+                    unsub();
+                    if (paymentStatus === 'pending') {
+                        setPaymentStatus('failed');
+                        localStorage.removeItem('parkedStripeParams');
+                    }
+                }, 15000);
+            } else {
+                // No purchase ID found in storage, fallback to success (risky but better than stuck)
+                setPaymentStatus('success');
+                localStorage.removeItem('parkedStripeParams');
+            }
           }
-
-          localStorage.removeItem('pendingPlan');
-          localStorage.removeItem('parkedStripeParams'); // Job Done
         } else {
           setPaymentStatus('failed');
           setActiveModal('paymentResult');
@@ -5844,7 +5836,7 @@ export default function App() {
 
       {showAdminBilling && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#121212', zIndex: 4000, overflowY: 'auto' }}>
-          <BillingPage onClose={() => setShowAdminBilling(false)} />
+          <BillingPage onClose={() => setShowAdminBilling(false)} isDev={userData?.isDev || false} />
         </div>
       )}
 
