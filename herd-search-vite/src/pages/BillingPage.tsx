@@ -227,11 +227,15 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                             justifyContent: 'space-between',
                             alignItems: 'center'
                         }}>
-                            <div>
-                                <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>
-                                    {p.userName} <span style={{ fontWeight: 'normal', color: '#666', fontSize: '0.8rem' }}>({p.userEmail})</span>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 'bold', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                                    <span>{p.userName || 'Anonymous'}</span>
+                                    <span style={{ fontWeight: 'normal', color: '#666', fontSize: '0.8rem' }}>({p.userEmail})</span>
                                 </div>
-                                <div style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '4px' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#555', fontFamily: 'monospace', background: 'rgba(255,255,255,0.03)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px' }}>
+                                    ID: {p.id}
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: '#aaa' }}>
                                     Purchased <strong style={{ color: '#fff', textTransform: 'capitalize' }}>{p.tier}</strong> for <strong>{p.amount}</strong>
                                 </div>
                                 <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>
