@@ -81,13 +81,32 @@ const UpgradePage = () => {
                 navigate('/');
             } else {
                 // Stripe Checkout Flow
+                const planDetails = PLANS.find(p => p.id === planId);
+                
+                // 1. Create the purchase doc FIRST to get the ID
+                const purchaseDoc = await addDoc(collection(db, "purchases"), {
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email || 'Unknown',
+                    userName: userData?.displayName || 'Unknown',
+                    tier: planId === 'dev_tier_test' ? 'basic' : planId,
+                    actualTierId: planId,
+                    amount: planDetails?.price || 'Unknown',
+                    createdAt: Date.now(),
+                    status: 'started'
+                });
+
+                localStorage.setItem('pendingPlan', planId);
+                localStorage.setItem('pendingPurchaseId', purchaseDoc.id);
+                await updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: true });
+
+                // 2. Now call the API with the ID
                 const res = await fetch('/api/create-checkout-session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         tierId: planId,
                         userId: currentUser.uid,
-                        purchaseId: purchaseDoc.id, // Pass the Firestore document ID
+                        purchaseId: purchaseDoc.id,
                         sandboxMode: useSandboxStripe,
                         successUrl: window.location.origin + '?checkout_success=true',
                         cancelUrl: window.location.origin + '?checkout_cancel=true',
@@ -96,23 +115,6 @@ const UpgradePage = () => {
 
                 const data = await res.json();
                 if (data.url) {
-                    const planDetails = PLANS.find(p => p.id === planId);
-                    localStorage.setItem('pendingPlan', planId);
-                    
-                    // Log payment start
-                    const purchaseDoc = await addDoc(collection(db, "purchases"), {
-                        userId: currentUser.uid,
-                        userEmail: currentUser.email || 'Unknown',
-                        userName: userData?.displayName || 'Unknown',
-                        tier: planId === 'dev_tier_test' ? 'basic' : planId,
-                        actualTierId: planId, // Keep original ID
-                        amount: planDetails?.price || 'Unknown',
-                        createdAt: Date.now(),
-                        status: 'started'
-                    });
-                    localStorage.setItem('pendingPurchaseId', purchaseDoc.id);
-
-                    await updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: true });
                     window.location.href = data.url;
                 } else {
                     console.error("No URL returned from checkout session creation", data);
@@ -202,6 +204,15 @@ const UpgradePage = () => {
             padding: '1.5rem',
             fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
         }}>
+            <style>
+                {`
+                    @keyframes spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                    .spin { animation: spin 1s linear infinite; }
+                `}
+            </style>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
                 <button 
@@ -297,15 +308,34 @@ const UpgradePage = () => {
                             className="btn btn-primary w-full" 
                             disabled={loading || !upgradesEnabled}
                             style={{ 
-                                pointerEvents: 'none',
+                                pointerEvents: loading ? 'none' : 'auto',
                                 background: 'linear-gradient(45deg, var(--primary, #bb86fc), var(--secondary, #03dac6))',
                                 border: 'none',
                                 color: 'black',
                                 fontWeight: 'bold',
-                                padding: '8px'
+                                padding: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
                             }}
                         >
-                            {!upgradesEnabled ? "Paused" : "Select"}
+                            {loading ? (
+                                <>
+                                    <span className="spin" style={{ 
+                                        width: '14px', 
+                                        height: '14px', 
+                                        border: '2px solid rgba(0,0,0,0.2)', 
+                                        borderTop: '2px solid black', 
+                                        borderRadius: '50%',
+                                        display: 'inline-block',
+                                        animation: 'spin 1s linear infinite'
+                                    }}></span>
+                                    Redirecting...
+                                </>
+                            ) : (
+                                !upgradesEnabled ? "Paused" : "Select"
+                            )}
                         </button>
                     </div>
                 ))}
