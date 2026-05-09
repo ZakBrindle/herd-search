@@ -772,31 +772,8 @@ export default function App() {
             localStorage.removeItem('pendingPurchaseId');
             localStorage.removeItem('parkedStripeParams');
           } else {
-            // Succeeded - Start listener to verify against DB (Webhook confirmation)
-            if (purchaseId) {
-                const unsub = onSnapshot(doc(db, "purchases", purchaseId), (snap) => {
-                    if (snap.exists() && snap.data().status === 'completed') {
-                        setPaymentStatus('success');
-                        localStorage.removeItem('pendingPlan');
-                        localStorage.removeItem('pendingPurchaseId');
-                        localStorage.removeItem('parkedStripeParams');
-                        unsub();
-                    }
-                });
-                
-                // Fallback timeout: If webhook takes > 15s, show failure or manual check
-                setTimeout(() => {
-                    unsub();
-                    if (paymentStatus === 'pending') {
-                        setPaymentStatus('failed');
-                        localStorage.removeItem('parkedStripeParams');
-                    }
-                }, 15000);
-            } else {
-                // No purchase ID found in storage, fallback to success (risky but better than stuck)
-                setPaymentStatus('success');
-                localStorage.removeItem('parkedStripeParams');
-            }
+            // Succeeded - Resolution is now handled by the separate useEffect below
+            console.log("Task B: Succeeded, waiting for resolution effect...");
           }
         } else {
           setPaymentStatus('failed');
@@ -928,6 +905,50 @@ export default function App() {
       setActiveModal('paymentResult');
     }
   }, [userData?.isPaymentPending, activeModal, paymentStatus]);
+
+  // --- Payment Resolution Logic ---
+  useEffect(() => {
+    if (paymentStatus === 'pending') {
+      console.log("Payment Resolution: Starting check...");
+      const purchaseId = localStorage.getItem('pendingPurchaseId');
+      
+      if (!purchaseId) {
+        console.warn("Payment Resolution: No pendingPurchaseId found in localStorage.");
+        const timer = setTimeout(() => {
+          setPaymentStatus('failed');
+        }, 5000);
+        return () => clearTimeout(timer);
+      }
+
+      const unsub = onSnapshot(doc(db, "purchases", purchaseId), (snap) => {
+        if (snap.exists() && snap.data().status === 'completed') {
+          console.log("Payment Resolution: Purchase COMPLETED!");
+          setPaymentStatus('success');
+          localStorage.removeItem('pendingPlan');
+          localStorage.removeItem('pendingPurchaseId');
+          localStorage.removeItem('parkedStripeParams');
+        } else if (snap.exists() && snap.data().status === 'failed') {
+          console.log("Payment Resolution: Purchase FAILED in DB.");
+          setPaymentStatus('failed');
+          localStorage.removeItem('parkedStripeParams');
+        }
+      });
+
+      const timer = setTimeout(() => {
+        unsub();
+        if (paymentStatus === 'pending') {
+          console.warn("Payment Resolution: Timeout reached.");
+          setPaymentStatus('failed');
+          localStorage.removeItem('parkedStripeParams');
+        }
+      }, 15000);
+
+      return () => {
+        unsub();
+        clearTimeout(timer);
+      };
+    }
+  }, [paymentStatus, currentUser]);
 
   useEffect(() => {
     setCurrentStatusInput(userData?.statusMessage || '');

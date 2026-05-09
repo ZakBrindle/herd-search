@@ -27,6 +27,11 @@ const UpgradePage = () => {
     const getUserDocRef = (uid: string) => doc(db, 'users', uid);
 
     const handleUpgrade = async (planId: Tier, forceOverride = false) => {
+        if (userData?.isPaymentPending) {
+            navigate('/');
+            return;
+        }
+
         if (!upgradesEnabled && !userData?.isDev) {
             alert("Upgrades are currently paused by the developer.");
             return;
