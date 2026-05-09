@@ -689,6 +689,7 @@ export default function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentIntent = urlParams.get('payment_intent');
     const redirectStatus = urlParams.get('redirect_status');
+    const checkoutSuccess = urlParams.get('checkout_success');
     const checkoutCancel = urlParams.get('checkout_cancel');
 
     if ((paymentIntent && redirectStatus) || checkoutSuccess === 'true' || checkoutCancel === 'true') {
