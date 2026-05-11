@@ -382,11 +382,11 @@ export default function App() {
   const handleRateApp = async (val: number) => {
     if (!currentUser || !userData) return;
     setIsJiggling(val);
+    setRatingValue(val);
     setTimeout(() => setIsJiggling(null), 1000);
 
     if (val <= 3) {
       setActiveModal('ratingFeedback');
-      setRatingValue(val);
     } else {
       // Direct save for 4/5 stars
       await saveFeedback(val, '');
@@ -407,10 +407,11 @@ export default function App() {
         weekKey
       });
       await updateDoc(getUserDocRef(currentUser.uid), {
-        lastRatedWeek: weekKey
+        lastRatedWeek: weekKey,
+        hasRated: true
       });
       setShowRatingThanks(true);
-      setTimeout(() => setShowRatingThanks(false), 3000);
+      setTimeout(() => setShowRatingThanks(false), 5000);
       setActiveModal(null);
     } catch (e) {
       console.error("Error saving feedback:", e);
@@ -421,20 +422,13 @@ export default function App() {
   const renderStarRating = () => {
     const now = new Date();
     const day = now.getDay(); // 0 is Sun, 1 is Mon, 2 is Tue
-    const weekKey = getWeekKey();
-    const hasRatedThisWeek = userData?.lastRatedWeek === weekKey;
+    const hasRated = userData?.hasRated || !!userData?.lastRatedWeek;
     
     // Show Sun/Mon, hide Tue if not filled.
     if (! (day === 0 || day === 1)) return null;
-    if (hasRatedThisWeek) return null;
-
-    if (showRatingThanks) {
-      return (
-        <div style={{ textAlign: 'center', padding: '10px', background: 'rgba(3, 218, 198, 0.1)', borderRadius: '12px', marginBottom: '15px', color: 'var(--primary)' }}>
-          Thanks for your feedback! 🎉
-        </div>
-      );
-    }
+    
+    // If they have rated and we are NOT showing the thanks message, hide the widget
+    if (hasRated && !showRatingThanks) return null;
 
     return (
       <div style={{ 
@@ -443,21 +437,26 @@ export default function App() {
         marginBottom: '20px',
         width: '100%'
       }}>
-        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'white', marginBottom: '15px', letterSpacing: '0.5px' }}>How's the app?</div>
+        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'white', marginBottom: '15px', letterSpacing: '0.5px' }}>
+          {showRatingThanks ? "Thanks for your feedback! 🎉" : "How's the app?"}
+        </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '0 15px' }}>
-          {[1, 2, 3, 4, 5].map(star => (
-            <div 
-              key={star} 
-              onClick={() => handleRateApp(star)}
-              className={isJiggling && star <= isJiggling ? 'jiggle' : ''}
-              style={{ cursor: 'pointer', transition: 'transform 0.2s', flex: 1, display: 'flex', justifyContent: 'center' }}
-            >
-              {star <= (isJiggling || 0) ? 
-                <FaStar size={48} color="#FFD700" /> : 
-                <FaRegStar size={48} color="#333" />
-              }
-            </div>
-          ))}
+          {[1, 2, 3, 4, 5].map(star => {
+            const isFilled = showRatingThanks ? star <= ratingValue : star <= (isJiggling || 0);
+            return (
+              <div 
+                key={star} 
+                onClick={() => !showRatingThanks && handleRateApp(star)}
+                className={isJiggling && star <= isJiggling ? 'jiggle' : ''}
+                style={{ cursor: showRatingThanks ? 'default' : 'pointer', transition: 'transform 0.2s', flex: 1, display: 'flex', justifyContent: 'center' }}
+              >
+                {isFilled ? 
+                  <FaStar size={48} color="#FFD700" /> : 
+                  <FaRegStar size={48} color="#333" />
+                }
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -3104,7 +3103,16 @@ export default function App() {
           <div className="map-container">
             <img
               ref={mapImageRef}
-              src={userData?.mapPreference === 'satellite' ? "/Beatherder Map.png" : "/Beatherder Map 2.png"}
+              src={(() => {
+                const pref = userData?.mapPreference;
+                if (!pref || pref === 'dynamic' || pref === 'cartoon') {
+                  const hour = new Date().getHours();
+                  return (hour >= 20 || hour < 6) ? "/Beatherder Map Dark.png" : "/Beatherder Map 2.png";
+                }
+                if (pref === 'cartoon_dark') return "/Beatherder Map Dark.png";
+                if (pref === 'satellite') return "/Beatherder Map.png";
+                return "/Beatherder Map 2.png";
+              })()}
               alt="Map"
               className="map-image"
               onLoad={resizeCanvas}
@@ -4280,26 +4288,48 @@ export default function App() {
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaMap color="#03dac6" /> Map Style
                 </h3>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                   <button
                     onClick={() => {
                       if (currentUser) {
-                        updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'cartoon' }).catch(console.error);
+                        updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'cartoon_light' }).catch(console.error);
                       }
                     }}
                     style={{
                       flex: 1,
-                      padding: '12px',
-                      backgroundColor: userData?.mapPreference !== 'satellite' ? '#03dac6' : '#1e1e1e',
-                      color: userData?.mapPreference !== 'satellite' ? '#000' : '#fff',
-                      border: userData?.mapPreference !== 'satellite' ? 'none' : '1px solid #333',
+                      padding: '12px 8px',
+                      backgroundColor: userData?.mapPreference === 'cartoon_light' ? '#03dac6' : '#1e1e1e',
+                      color: userData?.mapPreference === 'cartoon_light' ? '#000' : '#fff',
+                      border: userData?.mapPreference === 'cartoon_light' ? 'none' : '1px solid #333',
                       borderRadius: '12px',
                       cursor: 'pointer',
                       fontWeight: 'bold',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      fontSize: '0.85rem'
                     }}
                   >
-                    Cartoon Map (default)
+                    Cartoon Light
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (currentUser) {
+                        updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'cartoon_dark' }).catch(console.error);
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '12px 8px',
+                      backgroundColor: userData?.mapPreference === 'cartoon_dark' ? '#03dac6' : '#1e1e1e',
+                      color: userData?.mapPreference === 'cartoon_dark' ? '#000' : '#fff',
+                      border: userData?.mapPreference === 'cartoon_dark' ? 'none' : '1px solid #333',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      transition: 'all 0.2s',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    Cartoon Dark
                   </button>
                   <button
                     onClick={() => {
@@ -4309,18 +4339,52 @@ export default function App() {
                     }}
                     style={{
                       flex: 1,
-                      padding: '12px',
+                      padding: '12px 8px',
                       backgroundColor: userData?.mapPreference === 'satellite' ? '#03dac6' : '#1e1e1e',
                       color: userData?.mapPreference === 'satellite' ? '#000' : '#fff',
                       border: userData?.mapPreference === 'satellite' ? 'none' : '1px solid #333',
                       borderRadius: '12px',
                       cursor: 'pointer',
                       fontWeight: 'bold',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      fontSize: '0.85rem'
                     }}
                   >
                     Satellite
                   </button>
+                </div>
+                {/* Dynamic Map Toggle */}
+                <div
+                  className="card"
+                  onClick={() => {
+                    if (currentUser) {
+                      const isDynamic = !userData?.mapPreference || userData.mapPreference === 'dynamic' || userData.mapPreference === 'cartoon';
+                      updateDoc(getUserDocRef(currentUser.uid), { mapPreference: isDynamic ? 'cartoon_light' : 'dynamic' }).catch(console.error);
+                    }
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    backgroundColor: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#333' : '#1e1e1e',
+                    border: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '2px solid #03dac6' : '1px solid #333',
+                    alignItems: 'center',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    flexDirection: 'row',
+                    width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <h4 style={{ margin: 0, color: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#03dac6' : 'white' }}>Dynamic Map</h4>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                      Auto-switches to Cartoon Dark from 8pm to 6am
+                    </p>
+                  </div>
+                  <div style={{
+                    width: '20px', height: '20px', borderRadius: '50%',
+                    backgroundColor: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#03dac6' : '#333',
+                    border: '1px solid #555'
+                  }} />
                 </div>
               </div>
 

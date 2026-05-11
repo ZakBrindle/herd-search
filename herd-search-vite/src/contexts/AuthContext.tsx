@@ -32,7 +32,8 @@ export type UserData = DocumentData & {
     ghostModeCooldown?: number;
     hasSeenWelcome?: boolean;
     searchingFor?: { uid: string; timestamp: number };
-    mapPreference?: 'cartoon' | 'satellite';
+    mapPreference?: 'cartoon_light' | 'cartoon_dark' | 'satellite' | 'dynamic' | 'cartoon';
+    hasRated?: boolean;
 };
 
 interface AuthContextType {
