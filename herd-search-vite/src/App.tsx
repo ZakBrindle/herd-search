@@ -28,6 +28,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import ChatTab from './components/ChatTab';
 import WrappedModal from './components/modals/WrappedModal';
 import ScheduleModal from './components/modals/ScheduleModal';
+import WhatsOnTab from './components/WhatsOn/WhatsOnTab';
 import BillingPage from './pages/BillingPage';
 import { increment } from 'firebase/firestore';
 
@@ -190,7 +191,7 @@ export default function App() {
   const [currentStatusInput, setCurrentStatusInput] = useState('');
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
   const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
-  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile' | 'chat' | 'billing'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile' | 'chat' | 'billing' | 'whats-on'>('map');
   const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
   const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -4709,6 +4710,16 @@ export default function App() {
         <ChatTab userData={userData} squadId={userData.squadId} />
       );
     }
+
+    if (activeTab === 'whats-on') {
+      return (
+        <WhatsOnTab 
+          userData={userData} 
+          showAlert={showAlert} 
+          showConfirm={showConfirm} 
+        />
+      );
+    }
   }; // End renderContent
 
 
@@ -4926,10 +4937,10 @@ export default function App() {
           )}
         </button>
 
-        <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
-          <FaUser />
-          <span>Profile</span>
-          {/* Notification Dot for Profile */}
+        <button className={`nav-item ${activeTab === 'whats-on' ? 'active' : ''}`} onClick={() => setActiveTab('whats-on')}>
+          <FaClock />
+          <span>What's On</span>
+          {/* We might still want to show a dot if wrapped is available, or not. The user didn't mention moving the dot, but we can keep it here or remove it. Let's keep it just in case. */}
           {newWrappedAvailable && <div style={{ position: 'absolute', top: 5, right: '35%', width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', border: '1px solid black' }} />}
         </button>
 

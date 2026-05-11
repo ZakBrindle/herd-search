@@ -252,5 +252,15 @@ service cloud.firestore {
       allow update: if request.auth != null && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
       allow delete: if request.auth != null && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
     }
+    // --- Whats On Feature Rules ---
+    match /whats_on_stages/{stageId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    match /whats_on_schedules/{stageId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
   }
 }
