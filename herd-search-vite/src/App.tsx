@@ -4305,6 +4305,32 @@ export default function App() {
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaMap color="#03dac6" /> Map Style
                 </h3>
+                <div style={{ 
+                  width: '100%', 
+                  height: '120px', 
+                  borderRadius: '12px', 
+                  marginBottom: '15px', 
+                  overflow: 'hidden', 
+                  border: '1px solid #333',
+                  display: 'flex',
+                  position: 'relative'
+                }}>
+                  {(() => {
+                    const pref = userData?.mapPreference;
+                    if (!pref || pref === 'dynamic' || pref === 'cartoon') {
+                      return (
+                        <>
+                          <div style={{ flex: 1, backgroundImage: 'url("/Beatherder Map 2.png")', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                          <div style={{ flex: 1, backgroundImage: 'url("/Beatherder Map Dark.png")', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                          <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: '2px', background: 'rgba(255,255,255,0.2)', transform: 'translateX(-50%)' }} />
+                        </>
+                      );
+                    }
+                    const imgSrc = pref === 'cartoon_dark' ? "/Beatherder Map Dark.png" : pref === 'satellite' ? "/Beatherder Map.png" : "/Beatherder Map 2.png";
+                    return <div style={{ flex: 1, backgroundImage: `url("${imgSrc}")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />;
+                  })()}
+                </div>
+
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                   <button
                     onClick={() => {
@@ -4412,6 +4438,17 @@ export default function App() {
                   <FaTint color="#4facfe" /> Stay Hydrated
                 </h3>
                 <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '16px' }}>
+                  <img 
+                    src="/WATER.png" 
+                    alt="Hydration" 
+                    style={{ 
+                      width: '100%', 
+                      height: 'auto', 
+                      borderRadius: '12px', 
+                      marginBottom: '12px', 
+                      border: '1px solid rgba(255,255,255,0.1)' 
+                    }} 
+                  />
                   <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#ccc', lineHeight: '1.4' }}>
                     It's going to be a big one! Remember to stay hydrated. Free water taps are scattered all around the festival site.
                   </p>
