@@ -690,12 +690,13 @@ export default function App() {
     const paymentIntent = urlParams.get('payment_intent');
     const redirectStatus = urlParams.get('redirect_status');
     const checkoutSuccess = urlParams.get('checkout_success');
+    const checkoutCancel = urlParams.get('checkout_cancel');
 
-    if ((paymentIntent && redirectStatus) || checkoutSuccess === 'true') {
-      console.log("Task A: TRAPPED Stripe Params from URL:", { paymentIntent, redirectStatus, checkoutSuccess });
+    if ((paymentIntent && redirectStatus) || checkoutSuccess === 'true' || checkoutCancel === 'true') {
+      console.log("Task A: TRAPPED Stripe Params from URL:", { paymentIntent, redirectStatus, checkoutSuccess, checkoutCancel });
       localStorage.setItem('parkedStripeParams', JSON.stringify({
         paymentIntent: paymentIntent || 'checkout_session',
-        redirectStatus: redirectStatus || 'succeeded',
+        redirectStatus: checkoutCancel === 'true' ? 'cancelled' : (redirectStatus || 'succeeded'),
         timestamp: Date.now()
       }));
       
@@ -703,6 +704,7 @@ export default function App() {
       urlParams.delete('payment_intent_client_secret');
       urlParams.delete('redirect_status');
       urlParams.delete('checkout_success');
+      urlParams.delete('checkout_cancel');
     } else {
       console.log("Task A: No Stripe params in URL to trap.");
     }
@@ -754,57 +756,25 @@ export default function App() {
 
         console.log("Task B: PROCESSING Payment:", { paymentIntent, redirectStatus });
 
-        if (redirectStatus === 'succeeded') {
-          setPaymentStatus('success');
+        if (redirectStatus === 'succeeded' || redirectStatus === 'cancelled') {
           setActiveModal('paymentResult');
+          setPaymentStatus('pending'); // Start with checking...
 
-          // Fallback Plan Update
-          const pendingPlan = localStorage.getItem('pendingPlan') as Tier | null;
-          if (pendingPlan) {
-            console.log("Task B: Applying pending plan:", pendingPlan);
-            const planDetails = PLANS.find(p => p.id === pendingPlan);
-            const finalTier = pendingPlan === 'dev_tier_test' ? 'basic' : (pendingPlan || 'free') as Tier;
-            
-            console.log("Task B: Final update payload:", { finalTier, uid: currentUser.uid });
-
-            updateDoc(doc(db, 'users', currentUser.uid), {
-              tier: finalTier,
-              subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
-              isPaymentPending: false
-            }).then(async () => {
-              console.log("Task B: Firestore user doc updated successfully.");
-              
-              // Record the purchase or update started one
-              const pendingPurchaseId = localStorage.getItem('pendingPurchaseId');
-              if (pendingPurchaseId) {
-                console.log("Task B: Updating purchase doc:", pendingPurchaseId);
-                await updateDoc(doc(db, "purchases", pendingPurchaseId), {
-                  status: 'completed',
-                  tier: finalTier,
-                  amount: planDetails?.price || 'Unknown',
-                  updatedAt: Date.now()
-                });
-                localStorage.removeItem('pendingPurchaseId');
-              } else {
-                console.log("Task B: Creating new purchase doc (none pending).");
-                await addDoc(collection(db, "purchases"), {
-                  userId: currentUser.uid,
-                  userEmail: currentUser.email || 'Unknown',
-                  userName: userData?.displayName || 'Unknown',
-                  tier: finalTier,
-                  amount: planDetails?.price || 'Unknown',
-                  createdAt: Date.now(),
-                  status: 'completed'
-                });
-              }
-            }).catch(e => {
-              console.error("Task B Update Error (Users Coll):", e);
-              showAlert("Payment was successful but we failed to update your account. Please contact support.");
-            });
+          const purchaseId = localStorage.getItem('pendingPurchaseId');
+          
+          if (redirectStatus === 'cancelled') {
+            setPaymentStatus('failed');
+            if (purchaseId) {
+                updateDoc(doc(db, "purchases", purchaseId), { status: 'failed', updatedAt: Date.now() }).catch(console.error);
+                updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false }).catch(console.error);
+            }
+            localStorage.removeItem('pendingPlan');
+            localStorage.removeItem('pendingPurchaseId');
+            localStorage.removeItem('parkedStripeParams');
+          } else {
+            // Succeeded - Resolution is now handled by the separate useEffect below
+            console.log("Task B: Succeeded, waiting for resolution effect...");
           }
-
-          localStorage.removeItem('pendingPlan');
-          localStorage.removeItem('parkedStripeParams'); // Job Done
         } else {
           setPaymentStatus('failed');
           setActiveModal('paymentResult');
@@ -928,49 +898,6 @@ export default function App() {
     verifySubscription();
   }, [currentUser?.uid, userData?.tier]);
 
-  // --- Remote Payment Success Listener (Webhook Fail-safe) ---
-  // Watches for the tier to change while we are "pending payment". 
-  // This handles the case where the URL redirect parameters are missing/stripped,
-  // but the Stripe Webhook successfully updated the database in the background.
-  useEffect(() => {
-    if (!userData || !userData.isPaymentPending) return;
-
-    // We can check if the tier is no longer free (assuming upgrades are the only paid path)
-    // Or strictly check against pendingPlan if available
-    const pendingPlan = localStorage.getItem('pendingPlan');
-
-    // If tier is updated
-    if (userData.tier && userData.tier !== 'free') {
-      // If we recall what we were trying to buy, check it matches (optional safety)
-      if (pendingPlan && userData.tier !== pendingPlan) {
-        // Rare edge case: bought basic, but system says premium? 
-        // Accept it anyway, as it's a paid tier.
-      }
-
-      console.log("Remote Payment Confirmed via Firestore Change!");
-
-      // 1. Clear the pending flag on server to stop the spinner on other devices
-      updateDoc(doc(db, 'users', userData.uid), { isPaymentPending: false })
-        .catch(err => console.error("Error clearing pending flag:", err));
-
-      // 2. Update purchase record if exists
-      const pendingPurchaseId = localStorage.getItem('pendingPurchaseId');
-      if (pendingPurchaseId) {
-        updateDoc(doc(db, "purchases", pendingPurchaseId), {
-          status: 'completed',
-          updatedAt: Date.now()
-        }).catch(e => console.error("Webhook fallback purchase update error:", e));
-        localStorage.removeItem('pendingPurchaseId');
-      }
-
-      // 3. Show success and cleanup local storage
-      setPaymentStatus('success');
-      setActiveModal('paymentResult');
-      localStorage.removeItem('pendingPlan');
-      localStorage.removeItem('parkedStripeParams');
-    }
-  }, [userData?.tier, userData?.isPaymentPending, userData?.uid]);
-
   // --- Payment Pending UI Trigger ---
   useEffect(() => {
     if (userData?.isPaymentPending && !activeModal && paymentStatus !== 'success' && paymentStatus !== 'failed') {
@@ -978,6 +905,50 @@ export default function App() {
       setActiveModal('paymentResult');
     }
   }, [userData?.isPaymentPending, activeModal, paymentStatus]);
+
+  // --- Payment Resolution Logic ---
+  useEffect(() => {
+    if (paymentStatus === 'pending') {
+      console.log("Payment Resolution: Starting check...");
+      const purchaseId = localStorage.getItem('pendingPurchaseId');
+      
+      if (!purchaseId) {
+        console.warn("Payment Resolution: No pendingPurchaseId found in localStorage.");
+        const timer = setTimeout(() => {
+          setPaymentStatus('failed');
+        }, 5000);
+        return () => clearTimeout(timer);
+      }
+
+      const unsub = onSnapshot(doc(db, "purchases", purchaseId), (snap) => {
+        if (snap.exists() && snap.data().status === 'completed') {
+          console.log("Payment Resolution: Purchase COMPLETED!");
+          setPaymentStatus('success');
+          localStorage.removeItem('pendingPlan');
+          localStorage.removeItem('pendingPurchaseId');
+          localStorage.removeItem('parkedStripeParams');
+        } else if (snap.exists() && snap.data().status === 'failed') {
+          console.log("Payment Resolution: Purchase FAILED in DB.");
+          setPaymentStatus('failed');
+          localStorage.removeItem('parkedStripeParams');
+        }
+      });
+
+      const timer = setTimeout(() => {
+        unsub();
+        if (paymentStatus === 'pending') {
+          console.warn("Payment Resolution: Timeout reached.");
+          setPaymentStatus('failed');
+          localStorage.removeItem('parkedStripeParams');
+        }
+      }, 15000);
+
+      return () => {
+        unsub();
+        clearTimeout(timer);
+      };
+    }
+  }, [paymentStatus, currentUser]);
 
   useEffect(() => {
     setCurrentStatusInput(userData?.statusMessage || '');
@@ -2107,102 +2078,7 @@ export default function App() {
     }
   };
 
-  const handleUpgrade = async (planId: Tier, forceOverride = false) => {
-    // Safety Check: Upgrades Disabled (except for Devs)
-    if (!upgradesEnabled && !userData?.isDev) {
-      return showAlert("Upgrades are currently paused by the developer.");
-    }
-    // If Admin Dev Mode for Cycling is on, just switch instantly without payment simulation logic (conceptually)
-    // Here we just use the same logic but the user perception of "payment" is bypassed by intent.
-    // In a real app, successful payment callback would trigger this.
 
-    if (!currentUser) return;
-    try {
-      if ((useSandboxStripe || forceOverride) && userData?.isDev) {
-        // Just set it directly
-        if (planId === 'free') {
-          // Reset Logic: Remove everyone from squad, cancel invites
-          if (userData?.squadId) {
-            const squadRef = doc(db, "squads", userData.squadId);
-            const snap = await getDoc(squadRef);
-            if (snap.exists()) {
-              const members = snap.data().members || [];
-              // Reset all members
-              for (const memberUid of members) {
-                await updateDoc(getUserDocRef(memberUid), { squadId: null, squadOwnerId: null });
-              }
-              // Delete squad
-              await deleteDoc(squadRef);
-            }
-
-            // Delete invites
-            const invitesQ = query(collection(db, "squadInvites"), where("from", "==", currentUser.uid));
-            const invSnap = await getDocs(invitesQ);
-            invSnap.forEach(async (d) => {
-              await deleteDoc(d.ref);
-            });
-          }
-          await updateDoc(getUserDocRef(currentUser.uid), {
-            tier: 'free',
-            subscriptionExpiry: null,
-            squadId: null, // Ensure self is reset
-            squadOwnerId: null
-          });
-          setFriendsData(prev => prev.map(f => f.squadId === userData?.squadId ? { ...f, squadId: undefined } : f));
-        } else {
-          const planDetails = PLANS.find(p => p.id === planId);
-          await updateDoc(getUserDocRef(currentUser.uid), {
-            tier: planId,
-            subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
-          });
-          // Record purchase if it's an upgrade (not a reset to free)
-          await addDoc(collection(db, "purchases"), {
-            userId: currentUser.uid,
-            tier: planId,
-            amount: planDetails?.price || 'Unknown',
-            createdAt: Date.now(),
-            status: 'completed'
-          });
-        }
-        setActiveModal(null);
-        showAlert(`Plan updated to ${planId.toUpperCase()}!`);
-      } else {
-        // STRIPE CHECKOUT FLOW
-        try {
-          const res = await fetch('/api/create-checkout-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tierId: planId,
-              userId: currentUser.uid,
-              sandboxMode: useSandboxStripe,
-              successUrl: window.location.origin, // Return to home on success
-              cancelUrl: window.location.origin,
-            })
-          });
-
-          const data = await res.json();
-          if (data.url) {
-            localStorage.setItem('pendingPlan', planId);
-
-            // Set pending flag in Firestore
-            await updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: true });
-
-            window.location.href = data.url; // Redirect to Stripe
-          } else {
-            console.error("No URL returned from checkout session creation", data);
-            showAlert("Failed to initialize checkout.");
-          }
-        } catch (err) {
-          console.error(err);
-          showAlert("Connection error initiating checkout.");
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      showAlert("Upgrade failed.");
-    }
-  };
 
   /**
    * Helper to check if user has an active paid subscription
@@ -4728,12 +4604,15 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {billingHistory.map((item) => (
                   <div key={item.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '16px', background: 'rgba(255,255,255,0.03)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <strong style={{ color: 'var(--primary)', textTransform: 'capitalize', fontSize: '1.1rem' }}>{item.tier} Plan</strong>
-                      <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.amount}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#888' }}>
-                      <span>{new Date(item.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <strong style={{ color: 'var(--primary)', textTransform: 'capitalize', fontSize: '1.1rem' }}>{item.tier} Plan</strong>
+                          <span style={{ fontSize: '0.7rem', color: '#666' }}>ID: {item.id}</span>
+                        </div>
+                        <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.amount}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#888' }}>
+                        <span>{new Date(item.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                       <span style={{
                         color: item.status === 'completed' ? 'var(--secondary)' : 'var(--error)',
                         fontWeight: '600',
@@ -5276,7 +5155,21 @@ export default function App() {
                   <select
                     className="input-field"
                     value={userData?.tier || 'free'}
-                    onChange={(e) => handleUpgrade(e.target.value as Tier, true)}
+                    onChange={async (e) => {
+                      const newTier = e.target.value as Tier;
+                      if (!currentUser) return;
+                      try {
+                        await updateDoc(getUserDocRef(currentUser.uid), {
+                          tier: newTier,
+                          subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
+                          isPaymentPending: false
+                        });
+                        showAlert(`Tier overridden to ${newTier.toUpperCase()}`);
+                      } catch (err) {
+                        console.error("Override failed:", err);
+                        showAlert("Failed to override tier.");
+                      }
+                    }}
                   >
                     <option value="free">Free</option>
                     {PLANS.map(p => (
@@ -5902,7 +5795,7 @@ export default function App() {
 
       {showAdminBilling && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#121212', zIndex: 4000, overflowY: 'auto' }}>
-          <BillingPage onClose={() => setShowAdminBilling(false)} />
+          <BillingPage onClose={() => setShowAdminBilling(false)} isDev={userData?.isDev || false} />
         </div>
       )}
 

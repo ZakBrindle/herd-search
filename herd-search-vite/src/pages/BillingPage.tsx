@@ -17,11 +17,13 @@ interface Purchase {
 
 interface BillingPageProps {
     onClose: () => void;
+    isDev?: boolean;
 }
 
-const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
+const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
     const [purchases, setPurchases] = useState<Purchase[]>([]);
     const [loading, setLoading] = useState(true);
+    const [cleaning, setCleaning] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -38,6 +40,28 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
         });
         return () => unsub();
     }, []);
+
+    const handleCleanup = async () => {
+        if (!isDev) return;
+        if (!window.confirm("Mark all transactions older than 2 hours as FAILED?")) return;
+        
+        setCleaning(true);
+        const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+        const started = purchases.filter(p => p.status === 'started' && p.createdAt < twoHoursAgo);
+
+        try {
+            const { doc, updateDoc } = await import('firebase/firestore');
+            for (const p of started) {
+                await updateDoc(doc(db, "purchases", p.id), { status: 'failed', updatedAt: Date.now() });
+            }
+            alert(`Cleaned up ${started.length} transactions.`);
+        } catch (e) {
+            console.error("Cleanup failed:", e);
+            alert("Cleanup failed. See console.");
+        } finally {
+            setCleaning(false);
+        }
+    };
 
     const stats = useMemo(() => {
         const completed = purchases.filter(p => p.status === 'completed');
@@ -109,13 +133,33 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
             </style>
 
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-                <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}>
-                    <FaChevronLeft />
-                </button>
-                <h1 style={{ margin: 0, fontSize: '1.8rem', background: 'linear-gradient(45deg, #03dac6, #bb86fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                    Billing Center
-                </h1>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}>
+                        <FaChevronLeft />
+                    </button>
+                    <h1 style={{ margin: 0, fontSize: '1.8rem', background: 'linear-gradient(45deg, #03dac6, #bb86fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                        Billing Center
+                    </h1>
+                </div>
+                {isDev && (
+                    <button 
+                        onClick={handleCleanup} 
+                        disabled={cleaning}
+                        style={{ 
+                            background: 'rgba(207, 102, 121, 0.1)', 
+                            border: '1px solid rgba(207, 102, 121, 0.3)', 
+                            color: '#cf6679', 
+                            padding: '8px 16px', 
+                            borderRadius: '8px', 
+                            fontSize: '0.8rem', 
+                            cursor: cleaning ? 'not-allowed' : 'pointer',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        {cleaning ? 'Cleaning...' : 'Cleanup Old Records'}
+                    </button>
+                )}
             </div>
 
             {/* Stats Grid */}
@@ -170,7 +214,7 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     {purchases.map(p => {
-                        const isExpired = p.status === 'started' && (Date.now() - p.createdAt > 3600000);
+                        const isExpired = p.status === 'started' && (Date.now() - p.createdAt > 7200000); // 2 hours
                         const displayStatus = isExpired ? 'failed' : p.status;
 
                         return (
@@ -183,15 +227,19 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose }) => {
                             justifyContent: 'space-between',
                             alignItems: 'center'
                         }}>
-                            <div>
-                                <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>
-                                    {p.userName} <span style={{ fontWeight: 'normal', color: '#666', fontSize: '0.8rem' }}>({p.userEmail})</span>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 'bold', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                                    <span>{p.userName || 'Anonymous'}</span>
+                                    <span style={{ fontWeight: 'normal', color: '#666', fontSize: '0.8rem' }}>({p.userEmail})</span>
                                 </div>
-                                <div style={{ fontSize: '0.85rem', color: '#aaa', marginTop: '4px' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#555', fontFamily: 'monospace', background: 'rgba(255,255,255,0.03)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block', marginBottom: '4px' }}>
+                                    ID: {p.id}
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: '#aaa' }}>
                                     Purchased <strong style={{ color: '#fff', textTransform: 'capitalize' }}>{p.tier}</strong> for <strong>{p.amount}</strong>
                                 </div>
-                                <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '4px' }}>
-                                    {new Date(p.createdAt).toLocaleString()}
+                                <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px', background: 'rgba(255,255,255,0.03)', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                                    📅 {new Date(p.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                                 </div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
