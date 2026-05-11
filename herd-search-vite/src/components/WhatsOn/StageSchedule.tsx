@@ -250,13 +250,14 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
                                 }}
                             >
                                 <div style={{ 
-                                    width: '60px', 
+                                    width: '75px', 
                                     padding: '8px 0', 
                                     color: '#888',
                                     fontSize: '0.85rem',
                                     textAlign: 'right',
                                     paddingRight: '12px',
-                                    borderRight: '1px solid #333'
+                                    borderRight: '1px solid #333',
+                                    boxSizing: 'border-box'
                                 }}>
                                     {time}
                                 </div>
@@ -265,7 +266,7 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
                         ))}
 
                         {/* Acts Overlay */}
-                        <div style={{ position: 'absolute', left: '60px', right: 0, top: 0, bottom: 0, pointerEvents: 'none' }}>
+                        <div style={{ position: 'absolute', left: '75px', right: 0, top: 0, bottom: 0, pointerEvents: 'none' }}>
                             {dayActs.map(act => {
                                 const start = timeToMinutes(act.startTime);
                                 const end = timeToMinutes(act.endTime);
@@ -279,8 +280,8 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
                                             position: 'absolute',
                                             top: `${top + 4}px`,
                                             height: `${height - 8}px`,
-                                            left: '4px',
-                                            right: '4px',
+                                            left: '8px',
+                                            right: '8px',
                                             background: 'rgba(187, 134, 252, 0.15)',
                                             border: '1px solid var(--primary)',
                                             borderRadius: '8px',
