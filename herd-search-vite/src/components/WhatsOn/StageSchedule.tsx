@@ -166,6 +166,10 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
     const timeSlots = generateTimeSlots(selectedDay);
     const dayActs = acts.filter(a => a.day === selectedDay).sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
 
+    const SLOT_HEIGHT = 60;
+    const MINUTES_PER_SLOT = 30;
+    const START_MINUTES = timeToMinutes(timeSlots[0]);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#121212', overflowY: 'auto', paddingBottom: '100px' }}>
             <div style={{ 
@@ -221,107 +225,122 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '2rem' }}>Loading schedule...</div>
                 ) : (
-                    <div style={{ position: 'relative' }}>
-                        {timeSlots.slice(0, -1).map((time) => {
-                            // Find acts starting in this slot or overlapping
-                            const slotMinutes = timeToMinutes(time);
-                            
-                            // For simplicity, we just display acts in the slot they start in
-                            const actsInSlot = dayActs.filter(a => {
-                                const startMin = timeToMinutes(a.startTime);
-                                return startMin >= slotMinutes && startMin < slotMinutes + 30;
-                            });
-
-                            return (
-                                <div key={time} style={{ 
+                    <div style={{ position: 'relative', height: `${(timeSlots.length - 1) * SLOT_HEIGHT}px` }}>
+                        {/* Background Grid */}
+                        {timeSlots.slice(0, -1).map((time) => (
+                            <div 
+                                key={time} 
+                                style={{ 
                                     display: 'flex', 
-                                    minHeight: '60px',
+                                    height: `${SLOT_HEIGHT}px`,
                                     borderBottom: '1px solid #333',
-                                    position: 'relative'
+                                    position: 'absolute',
+                                    top: `${(timeToMinutes(time) - START_MINUTES) * (SLOT_HEIGHT / MINUTES_PER_SLOT)}px`,
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                }}
+                                onClick={() => {
+                                    if (isAdmin) {
+                                        setEditingAct(null);
+                                        setActName('');
+                                        setActStart(time);
+                                        setActEnd('');
+                                        setIsEditing(true);
+                                    }
+                                }}
+                            >
+                                <div style={{ 
+                                    width: '60px', 
+                                    padding: '8px 0', 
+                                    color: '#888',
+                                    fontSize: '0.85rem',
+                                    textAlign: 'right',
+                                    paddingRight: '12px',
+                                    borderRight: '1px solid #333'
                                 }}>
-                                    <div style={{ 
-                                        width: '60px', 
-                                        padding: '8px 0', 
-                                        color: '#888',
-                                        fontSize: '0.85rem',
-                                        textAlign: 'right',
-                                        paddingRight: '12px',
-                                        borderRight: '1px solid #333'
-                                    }}>
-                                        {time}
-                                    </div>
+                                    {time}
+                                </div>
+                                <div style={{ flex: 1 }} />
+                            </div>
+                        ))}
+
+                        {/* Acts Overlay */}
+                        <div style={{ position: 'absolute', left: '60px', right: 0, top: 0, bottom: 0, pointerEvents: 'none' }}>
+                            {dayActs.map(act => {
+                                const start = timeToMinutes(act.startTime);
+                                const end = timeToMinutes(act.endTime);
+                                const top = (start - START_MINUTES) * (SLOT_HEIGHT / MINUTES_PER_SLOT);
+                                const height = (end - start) * (SLOT_HEIGHT / MINUTES_PER_SLOT);
+                                
+                                return (
                                     <div 
-                                        style={{ flex: 1, padding: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}
-                                        onClick={() => {
+                                        key={act.id} 
+                                        style={{
+                                            position: 'absolute',
+                                            top: `${top + 4}px`,
+                                            height: `${height - 8}px`,
+                                            left: '4px',
+                                            right: '4px',
+                                            background: 'rgba(187, 134, 252, 0.15)',
+                                            border: '1px solid var(--primary)',
+                                            borderRadius: '8px',
+                                            padding: '8px',
+                                            color: 'white',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            cursor: isAdmin ? 'pointer' : 'default',
+                                            pointerEvents: 'auto',
+                                            overflow: 'hidden',
+                                            zIndex: 5
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             if (isAdmin) {
-                                                setEditingAct(null);
-                                                setActName('');
-                                                setActStart(time);
-                                                setActEnd('');
+                                                setEditingAct(act);
+                                                setActName(act.name);
+                                                setActStart(act.startTime);
+                                                setActEnd(act.endTime);
                                                 setIsEditing(true);
                                             }
                                         }}
                                     >
-                                        {actsInSlot.map(act => (
-                                            <div 
-                                                key={act.id} 
-                                                style={{
-                                                    background: 'rgba(187, 134, 252, 0.15)',
-                                                    border: '1px solid var(--primary)',
-                                                    borderRadius: '8px',
-                                                    padding: '8px',
-                                                    color: 'white',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    cursor: isAdmin ? 'pointer' : 'default'
-                                                }}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (isAdmin) {
-                                                        setEditingAct(act);
-                                                        setActName(act.name);
-                                                        setActStart(act.startTime);
-                                                        setActEnd(act.endTime);
-                                                        setIsEditing(true);
-                                                    }
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                    <span style={{ fontWeight: 'bold' }}>{act.name}</span>
-                                                    {!isAdmin && (
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); copyToMySchedule(act); }}
-                                                            className="btn icon-button"
-                                                            style={{ color: 'var(--primary)', padding: '4px', background: 'rgba(0,0,0,0.3)' }}
-                                                            title="Copy to My Schedule"
-                                                        >
-                                                            <FaCopy size={12} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                <div style={{ fontSize: '0.8rem', color: '#ccc' }}>
-                                                    {act.startTime} - {act.endTime}
-                                                </div>
-                                                {isAdmin && (
-                                                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px', justifyContent: 'flex-end' }}>
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); handleDeleteAct(act.id); }}
-                                                            className="btn icon-button"
-                                                            style={{ color: 'var(--error)', padding: '4px' }}
-                                                        >
-                                                            <FaTrash size={12} />
-                                                        </button>
-                                                    </div>
-                                                )}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {act.name}
+                                            </span>
+                                            {!isAdmin && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); copyToMySchedule(act); }}
+                                                    className="btn icon-button"
+                                                    style={{ color: 'var(--primary)', padding: '4px', background: 'rgba(0,0,0,0.3)' }}
+                                                    title="Copy to My Schedule"
+                                                >
+                                                    <FaCopy size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: '#ccc' }}>
+                                            {act.startTime} - {act.endTime}
+                                        </div>
+                                        {isAdmin && height > 60 && (
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: 'auto', justifyContent: 'flex-end' }}>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteAct(act.id); }}
+                                                    className="btn icon-button"
+                                                    style={{ color: 'var(--error)', padding: '4px' }}
+                                                >
+                                                    <FaTrash size={12} />
+                                                </button>
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
             </div>
+
 
             {isEditing && (
                 <div className="modal-overlay" onClick={() => setIsEditing(false)}>
