@@ -20,7 +20,7 @@ const DEFAULT_STAGES = [
     { name: 'The Ring', imageUrl: '/area-logos/The Ring.png' },
     { name: 'Fortress', imageUrl: '/area-logos/Fortress.png' },
     { name: 'Sunrise', imageUrl: '/area-logos/Sunrise.png' },
-    { name: 'Laundrette', imageUrl: '/area-logos/Laundrette.png' },
+    { name: 'Launderette', imageUrl: '/area-logos/Launderette.png' },
     { name: 'Bubba Gumma', imageUrl: '/area-logos/BubbaGumma.png' },
     { name: 'Smoking Tentacles', imageUrl: '/area-logos/Smoking Tentacles.png' }
 ];
@@ -129,26 +129,54 @@ export default function StageList({ userData, onSelectStage, showAlert }: StageL
 
     return (
         <div style={{ padding: '1rem', paddingBottom: '100px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {stages.map((stage) => (
                     <div 
                         key={stage.id} 
                         onClick={() => onSelectStage(stage)}
                         style={{
                             background: '#222',
-                            borderRadius: '12px',
+                            borderRadius: '16px',
                             overflow: 'hidden',
                             cursor: 'pointer',
                             position: 'relative',
-                            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            aspectRatio: '1',
+                            boxShadow: '0 8px 16px rgba(0,0,0,0.4)',
+                            border: '1px solid rgba(255,255,255,0.08)',
                             display: 'flex',
-                            flexDirection: 'column'
+                            alignItems: 'center',
+                            minHeight: '100px',
+                            transition: 'transform 0.2s, background 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#2a2a2a';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#222';
+                            e.currentTarget.style.transform = 'translateY(0)';
                         }}
                     >
-                        <div style={{ flex: 1, backgroundImage: `url(${stage.imageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                        <div style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.8)', textAlign: 'center', fontWeight: 'bold' }}>
+                        {/* Logo Container */}
+                        <div style={{ 
+                            width: '100px', 
+                            height: '100px', 
+                            backgroundImage: `url("${stage.imageUrl}")`, 
+                            backgroundSize: 'contain', 
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'center',
+                            marginLeft: '10px',
+                            flexShrink: 0
+                        }} />
+
+                        {/* Name Container */}
+                        <div style={{ 
+                            flex: 1, 
+                            padding: '0 1.5rem', 
+                            fontSize: '1.4rem', 
+                            fontWeight: '800',
+                            color: 'white',
+                            letterSpacing: '0.5px'
+                        }}>
                             {stage.name}
                         </div>
                         {isAdmin && (

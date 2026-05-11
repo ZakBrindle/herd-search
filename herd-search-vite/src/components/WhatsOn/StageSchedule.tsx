@@ -186,12 +186,14 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
                 
                 <div style={{ 
                     width: '100%', 
-                    height: '150px', 
-                    backgroundImage: `url(${stage.imageUrl})`, 
-                    backgroundSize: 'cover', 
+                    height: '180px', 
+                    backgroundImage: `url("${stage.imageUrl}")`, 
+                    backgroundSize: 'contain', 
+                    backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'center',
                     borderRadius: '12px',
-                    marginBottom: '1rem'
+                    marginBottom: '1rem',
+                    backgroundColor: 'rgba(255,255,255,0.03)'
                 }} />
 
                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -323,8 +325,8 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
 
             {isEditing && (
                 <div className="modal-overlay" onClick={() => setIsEditing(false)}>
-                    <div className="modal-content card" onClick={(e) => e.stopPropagation()}>
-                        <h3>{editingAct ? 'Edit Act' : 'Add Act'}</h3>
+                    <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ flexDirection: 'column' }}>
+                        <h3 style={{ marginBottom: '1rem', textAlign: 'center' }}>{editingAct ? 'Edit Act' : 'Add Act'}</h3>
                         <div style={{ marginBottom: '1rem' }}>
                             <label style={{ display: 'block', marginBottom: '0.5rem' }}>Act Name</label>
                             <input 
