@@ -2881,7 +2881,7 @@ export default function App() {
         <div className="logo-container">
           <img src="/logo-main.png" alt="Herd Search Logo" className="logo-image" />
           <Link to="/about" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>
-            {activeTab === 'profile' ? 'Profile' : 'Herd Search'}
+            {activeTab === 'profile' ? 'Profile' : activeTab === 'whats-on' ? "What's On" : 'Herd Search'}
           </Link>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -4713,11 +4713,14 @@ export default function App() {
 
     if (activeTab === 'whats-on') {
       return (
-        <WhatsOnTab 
-          userData={userData} 
-          showAlert={showAlert} 
-          showConfirm={showConfirm} 
-        />
+        <>
+          {renderHeader()}
+          <WhatsOnTab 
+            userData={userData} 
+            showAlert={showAlert} 
+            showConfirm={showConfirm} 
+          />
+        </>
       );
     }
   }; // End renderContent
@@ -4940,7 +4943,12 @@ export default function App() {
         <button className={`nav-item ${activeTab === 'whats-on' ? 'active' : ''}`} onClick={() => setActiveTab('whats-on')}>
           <FaClock />
           <span>What's On</span>
-          {/* We might still want to show a dot if wrapped is available, or not. The user didn't mention moving the dot, but we can keep it here or remove it. Let's keep it just in case. */}
+        </button>
+
+        <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
+          <FaUser />
+          <span>Profile</span>
+          {/* Notification Dot for Profile */}
           {newWrappedAvailable && <div style={{ position: 'absolute', top: 5, right: '35%', width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', border: '1px solid black' }} />}
         </button>
 

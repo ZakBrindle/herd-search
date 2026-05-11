@@ -10,6 +10,21 @@ export interface Stage {
     order: number;
 }
 
+const DEFAULT_STAGES = [
+    { name: 'Main Stage', imageUrl: '/area-logos/Main Stage.png' },
+    { name: 'Working Mens Club', imageUrl: '/area-logos/Working Mens Club.png' },
+    { name: 'Factory', imageUrl: '/area-logos/The Factory.png' },
+    { name: 'Bushrocker Hi-Fi', imageUrl: '/area-logos/Bushrocker Hi-Fi.png' },
+    { name: 'Toil Trees', imageUrl: '/area-logos/Toil Trees.png' },
+    { name: 'Garage', imageUrl: '/area-logos/Garage.png' },
+    { name: 'The Ring', imageUrl: '/area-logos/The Ring.png' },
+    { name: 'Fortress', imageUrl: '/area-logos/Fortress.png' },
+    { name: 'Sunrise', imageUrl: '/area-logos/Sunrise.png' },
+    { name: 'Laundrette', imageUrl: '/area-logos/Laundrette.png' },
+    { name: 'Bubba Gumma', imageUrl: '/area-logos/BubbaGumma.png' },
+    { name: 'Smoking Tentacles', imageUrl: '/area-logos/Smoking Tentacles.png' }
+];
+
 interface StageListProps {
     userData: any; // UserData type
     onSelectStage: (stage: Stage) => void;
@@ -34,9 +49,16 @@ export default function StageList({ userData, onSelectStage, showAlert }: StageL
         try {
             const snap = await getDocs(collection(db, 'whats_on_stages'));
             if (snap.empty) {
-                // Return defaults if none in DB? Or just show empty and let admin add.
-                // We'll show empty and let admin add, but we can also auto-seed them.
-                setStages([]);
+                // Populate default stages
+                const promises = DEFAULT_STAGES.map((stage, index) => 
+                    addDoc(collection(db, 'whats_on_stages'), { ...stage, order: index })
+                );
+                await Promise.all(promises);
+                // Reload after population
+                const newSnap = await getDocs(collection(db, 'whats_on_stages'));
+                const loaded = newSnap.docs.map(d => ({ id: d.id, ...d.data() } as Stage));
+                loaded.sort((a, b) => (a.order || 0) - (b.order || 0));
+                setStages(loaded);
             } else {
                 const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() } as Stage));
                 loaded.sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -154,8 +176,8 @@ export default function StageList({ userData, onSelectStage, showAlert }: StageL
 
             {isEditing && (
                 <div className="modal-overlay" onClick={() => setIsEditing(false)}>
-                    <div className="modal-content card" onClick={(e) => e.stopPropagation()}>
-                        <h3>{editingStage ? 'Edit Stage' : 'Add New Stage'}</h3>
+                    <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ flexDirection: 'column' }}>
+                        <h3 style={{ marginBottom: '1rem', textAlign: 'center' }}>{editingStage ? 'Edit Stage' : 'Add New Stage'}</h3>
                         <div style={{ marginBottom: '1rem' }}>
                             <label style={{ display: 'block', marginBottom: '0.5rem' }}>Stage Name</label>
                             <input 
