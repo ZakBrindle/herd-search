@@ -4431,6 +4431,7 @@ export default function App() {
                   }} />
                 </div>
               </div>
+              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
               {/* Stay Hydrated Section */}
               <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
@@ -4442,11 +4443,12 @@ export default function App() {
                     src="/WATER.png" 
                     alt="Hydration" 
                     style={{ 
-                      width: '100%', 
+                      width: '120px', 
                       height: 'auto', 
                       borderRadius: '12px', 
                       marginBottom: '12px', 
-                      border: '1px solid rgba(255,255,255,0.1)' 
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      alignSelf: 'center'
                     }} 
                   />
                   <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#ccc', lineHeight: '1.4' }}>
@@ -4470,6 +4472,7 @@ export default function App() {
                   </button>
                 </div>
               </div>
+              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
 
 
