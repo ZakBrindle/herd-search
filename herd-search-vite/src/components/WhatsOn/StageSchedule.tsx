@@ -8,7 +8,7 @@ interface StageScheduleProps {
     stage: Stage;
     userData: any;
     showAlert: (msg: string) => void;
-    showConfirm: (msg: string, onConfirm: () => void) => void;
+    showConfirm: (msg: string, onConfirm: () => void, confirmText?: string, cancelText?: string) => void;
     onBack: () => void;
 }
 
@@ -155,8 +155,10 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
 
         if (existingItem) {
             showConfirm(
-                `You already have "${existingItem.performer}" at ${existingItem.stage} scheduled at ${act.startTime}. Overwrite it with "${act.name}"?`,
-                performCopy
+                `You already have "${existingItem.performer}" scheduled at ${act.startTime}. Which would you like to keep?`,
+                performCopy,
+                `Keep ${act.name}`,
+                `Keep ${existingItem.performer}`
             );
         } else {
             performCopy();
@@ -292,7 +294,8 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
                                             cursor: isAdmin ? 'pointer' : 'default',
                                             pointerEvents: 'auto',
                                             overflow: 'hidden',
-                                            zIndex: 5
+                                            zIndex: 5,
+                                            boxSizing: 'border-box'
                                         }}
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -309,16 +312,14 @@ export default function StageSchedule({ stage, userData, showAlert, showConfirm,
                                             <span style={{ fontWeight: 'bold', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {act.name}
                                             </span>
-                                            {!isAdmin && (
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); copyToMySchedule(act); }}
-                                                    className="btn icon-button"
-                                                    style={{ color: 'var(--primary)', padding: '4px', background: 'rgba(0,0,0,0.3)' }}
-                                                    title="Copy to My Schedule"
-                                                >
-                                                    <FaCopy size={12} />
-                                                </button>
-                                            )}
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); copyToMySchedule(act); }}
+                                                className="btn icon-button"
+                                                style={{ color: 'var(--primary)', padding: '4px', background: 'rgba(0,0,0,0.3)', zIndex: 10 }}
+                                                title="Copy to My Schedule"
+                                            >
+                                                <FaCopy size={12} />
+                                            </button>
                                         </div>
                                         <div style={{ fontSize: '0.75rem', color: '#ccc' }}>
                                             {act.startTime} - {act.endTime}

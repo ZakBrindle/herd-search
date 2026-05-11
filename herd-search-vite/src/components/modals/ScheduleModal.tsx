@@ -21,7 +21,7 @@ interface ScheduleModalProps {
     viewingUser?: UserData | null; // If viewing someone else's schedule
     onClose: () => void;
     showAlert: (message: string) => void;
-    showConfirm: (message: string, onConfirm: () => void) => void;
+    showConfirm: (message: string, onConfirm: () => void, confirmText?: string, cancelText?: string) => void;
 }
 
 // List of stages (can be customized)
@@ -148,8 +148,10 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
         if (existingItem && !isViewingOwnSchedule) {
             onClose(); // Close instantly so they see the confirm popup
             showConfirm(
-                `You already have "${existingItem.performer}" at ${existingItem.stage} scheduled for ${item.day} at ${item.time}. Overwrite it with "${item.performer}" at ${item.stage}?`,
-                performCopy
+                `You already have "${existingItem.performer}" scheduled for ${item.day} at ${item.time}. Which would you like to keep?`,
+                performCopy,
+                `Keep ${item.performer}`,
+                `Keep ${existingItem.performer}`
             );
         } else {
             onClose(); // Close instantly

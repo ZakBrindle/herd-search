@@ -72,6 +72,8 @@ interface DailyStats {
 type ConfirmAction = {
   message: string;
   onConfirm: () => void;
+  confirmText?: string;
+  cancelText?: string;
 };
 
 import { PLANS, TIER_LIMITS } from './constants/plans';
@@ -1128,8 +1130,8 @@ export default function App() {
     setActiveModal('alert');
   };
 
-  const showConfirm = (message: string, onConfirm: () => void) => {
-    setConfirmAction({ message, onConfirm });
+  const showConfirm = (message: string, onConfirm: () => void, confirmText?: string, cancelText?: string) => {
+    setConfirmAction({ message, onConfirm, confirmText, cancelText });
     setActiveModal('confirm');
   };
 
@@ -5901,10 +5903,14 @@ export default function App() {
           <div className="modal-overlay">
             <div className="modal-content">
               <h3 className="modal-header">Confirm</h3>
-              <p className="text-center">{confirmAction.message}</p>
-              <div className="modal-actions">
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Cancel</button>
-                <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); }} className="btn btn-danger">Confirm</button>
+              <p className="text-center" style={{ marginBottom: '1.5rem', lineHeight: '1.5' }}>{confirmAction.message}</p>
+              <div className="modal-actions" style={{ gap: '12px' }}>
+                <button onClick={() => setActiveModal(null)} className="btn btn-secondary" style={{ flex: 1 }}>
+                  {confirmAction.cancelText || 'Cancel'}
+                </button>
+                <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); }} className="btn btn-danger" style={{ flex: 1 }}>
+                  {confirmAction.confirmText || 'Confirm'}
+                </button>
               </div>
             </div>
           </div>
