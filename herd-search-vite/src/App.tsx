@@ -3228,7 +3228,7 @@ export default function App() {
           <div className="map-container">
             <img
               ref={mapImageRef}
-              src="/Beatherder Map.png"
+              src={userData?.mapPreference === 'satellite' ? "/Beatherder Map.png" : "/Beatherder Map 2.png"}
               alt="Map"
               className="map-image"
               onLoad={resizeCanvas}
@@ -4398,6 +4398,56 @@ export default function App() {
                 );
               })()}
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
+
+              {/* Map Preference */}
+              <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaMap color="#03dac6" /> Map Style
+                </h3>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => {
+                      if (currentUser) {
+                        updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'cartoon' }).catch(console.error);
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      backgroundColor: userData?.mapPreference !== 'satellite' ? '#03dac6' : '#1e1e1e',
+                      color: userData?.mapPreference !== 'satellite' ? '#000' : '#fff',
+                      border: userData?.mapPreference !== 'satellite' ? 'none' : '1px solid #333',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Cartoon Map (default)
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (currentUser) {
+                        updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'satellite' }).catch(console.error);
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      backgroundColor: userData?.mapPreference === 'satellite' ? '#03dac6' : '#1e1e1e',
+                      color: userData?.mapPreference === 'satellite' ? '#000' : '#fff',
+                      border: userData?.mapPreference === 'satellite' ? 'none' : '1px solid #333',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Satellite
+                  </button>
+                </div>
+              </div>
+
 
 
               {/* WRAPPED SECTION */}
