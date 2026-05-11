@@ -284,6 +284,9 @@ const UpgradePage = () => {
                         <p className="pricing-price">£0.00</p>
                         <p style={{ fontSize: '0.8rem', color: '#888', textAlign: 'center', marginBottom: '1.5rem' }}>Solo Mode</p>
                         <button className="btn btn-secondary w-full" style={{ pointerEvents: 'none' }}>Select</button>
+                        <p style={{ color: '#666', fontSize: '0.65rem', lineHeight: '1.2', marginTop: '12px', textAlign: 'center' }}>
+                            By selecting a plan, you agree to our <Link to="/terms" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary, #03dac6)', textDecoration: 'underline' }}>Terms of Service</Link>.
+                        </p>
                     </div>
                 )}
 
@@ -342,14 +345,14 @@ const UpgradePage = () => {
                                 !upgradesEnabled ? "Paused" : "Select"
                             )}
                         </button>
+                        <p style={{ color: '#666', fontSize: '0.65rem', lineHeight: '1.2', marginTop: '12px', textAlign: 'center' }}>
+                            By purchasing a plan, you agree to our <Link to="/terms" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary, #03dac6)', textDecoration: 'underline' }}>Terms of Service</Link>.
+                        </p>
                     </div>
                 ))}
             </div>
 
             <div style={{ textAlign: 'center', padding: '0 1rem', marginBottom: '2rem' }}>
-                <p style={{ color: '#666', fontSize: '0.85rem', lineHeight: '1.4' }}>
-                    By purchasing a plan, you agree to our <Link to="/terms" style={{ color: 'var(--primary, #03dac6)', textDecoration: 'underline' }}>Terms of Service</Link>.
-                </p>
                 <p style={{ color: '#555', fontSize: '0.75rem', marginTop: '1rem' }}>
                     All plans are one-time payments for 30 days of access.
                 </p>
