@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -231,6 +231,18 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [selectedAreaForVote, selectedAreaForCheckIn]);
 
+  const [waterMapExpiry, setWaterMapExpiry] = useState<number | null>(null);
+
+  // Water Map Expiry Effect
+  useEffect(() => {
+    if (waterMapExpiry && waterMapExpiry > Date.now()) {
+      const timer = setTimeout(() => {
+        setWaterMapExpiry(null);
+      }, waterMapExpiry - Date.now());
+      return () => clearTimeout(timer);
+    }
+  }, [waterMapExpiry]);
+
   // Wrapped Stats State
   const [showWrappedModal, setShowWrappedModal] = useState(false);
   const [selectedWrappedStats, setSelectedWrappedStats] = useState<DailyStats | null>(null);
@@ -248,6 +260,7 @@ export default function App() {
 
   // QR Code Modal State
   const [activeQRModal, setActiveQRModal] = useState<'friend' | 'squad' | null>(null);
+
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [lastSubVerify, setLastSubVerify] = useState(0);
 
@@ -3105,6 +3118,9 @@ export default function App() {
             <img
               ref={mapImageRef}
               src={(() => {
+                if (waterMapExpiry && waterMapExpiry > Date.now()) {
+                  return "/BH water map.png";
+                }
                 const pref = userData?.mapPreference;
                 if (!pref || pref === 'dynamic' || pref === 'cartoon') {
                   const hour = new Date().getHours();
@@ -4375,6 +4391,7 @@ export default function App() {
                     boxSizing: 'border-box'
                   }}
                 >
+
                   <div style={{ flex: 1 }}>
                     <h4 style={{ margin: 0, color: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#03dac6' : 'white' }}>Dynamic Map</h4>
                     <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
@@ -4386,6 +4403,34 @@ export default function App() {
                     backgroundColor: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#03dac6' : '#333',
                     border: '1px solid #555'
                   }} />
+                </div>
+              </div>
+
+              {/* Stay Hydrated Section */}
+              <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaTint color="#4facfe" /> Stay Hydrated
+                </h3>
+                <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '16px' }}>
+                  <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#ccc', lineHeight: '1.4' }}>
+                    It's going to be a big one! Remember to stay hydrated. Free water taps are scattered all around the festival site.
+                  </p>
+                  <button 
+                    onClick={() => {
+                      setWaterMapExpiry(Date.now() + 90000); // 90 seconds
+                      setActiveTab('map');
+                      showAlert("Water taps are now highlighted on the map for 90 seconds!");
+                    }}
+                    className="btn btn-primary w-full"
+                    style={{ 
+                      background: 'linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)',
+                      border: 'none',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    View Water Taps on Map
+                  </button>
                 </div>
               </div>
 
