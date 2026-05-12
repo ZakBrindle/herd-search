@@ -201,7 +201,7 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
     }
 
     const content = (
-        <div className={inline ? "" : "modal-content card"} onClick={inline ? undefined : (e) => e.stopPropagation()} style={inline ? { flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' } : { maxWidth: '1100px', width: '98%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
+        <div className={inline ? "" : "modal-content card"} onClick={inline ? undefined : (e) => e.stopPropagation()} style={inline ? { flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '16px' } : { maxWidth: '1100px', width: '98%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
             {/* Header */}
             {!inline && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '1rem' }}>
@@ -223,25 +223,25 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
             )}
 
             {/* Day Tabs */}
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                    {DAYS.map(day => (
-                        <button
-                            key={day}
-                            onClick={() => setSelectedDay(day)}
-                            className="btn"
-                            style={{
-                                flex: 1,
-                                minWidth: '100px',
-                                background: selectedDay === day ? 'var(--primary)' : '#333',
-                                color: selectedDay === day ? 'black' : 'white',
-                                fontWeight: selectedDay === day ? 'bold' : 'normal',
-                                padding: '8px 12px'
-                            }}
-                        >
-                            {day}
-                        </button>
-                    ))}
-                </div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '4px' }}>
+                {DAYS.map(day => (
+                    <button
+                        key={day}
+                        onClick={() => setSelectedDay(day)}
+                        className="btn"
+                        style={{
+                            flex: 1,
+                            minWidth: '80px',
+                            padding: '8px',
+                            background: selectedDay === day ? 'var(--primary)' : '#333',
+                            color: selectedDay === day ? 'black' : 'white',
+                            fontWeight: selectedDay === day ? 'bold' : 'normal'
+                        }}
+                    >
+                        {day.substring(0, 3)}
+                    </button>
+                ))}
+            </div>
 
                 {/* Schedule Grid */}
                 <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #333', borderRadius: '12px', background: '#1a1a1a' }}>
