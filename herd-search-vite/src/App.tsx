@@ -5986,9 +5986,32 @@ export default function App() {
                 }
               }} 
               className="btn btn-primary w-full"
-              style={{ height: '50px', fontWeight: 'bold', fontSize: '1rem' }}
+              style={{ height: '50px', fontWeight: 'bold', fontSize: '1rem', marginBottom: '10px' }}
             >
               Send Friend Request
+            </button>
+
+            <button 
+              onClick={() => {
+                setActiveModal(null);
+                setActiveQRModal('friend');
+                setIsScannerOpen(true);
+              }}
+              className="btn w-full"
+              style={{ 
+                height: '50px', 
+                background: '#03DAC6', 
+                color: 'black', 
+                fontWeight: 'bold', 
+                fontSize: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                border: 'none'
+              }}
+            >
+              <FaCamera /> Open Camera to Scan
             </button>
           </div>
         </div>
