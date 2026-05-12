@@ -4799,6 +4799,15 @@ export default function App() {
     }
 
     if (activeTab === 'whats-on') {
+      const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
+      const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+      const hasWhatsOnAccess = tier !== 'free' || (userData?.squadId && squadMembers.length > 1);
+
+      if (!hasWhatsOnAccess) {
+        setTimeout(() => setActiveTab('map'), 0);
+        return null;
+      }
+
       return (
         <>
           {renderHeader()}
@@ -5027,10 +5036,21 @@ export default function App() {
           )}
         </button>
 
-        <button className={`nav-item ${activeTab === 'whats-on' ? 'active' : ''}`} onClick={() => setActiveTab('whats-on')}>
-          <FaClock />
-          <span>What's On</span>
-        </button>
+        {(() => {
+          const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
+          const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+          const hasWhatsOnAccess = tier !== 'free' || (userData?.squadId && squadMembers.length > 1);
+
+          if (hasWhatsOnAccess) {
+            return (
+              <button className={`nav-item ${activeTab === 'whats-on' ? 'active' : ''}`} onClick={() => setActiveTab('whats-on')}>
+                <FaClock />
+                <span>What's On</span>
+              </button>
+            );
+          }
+          return null;
+        })()}
 
         <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
           <FaUser />
