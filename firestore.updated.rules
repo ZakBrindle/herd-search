@@ -79,20 +79,14 @@ service cloud.firestore {
 
     // --- Purchases Collection Rules ---
     match /purchases/{purchaseId} {
-      // Users can see their own purchases, admins can see all
-      allow read: if request.auth != null && (
+      // Users can see their own purchases (by UID or Email fallback), admins can see all
+      allow read, update: if request.auth != null && (
         resource.data.userId == request.auth.uid || 
+        (resource.data.keys().hasAll(['userEmail']) && request.auth.token.email != null && resource.data.userEmail.lower() == request.auth.token.email.lower()) ||
         isAdmin()
       );
-      // Admins can list (global query) all purchases for the Billing Center
-      allow list: if request.auth != null && isAdmin();
       // Users can create their own purchase records
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      // Users can update their own purchase (e.g. status started -> completed), admins can update any
-      allow update: if request.auth != null && (
-        resource.data.userId == request.auth.uid || 
-        isAdmin()
-      );
     }
 
     // --- Stripe Customers Collection Rules (for Firebase Stripe Extension) ---

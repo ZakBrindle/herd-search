@@ -278,7 +278,7 @@ export default function App() {
         try {
           const url = new URL(decodedText);
           const params = new URLSearchParams(url.search);
-          
+
           const addFriend = params.get('addFriend');
           const inviteSquad = params.get('inviteSquad');
           const inviter = params.get('inviter');
@@ -290,7 +290,7 @@ export default function App() {
               // Feedback is handled inside handleSendFriendRequest
             }
           }
-          
+
           if (inviteSquad && inviter) {
             localStorage.setItem('parkedInviteSquad', JSON.stringify({ squadId: inviteSquad, inviter }));
             if (currentUser && inviter !== currentUser.uid) {
@@ -318,12 +318,12 @@ export default function App() {
           if (devices && devices.length > 0) {
             // Find back camera, fallback to first available
             const backCamera = devices.find((d: any) => d.label.toLowerCase().includes('back')) || devices[0];
-            
+
             await html5QrCode?.start(
               backCamera.id,
               { fps: 10, qrbox: { width: 250, height: 250 } },
               onScanSuccess,
-              () => {} // silent error handler for frames
+              () => { } // silent error handler for frames
             );
           } else {
             showAlert("No cameras found on this device.");
@@ -453,17 +453,17 @@ export default function App() {
     const now = new Date();
     const day = now.getDay(); // 0 is Sun, 1 is Mon, 2 is Tue
     const hasRated = userData?.hasRated || !!userData?.lastRatedWeek;
-    
+
     // Show Sun/Mon, hide Tue if not filled.
-    if (! (day === 0 || day === 1)) return null;
-    
+    if (!(day === 0 || day === 1)) return null;
+
     // If they have rated and we are NOT showing the thanks message, hide the widget
     if (hasRated && !showRatingThanks) return null;
 
     return (
-      <div style={{ 
-        textAlign: 'center', 
-        padding: '20px 0', 
+      <div style={{
+        textAlign: 'center',
+        padding: '20px 0',
         marginBottom: '20px',
         width: '100%'
       }}>
@@ -474,14 +474,14 @@ export default function App() {
           {[1, 2, 3, 4, 5].map(star => {
             const isFilled = showRatingThanks ? star <= ratingValue : star <= (isJiggling || 0);
             return (
-              <div 
-                key={star} 
+              <div
+                key={star}
                 onClick={() => !showRatingThanks && handleRateApp(star)}
                 className={isJiggling && star <= isJiggling ? 'jiggle' : ''}
                 style={{ cursor: showRatingThanks ? 'default' : 'pointer', transition: 'transform 0.2s', flex: 1, display: 'flex', justifyContent: 'center' }}
               >
-                {isFilled ? 
-                  <FaStar size={48} color="#FFD700" /> : 
+                {isFilled ?
+                  <FaStar size={48} color="#FFD700" /> :
                   <FaRegStar size={48} color="#333" />
                 }
               </div>
@@ -647,7 +647,7 @@ export default function App() {
       for (const day of daysToCheck) {
         // Only include Thu (4), Fri (5), Sat (6), Sun (0)
         const d = new Date(day + 'T12:00:00');
-        const dayOfWeek = d.getDay(); 
+        const dayOfWeek = d.getDay();
         const isFestivalDay = [0, 4, 5, 6].includes(dayOfWeek);
         if (!isFestivalDay) continue;
 
@@ -728,7 +728,7 @@ export default function App() {
         redirectStatus: checkoutCancel === 'true' ? 'cancelled' : (redirectStatus || 'succeeded'),
         timestamp: Date.now()
       }));
-      
+
       urlParams.delete('payment_intent');
       urlParams.delete('payment_intent_client_secret');
       urlParams.delete('redirect_status');
@@ -790,12 +790,12 @@ export default function App() {
           setPaymentStatus('pending'); // Start with checking...
 
           const purchaseId = localStorage.getItem('pendingPurchaseId');
-          
+
           if (redirectStatus === 'cancelled') {
             setPaymentStatus('failed');
             if (purchaseId) {
-                updateDoc(doc(db, "purchases", purchaseId), { status: 'failed', updatedAt: Date.now() }).catch(console.error);
-                updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false }).catch(console.error);
+              updateDoc(doc(db, "purchases", purchaseId), { status: 'failed', updatedAt: Date.now() }).catch(console.error);
+              updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false }).catch(console.error);
             }
             localStorage.removeItem('pendingPlan');
             localStorage.removeItem('pendingPurchaseId');
@@ -891,7 +891,7 @@ export default function App() {
             // This user HAS a valid recent purchase.
             const hasActive = hasActiveSubscription(userData);
             const correctExpiry = purchaseDate + (30 * 24 * 60 * 60 * 1000);
-            
+
             // If tier doesn't match or expiry is significantly off (more than 1 min difference)
             if (!hasActive || userData.tier !== latestPurchase.tier || Math.abs((userData.subscriptionExpiry || 0) - correctExpiry) > 60000) {
               console.log("Subscription Guard: Active purchase found but user profile is outdated. Fixing...");
@@ -912,12 +912,12 @@ export default function App() {
             }
           }
         } else if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev) {
-           // No purchases found at all, and they are not free/dev
-           console.log("Subscription Guard: No purchases found and not Dev. Resetting to free.");
-           await updateDoc(getUserDocRef(currentUser.uid), {
-             tier: 'free',
-             subscriptionExpiry: null
-           });
+          // No purchases found at all, and they are not free/dev
+          console.log("Subscription Guard: No purchases found and not Dev. Resetting to free.");
+          await updateDoc(getUserDocRef(currentUser.uid), {
+            tier: 'free',
+            subscriptionExpiry: null
+          });
         }
       } catch (e) {
         console.error("Subscription Guard Error:", e);
@@ -940,7 +940,7 @@ export default function App() {
     if (paymentStatus === 'pending') {
       console.log("Payment Resolution: Starting check...");
       const purchaseId = localStorage.getItem('pendingPurchaseId');
-      
+
       if (!purchaseId) {
         console.warn("Payment Resolution: No pendingPurchaseId found in localStorage.");
         const timer = setTimeout(() => {
@@ -2418,13 +2418,13 @@ export default function App() {
       const q = query(
         collection(db, "friendRequests"),
         where("from", "==", currentUser.uid),
-        where("to", "==", friendUid),
-        orderBy("createdAt", "desc"),
-        limit(1)
+        where("to", "==", friendUid)
       );
       const snap = await getDocs(q);
       if (!snap.empty) {
-        const existing = snap.docs[0].data();
+        // Sort in memory to avoid composite index requirement
+        const docs = snap.docs.map(d => d.data()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        const existing = docs[0];
         if (existing.status === 'pending') {
           showAlert("Friend request is already pending.");
           return;
@@ -2537,13 +2537,12 @@ export default function App() {
       const q = query(
         collection(db, "squadJoinRequests"),
         where("from", "==", currentUser.uid),
-        where("to", "==", leaderUid),
-        orderBy("createdAt", "desc"),
-        limit(1)
+        where("to", "==", leaderUid)
       );
       const snap = await getDocs(q);
       if (!snap.empty) {
-        const existing = snap.docs[0].data();
+        const docs = snap.docs.map(d => d.data()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        const existing = docs[0];
         if (existing.status === 'pending') {
           showAlert("Join request already pending.");
           return;
@@ -2601,7 +2600,7 @@ export default function App() {
       const squadRef = doc(db, 'squads', userData.squadId);
       const squadSnap = await getDoc(squadRef);
       if (!squadSnap.exists()) return;
-      
+
       const members = squadSnap.data().members || [];
       if (members.length >= limit + 1) {
         showAlert("Your squad is full! Upgrade to add more people.");
@@ -2654,15 +2653,15 @@ export default function App() {
   if (authLoading) {
     return (
       <div className="app-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#121212', color: 'white' }}>
-        <img 
-          src="/logo-main.png" 
-          alt="Herd Search" 
-          style={{ 
-            width: 'min(180px, 40vw)', 
-            height: 'auto', 
+        <img
+          src="/logo-main.png"
+          alt="Herd Search"
+          style={{
+            width: 'min(180px, 40vw)',
+            height: 'auto',
             marginBottom: '2.5rem',
             animation: 'pulsate 3s infinite ease-in-out'
-          }} 
+          }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <div className="spinner" style={{
@@ -4029,23 +4028,23 @@ export default function App() {
                   const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
                   const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
                   const remaining = Math.max(0, limit - usedFriendSpots);
-                  
+
                   if (tier !== 'free' && remaining > 0) {
                     return (
-                      <div 
+                      <div
                         className="card"
                         onClick={() => setActiveQRModal('squad')}
                         style={{
-                           width: '70px',
-                           cursor: 'pointer',
-                           justifyContent: 'center',
-                           background: 'rgba(255, 255, 255, 0.05)',
-                           border: '1px dashed var(--primary)',
-                           color: 'var(--primary)',
-                           padding: '16px',
-                           display: 'flex',
-                           alignItems: 'center',
-                           flexDirection: 'column'
+                          width: '70px',
+                          cursor: 'pointer',
+                          justifyContent: 'center',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px dashed var(--primary)',
+                          color: 'var(--primary)',
+                          padding: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexDirection: 'column'
                         }}>
                         <FaQrcode size={24} />
                       </div>
@@ -4081,7 +4080,7 @@ export default function App() {
                 <FaPlus size={14} />
                 <p style={{ margin: 0 }}>Add Friend</p>
               </div>
-              <div 
+              <div
                 className="card"
                 onClick={() => setActiveQRModal('friend')}
                 style={{
@@ -4321,12 +4320,12 @@ export default function App() {
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaMap color="#03dac6" /> Map Style
                 </h3>
-                <div style={{ 
-                  width: '100%', 
-                  height: '120px', 
-                  borderRadius: '12px', 
-                  marginBottom: '15px', 
-                  overflow: 'hidden', 
+                <div style={{
+                  width: '100%',
+                  height: '120px',
+                  borderRadius: '12px',
+                  marginBottom: '15px',
+                  overflow: 'hidden',
                   border: '1px solid #333',
                   display: 'flex',
                   position: 'relative'
@@ -4455,29 +4454,29 @@ export default function App() {
                   <FaTint color="#4facfe" /> Stay Hydrated
                 </h3>
                 <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '16px' }}>
-                  <img 
-                    src="/WATER.png" 
-                    alt="Hydration" 
-                    style={{ 
-                      width: '120px', 
-                      height: 'auto', 
-                      borderRadius: '12px', 
-                      marginBottom: '12px', 
+                  <img
+                    src="/WATER.png"
+                    alt="Hydration"
+                    style={{
+                      width: '120px',
+                      height: 'auto',
+                      borderRadius: '12px',
+                      marginBottom: '12px',
                       border: '1px solid rgba(255,255,255,0.1)',
                       alignSelf: 'center'
-                    }} 
+                    }}
                   />
                   <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#ccc', lineHeight: '1.4' }}>
                     It's going to be a big one! Remember to stay hydrated. Free water taps are scattered all around the festival site.
                   </p>
-                  <button 
+                  <button
                     onClick={() => {
                       setWaterMapExpiry(Date.now() + 90000); // 90 seconds
                       setActiveTab('map');
                       showAlert("Water taps are now highlighted on the map for 90 seconds!");
                     }}
                     className="btn btn-primary w-full"
-                    style={{ 
+                    style={{
                       background: 'linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)',
                       border: 'none',
                       color: 'white',
@@ -4770,15 +4769,15 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {billingHistory.map((item) => (
                   <div key={item.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '16px', background: 'rgba(255,255,255,0.03)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <strong style={{ color: 'var(--primary)', textTransform: 'capitalize', fontSize: '1.1rem' }}>{item.tier} Plan</strong>
-                          <span style={{ fontSize: '0.7rem', color: '#666' }}>ID: {item.id}</span>
-                        </div>
-                        <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.amount}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <strong style={{ color: 'var(--primary)', textTransform: 'capitalize', fontSize: '1.1rem' }}>{item.tier} Plan</strong>
+                        <span style={{ fontSize: '0.7rem', color: '#666' }}>ID: {item.id}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#888' }}>
-                        <span>{new Date(item.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.amount}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#888' }}>
+                      <span>{new Date(item.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                       <span style={{
                         color: item.status === 'completed' ? 'var(--secondary)' : 'var(--error)',
                         fontWeight: '600',
@@ -4825,11 +4824,11 @@ export default function App() {
       return (
         <>
           {renderHeader()}
-          <WhatsOnTab 
+          <WhatsOnTab
             key={whatsOnInitialTab}
-            userData={userData} 
-            showAlert={showAlert} 
-            showConfirm={showConfirm} 
+            userData={userData}
+            showAlert={showAlert}
+            showConfirm={showConfirm}
             initialSubTab={whatsOnInitialTab}
           />
         </>
@@ -5084,32 +5083,32 @@ export default function App() {
       {selectedMember && (
         <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
-            <button 
-              onClick={() => setSelectedMember(null)} 
+            <button
+              onClick={() => setSelectedMember(null)}
               style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
             >
               <FaTimes />
             </button>
 
             <div style={{ textAlign: 'center' }}>
-              <img 
-                src={selectedMember.photoURL || "/default-avatar.png"} 
-                alt="Avatar" 
-                className="avatar" 
-                style={{ width: 80, height: 80, marginBottom: '0.75rem', border: '3px solid var(--primary)', padding: '2px' }} 
+              <img
+                src={selectedMember.photoURL || "/default-avatar.png"}
+                alt="Avatar"
+                className="avatar"
+                style={{ width: 80, height: 80, marginBottom: '0.75rem', border: '3px solid var(--primary)', padding: '2px' }}
               />
               <h2 style={{ marginBottom: '0.25rem', fontSize: '1.4rem' }}>{selectedMember.displayName}</h2>
-              
-              <div style={{ 
-                display: 'inline-block', 
-                padding: '4px 12px', 
-                borderRadius: '20px', 
-                fontSize: '0.7rem', 
-                fontWeight: '900', 
+
+              <div style={{
+                display: 'inline-block',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.7rem',
+                fontWeight: '900',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
-                background: selectedMember.tier === 'premium' ? 'linear-gradient(45deg, #FFD700, #FFA500)' : 
-                            selectedMember.tier === 'standard' ? 'linear-gradient(45deg, #00C9FF, #92FE9D)' : 'rgba(255,255,255,0.1)',
+                background: selectedMember.tier === 'premium' ? 'linear-gradient(45deg, #FFD700, #FFA500)' :
+                  selectedMember.tier === 'standard' ? 'linear-gradient(45deg, #00C9FF, #92FE9D)' : 'rgba(255,255,255,0.1)',
                 color: (selectedMember.tier === 'premium' || selectedMember.tier === 'standard') ? 'black' : '#aaa',
                 marginBottom: '1rem'
               }}>
@@ -5138,7 +5137,7 @@ export default function App() {
                       <FaUserFriends /> Friends
                     </span>
                   ) : (
-                    <button 
+                    <button
                       onClick={() => {
                         handleSendFriendRequest(selectedMember.uid);
                         setSelectedMember(null);
@@ -5155,9 +5154,9 @@ export default function App() {
               {/* Status Update for Self */}
               {selectedMember.uid === userData?.uid && (
                 <div style={{ marginTop: '1rem', marginBottom: '1.5rem', width: '100%' }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    background: 'rgba(255,255,255,0.05)', 
+                  <div style={{
+                    display: 'flex',
+                    background: 'rgba(255,255,255,0.05)',
                     borderRadius: '12px',
                     border: '1px solid #333',
                     overflow: 'hidden'
@@ -5166,11 +5165,11 @@ export default function App() {
                       type="text"
                       id="statusInputSelf"
                       placeholder="What's on your mind?"
-                      style={{ 
-                        flex: 1, 
-                        height: '48px', 
-                        background: 'transparent', 
-                        border: 'none', 
+                      style={{
+                        flex: 1,
+                        height: '48px',
+                        background: 'transparent',
+                        border: 'none',
                         padding: '0 16px',
                         color: 'white',
                         outline: 'none',
@@ -5202,7 +5201,7 @@ export default function App() {
                         }
                       }}
                     />
-                    <button 
+                    <button
                       onClick={async () => {
                         const val = currentStatusInput;
                         try {
@@ -5223,7 +5222,7 @@ export default function App() {
                           }
                           setSelectedMember(null);
                         } catch (err) { console.error(err); showAlert("Error updating status."); }
-                      }} 
+                      }}
                       style={{ padding: '0 16px', background: 'var(--primary)', border: 'none', color: 'black', cursor: 'pointer', fontWeight: 'bold' }}
                     >
                       ➜
@@ -5306,7 +5305,7 @@ export default function App() {
 
                 {/* Remove Friend */}
                 {selectedMember.uid !== userData?.uid && selectedMemberContext === 'friend' && (
-                  <button 
+                  <button
                     onClick={() => {
                       showConfirm(`Remove ${selectedMember.displayName} from friends?`, async () => {
                         try {
@@ -5315,8 +5314,8 @@ export default function App() {
                           showAlert("Friend removed.");
                         } catch (e) { console.error(e); }
                       });
-                    }} 
-                    className="btn w-full" 
+                    }}
+                    className="btn w-full"
                     style={{ background: 'transparent', border: '1px solid rgba(255, 71, 87, 0.3)', color: '#ff4757', marginTop: '0.5rem' }}
                   >
                     Remove Friend
@@ -5777,15 +5776,15 @@ export default function App() {
       {activeModal === 'inviteToSquad' && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
-            <button 
-              onClick={() => setActiveModal(null)} 
+            <button
+              onClick={() => setActiveModal(null)}
               style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
             >
               <FaTimes />
             </button>
 
             <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Invite to Squad</h3>
-            
+
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
               <img src={inviteToSquadImg} alt="Invite" style={{ width: '80px', height: 'auto' }} />
             </div>
@@ -5850,12 +5849,12 @@ export default function App() {
                       const inviteObj = outgoingSquadInvites.find(inv => inv.to === friend.uid && inv.from === currentUser.uid);
 
                       return (
-                        <div key={friend.uid} style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'space-between', 
-                          padding: '12px', 
-                          background: 'rgba(255,255,255,0.02)', 
+                        <div key={friend.uid} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '12px',
+                          background: 'rgba(255,255,255,0.02)',
                           borderRadius: '12px',
                           border: '1px solid rgba(255,255,255,0.05)'
                         }}>
@@ -5876,10 +5875,10 @@ export default function App() {
                               onClick={() => handleInviteToSquad(friend.uid)}
                               className="btn btn-primary"
                               disabled={spotsLeft <= 0}
-                              style={{ 
-                                padding: '6px 16px', 
-                                fontSize: '0.75rem', 
-                                background: spotsLeft <= 0 ? '#333' : 'var(--primary)', 
+                              style={{
+                                padding: '6px 16px',
+                                fontSize: '0.75rem',
+                                background: spotsLeft <= 0 ? '#333' : 'var(--primary)',
                                 color: spotsLeft <= 0 ? '#666' : 'black',
                                 border: 'none',
                                 borderRadius: '20px',
@@ -5899,14 +5898,14 @@ export default function App() {
 
             <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
               {friendsData.filter((f: any) => f.squadId !== userData?.squadId).length === 0 && (
-                <button 
-                  onClick={() => setActiveModal('addFriend')} 
+                <button
+                  onClick={() => setActiveModal('addFriend')}
                   className="btn w-full"
-                  style={{ 
-                    background: 'rgba(255,255,255,0.05)', 
-                    color: 'white', 
-                    padding: '14px', 
-                    borderRadius: '12px', 
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    color: 'white',
+                    padding: '14px',
+                    borderRadius: '12px',
                     border: '1px solid #333',
                     fontWeight: 'bold',
                     display: 'flex',
@@ -5926,15 +5925,15 @@ export default function App() {
       {activeModal === 'addFriend' && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
-            <button 
-              onClick={() => { setActiveModal(null); setFriendEmail(''); }} 
+            <button
+              onClick={() => { setActiveModal(null); setFriendEmail(''); }}
               style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
             >
               <FaTimes />
             </button>
-            
+
             <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Add Friend</h3>
-            
+
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
               <div style={{ position: 'relative' }}>
                 <img src={addFriendImg} alt="Add Friend" style={{ width: '80px', height: 'auto' }} />
@@ -5945,25 +5944,25 @@ export default function App() {
             </div>
 
             <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid #333', overflow: 'hidden', marginBottom: '1rem' }}>
-              <input 
-                type="email" 
-                value={friendEmail} 
-                onChange={e => setFriendEmail(e.target.value)} 
-                style={{ 
-                  width: '100%', 
-                  height: '50px', 
-                  background: 'transparent', 
-                  border: 'none', 
-                  padding: '0 16px', 
-                  color: 'white', 
+              <input
+                type="email"
+                value={friendEmail}
+                onChange={e => setFriendEmail(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '50px',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '0 16px',
+                  color: 'white',
                   outline: 'none',
                   fontSize: '1rem'
-                }} 
-                placeholder="friend@example.com" 
+                }}
+                placeholder="friend@example.com"
               />
             </div>
 
-            <button 
+            <button
               onClick={async () => {
                 if (!friendEmail || !currentUser) return;
                 const email = friendEmail.toLowerCase().trim();
@@ -5972,18 +5971,18 @@ export default function App() {
                     showAlert("You can't add yourself as a friend!");
                     return;
                   }
-                  
+
                   const q = query(getPublicProfileCollection(), where("email", "==", email));
                   const querySnapshot = await getDocs(q);
-                  
-                  if (querySnapshot.empty) { 
-                    showAlert("Friend not found, has not yet signed up.", true); 
-                    return; 
+
+                  if (querySnapshot.empty) {
+                    showAlert("Friend not found, has not yet signed up.", true);
+                    return;
                   }
-                  
+
                   const friendUid = querySnapshot.docs[0].id;
                   const userFriends = userData?.friends || [];
-                  
+
                   if (userFriends.includes(friendUid)) {
                     showAlert("You are already friends with this user!");
                     setFriendEmail('');
@@ -5993,29 +5992,29 @@ export default function App() {
                     setActiveModal(null);
                     setFriendEmail('');
                   }
-                } catch (e) { 
+                } catch (e) {
                   console.error(e);
                   showAlert("Error sending friend request.");
                 }
-              }} 
+              }}
               className="btn btn-primary w-full"
               style={{ height: '50px', fontWeight: 'bold', fontSize: '1rem', marginBottom: '10px' }}
             >
               Send Friend Request
             </button>
 
-            <button 
+            <button
               onClick={() => {
                 setActiveModal(null);
                 setActiveQRModal('friend');
                 setIsScannerOpen(true);
               }}
               className="btn w-full"
-              style={{ 
-                height: '50px', 
-                background: '#03DAC6', 
-                color: 'black', 
-                fontWeight: 'bold', 
+              style={{
+                height: '50px',
+                background: '#03DAC6',
+                color: 'black',
+                fontWeight: 'bold',
                 fontSize: '1rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -6024,7 +6023,7 @@ export default function App() {
                 border: 'none'
               }}
             >
-              <FaCamera /> Add friend using QR code
+              <FaCamera /> Scan QR Code
             </button>
           </div>
         </div>
@@ -6109,8 +6108,8 @@ export default function App() {
             />
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => setActiveModal(null)} className="btn btn-secondary flex-1">Cancel</button>
-              <button 
-                onClick={() => saveFeedback(ratingValue, ratingNote)} 
+              <button
+                onClick={() => saveFeedback(ratingValue, ratingNote)}
                 className="btn btn-primary flex-1"
               >
                 Submit
@@ -6121,21 +6120,21 @@ export default function App() {
       )}
 
       {activeModal === 'confirm' && confirmAction && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <h3 className="modal-header">Confirm</h3>
-              <p className="text-center" style={{ marginBottom: '1.5rem', lineHeight: '1.5' }}>{confirmAction.message}</p>
-              <div className="modal-actions" style={{ gap: '12px' }}>
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary" style={{ flex: 1 }}>
-                  {confirmAction.cancelText || 'Cancel'}
-                </button>
-                <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); }} className="btn btn-danger" style={{ flex: 1 }}>
-                  {confirmAction.confirmText || 'Confirm'}
-                </button>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 className="modal-header">Confirm</h3>
+            <p className="text-center" style={{ marginBottom: '1.5rem', lineHeight: '1.5' }}>{confirmAction.message}</p>
+            <div className="modal-actions" style={{ gap: '12px' }}>
+              <button onClick={() => setActiveModal(null)} className="btn btn-secondary" style={{ flex: 1 }}>
+                {confirmAction.cancelText || 'Cancel'}
+              </button>
+              <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); }} className="btn btn-danger" style={{ flex: 1 }}>
+                {confirmAction.confirmText || 'Confirm'}
+              </button>
             </div>
           </div>
-        )
+        </div>
+      )
       }
 
       {/* Install Instructions Modal */}
@@ -6438,18 +6437,18 @@ export default function App() {
             <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '20px' }}>
               {isScannerOpen ? 'Point your camera at a QR code' : (activeQRModal === 'friend' ? 'Scan to instantly become friends!' : 'Scan to join this squad!')}
             </p>
-            
+
             {isScannerOpen ? (
               <div id="qr-reader" style={{ width: '100%', marginBottom: '20px' }}></div>
             ) : (
               <>
                 <div style={{ background: 'white', padding: '20px', borderRadius: '16px', display: 'inline-block' }}>
-                  <QRCode 
+                  <QRCode
                     value={
-                      activeQRModal === 'friend' 
+                      activeQRModal === 'friend'
                         ? `${window.location.origin}/?addFriend=${currentUser.uid}`
                         : `${window.location.origin}/?inviteSquad=${userData?.squadId}&inviter=${currentUser.uid}`
-                    } 
+                    }
                     size={220}
                     style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                     viewBox={`0 0 256 256`}
@@ -6459,17 +6458,17 @@ export default function App() {
                   <p style={{ fontSize: '0.8rem', color: '#666' }}>
                     Show this code to a friend, or scan theirs!
                   </p>
-                  <button 
-                    className="btn btn-primary w-full" 
+                  <button
+                    className="btn btn-primary w-full"
                     onClick={() => setIsScannerOpen(true)}
                     style={{ background: 'var(--secondary)', color: 'black' }}
                   >
-                    <FaCamera style={{ marginRight: '8px' }} /> Add friend using QR code
+                    <FaCamera style={{ marginRight: '8px' }} /> Open Camera to Scan QR Code
                   </button>
                 </div>
               </>
             )}
-            
+
             <button className="btn w-full mt-4" onClick={() => { setActiveQRModal(null); setIsScannerOpen(false); }}>Close</button>
           </div>
         </div>
