@@ -259,6 +259,7 @@ export default function App() {
 
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleViewingUser, setScheduleViewingUser] = useState<UserData | null>(null);
+  const [whatsOnInitialTab, setWhatsOnInitialTab] = useState<'programme' | 'schedule'>('programme');
 
   // QR Code Modal State
   const [activeQRModal, setActiveQRModal] = useState<'friend' | 'squad' | null>(null);
@@ -4812,9 +4813,11 @@ export default function App() {
         <>
           {renderHeader()}
           <WhatsOnTab 
+            key={whatsOnInitialTab}
             userData={userData} 
             showAlert={showAlert} 
             showConfirm={showConfirm} 
+            initialSubTab={whatsOnInitialTab}
           />
         </>
       );
@@ -5043,7 +5046,10 @@ export default function App() {
 
           if (hasWhatsOnAccess) {
             return (
-              <button className={`nav-item ${activeTab === 'whats-on' ? 'active' : ''}`} onClick={() => setActiveTab('whats-on')}>
+              <button className={`nav-item ${activeTab === 'whats-on' ? 'active' : ''}`} onClick={() => {
+                setWhatsOnInitialTab('programme');
+                setActiveTab('whats-on');
+              }}>
                 <FaClock />
                 <span>What's On</span>
               </button>
@@ -5153,8 +5159,13 @@ export default function App() {
                 {/* View Schedule Button - For all users */}
                 <button
                   onClick={() => {
-                    setScheduleViewingUser(selectedMember.uid === userData?.uid ? null : selectedMember);
-                    setShowScheduleModal(true);
+                    if (selectedMember.uid === userData?.uid) {
+                      setWhatsOnInitialTab('schedule');
+                      setActiveTab('whats-on');
+                    } else {
+                      setScheduleViewingUser(selectedMember);
+                      setShowScheduleModal(true);
+                    }
                     setSelectedMember(null);
                   }}
                   className="btn w-full"
