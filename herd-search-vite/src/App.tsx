@@ -80,9 +80,20 @@ import { PLANS, TIER_LIMITS } from './constants/plans';
 
 // --- Helper Components ---
 const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: string }) => {
-  const [statusText, setStatusText] = useState("Loading...");
+  const [statusText, setStatusText] = useState("");
 
   useEffect(() => {
+    // Priority 1: Custom Status Message
+    if (friend.statusMessage) {
+      // Check if it's not too old (e.g., 24h)
+      const isRecent = !friend.statusTimestamp || (Date.now() - friend.statusTimestamp < 24 * 60 * 60 * 1000);
+      if (isRecent) {
+        setStatusText(friend.statusMessage);
+        return;
+      }
+    }
+
+    // Priority 2: Squad Status
     if (!friend.squadId) {
       setStatusText("Alone or Free");
       return;
@@ -104,11 +115,16 @@ const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: str
       } else {
         setStatusText("Alone or Free");
       }
+    }, (err) => {
+      // Handle permission errors (e.g. if we aren't friends yet in the rules' eyes)
+      console.warn(`Could not fetch squad info for ${friend.displayName}:`, err.message);
+      setStatusText("Status hidden");
     });
 
     return () => unsub();
-  }, [friend.squadId, mySquadId]);
+  }, [friend.squadId, mySquadId, friend.statusMessage, friend.statusTimestamp]);
 
+  if (!statusText) return null;
   return <span>Status: {statusText}</span>;
 };
 
@@ -191,7 +207,7 @@ export default function App() {
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
   const [incomingSquadJoinRequests, setIncomingSquadJoinRequests] = useState<DocumentData[]>([]);
   const [currentStatusInput, setCurrentStatusInput] = useState('');
-  const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
+  const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: any }>({});
   const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
   const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile' | 'chat' | 'billing' | 'whats-on'>('map');
   const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
@@ -862,28 +878,26 @@ export default function App() {
         let q = query(
           collection(db, "purchases"),
           where("userId", "==", currentUser.uid),
-          where("status", "==", "completed"),
-          orderBy("createdAt", "desc"),
-          limit(1)
+          where("status", "==", "completed")
         );
 
         let snap = await getDocs(q);
+        let purchaseDocs = snap.docs.map(d => d.data()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
         // Fallback to Email if UID search fails
-        if (snap.empty && currentUser.email) {
+        if (purchaseDocs.length === 0 && currentUser.email) {
           console.log("Subscription Guard: No purchases found by UID, trying email fallback...");
           q = query(
             collection(db, "purchases"),
             where("userEmail", "==", currentUser.email.toLowerCase()),
-            where("status", "==", "completed"),
-            orderBy("createdAt", "desc"),
-            limit(1)
+            where("status", "==", "completed")
           );
           snap = await getDocs(q);
+          purchaseDocs = snap.docs.map(d => d.data()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         }
 
-        if (!snap.empty) {
-          const latestPurchase = snap.docs[0].data();
+        if (purchaseDocs.length > 0) {
+          const latestPurchase = purchaseDocs[0];
           const purchaseDate = latestPurchase.createdAt;
           const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
 
@@ -1941,7 +1955,9 @@ export default function App() {
     if (uid === userData?.uid) return userData.displayName || uid;
     const friend = friendsData.find((f: any) => f.uid === uid);
     if (friend?.displayName) return friend.displayName;
-    return publicProfileCache[uid] || uid;
+    const cached = publicProfileCache[uid];
+    if (cached && typeof cached === 'object') return cached.displayName || uid;
+    return cached || uid;
   };
 
   useEffect(() => {
@@ -1964,7 +1980,10 @@ export default function App() {
           const profile = docSnap.data();
           setPublicProfileCache(prev => ({
             ...prev,
-            [uid]: profile.displayName || uid
+            [uid]: {
+              displayName: profile.displayName || uid,
+              photoURL: profile.photoURL || null
+            }
           }));
         }
       } catch (e) { }
@@ -2132,7 +2151,18 @@ export default function App() {
 
     if (incomingFriendRequests.length > prevFriendReqCount.current) {
       if (incomingFriendRequests.length > 0) {
-        setActiveModal('friendRequests');
+        // Check snooze
+        const snoozeTime = parseInt(localStorage.getItem('friendReqSnoozeTime') || '0');
+        const snoozeCount = parseInt(localStorage.getItem('friendReqSnoozeCount') || '0');
+        const isSnoozed = (Date.now() - snoozeTime) < 3600000; // 1 hour
+        
+        // Only show if NOT snoozed OR if we have MORE requests than when we snoozed
+        if (!isSnoozed || incomingFriendRequests.length > snoozeCount) {
+          setActiveModal('friendRequests');
+          // Reset snooze count so we don't trigger again for the same set
+          localStorage.removeItem('friendReqSnoozeTime');
+          localStorage.removeItem('friendReqSnoozeCount');
+        }
       }
     }
     prevFriendReqCount.current = incomingFriendRequests.length;
@@ -2212,6 +2242,10 @@ export default function App() {
             return [...others, mData];
           });
         }
+      }, (err) => {
+        console.error(`Friend Listener Error for ${uid}:`, err);
+        // If it's a permission error, it might be a race condition during friend add.
+        // We don't do anything special here, but at least we don't crash the whole app.
       })
     );
 
@@ -5649,47 +5683,92 @@ export default function App() {
       {
         activeModal === 'friendRequests' && (
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">New Friend Requests! 👥</h3>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
+              <button 
+                onClick={() => setActiveModal(null)} 
+                style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
+              >
+                <FaTimes />
+              </button>
+
+              <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>New Friend Requests! 👥</h3>
+              
               {incomingFriendRequests.length === 0 ? (
-                <p>No new requests.</p>
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+                  <FaUserFriends size={48} style={{ marginBottom: '1rem', opacity: 0.2 }} />
+                  <p>No new requests.</p>
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {incomingFriendRequests.map(req => (
-                    <div key={req.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                        <div className="avatar" style={{ background: '#444', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>?</div>
-                        <strong>{getDisplayNameByUid(req.from)}</strong>
-                        <span style={{ fontSize: '0.8rem', color: '#888' }}> wants to be friends.</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {incomingFriendRequests.map(req => {
+                    const friendProfile = publicProfileCache[req.from];
+                    return (
+                      <div key={req.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                          <img 
+                            src={friendProfile?.photoURL || "/default-avatar.png"} 
+                            alt="Avatar" 
+                            style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid var(--primary)', padding: '2px' }} 
+                          />
+                          <div style={{ flex: 1 }}>
+                            <strong style={{ fontSize: '1rem', display: 'block' }}>{friendProfile?.displayName || 'Someone'}</strong>
+                            <span style={{ fontSize: '0.8rem', color: '#888' }}>wants to be friends.</span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button
+                            className="btn btn-primary"
+                            style={{ flex: 1, height: '40px', fontWeight: 'bold' }}
+                            onClick={() => {
+                              handleAcceptFriendRequest(req);
+                              if (incomingFriendRequests.length <= 1) setActiveModal(null);
+                            }}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            className="btn"
+                            style={{ 
+                              flex: 1, 
+                              height: '40px', 
+                              background: 'rgba(255, 71, 87, 0.1)', 
+                              color: '#ff4757', 
+                              border: '1px solid rgba(255, 71, 87, 0.2)',
+                              fontWeight: '600'
+                            }}
+                            onClick={() => {
+                              handleDeclineFriendRequest(req);
+                              if (incomingFriendRequests.length <= 1) setActiveModal(null);
+                            }}
+                          >
+                            Decline
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          className="btn btn-primary"
-                          style={{ flex: 1 }}
-                          onClick={() => {
-                            handleAcceptFriendRequest(req);
-                            if (incomingFriendRequests.length <= 1) setActiveModal(null);
-                          }}
-                        >
-                          Accept
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          style={{ flex: 1, background: 'transparent', border: '1px solid var(--error)' }}
-                          onClick={() => {
-                            handleDeclineFriendRequest(req);
-                            if (incomingFriendRequests.length <= 1) setActiveModal(null);
-                          }}
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
-              <div className="modal-actions" style={{ marginTop: '1rem' }}>
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary w-full">Close (Decide Later)</button>
+              
+              <div className="modal-actions" style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <button 
+                  onClick={() => {
+                    // Snooze for 1 hour
+                    localStorage.setItem('friendReqSnoozeTime', Date.now().toString());
+                    localStorage.setItem('friendReqSnoozeCount', incomingFriendRequests.length.toString());
+                    setActiveModal(null);
+                  }} 
+                  className="btn w-full"
+                  style={{ 
+                    background: 'rgba(255,255,255,0.05)', 
+                    color: '#aaa', 
+                    height: '48px', 
+                    fontSize: '0.9rem',
+                    border: '1px solid #333'
+                  }}
+                >
+                  Close (Decide Later)
+                </button>
               </div>
             </div>
           </div>

@@ -120,7 +120,12 @@ service cloud.firestore {
    match /squads/{squadId} {
       allow read: if request.auth != null && (
         request.auth.uid in resource.data.members ||
-        isAdmin()
+        isAdmin() ||
+        // Allow reading if you are friends with ANY member of the squad
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          'friends' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.friends.hasAny(resource.data.members)
+        )
       );
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
