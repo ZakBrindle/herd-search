@@ -6,6 +6,7 @@ import welcomeWaveImg from './assets/welcomeWave.png';
 import {
   FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaUserPlus
 } from 'react-icons/fa';
+import { getAvatarUrl } from './utils/userUtils';
 import {
   GoogleAuthProvider, signInWithPopup
 } from "firebase/auth";
@@ -117,8 +118,10 @@ const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: str
       }
     }, (err) => {
       // Handle permission errors (e.g. if we aren't friends yet in the rules' eyes)
-      console.warn(`Could not fetch squad info for ${friend.displayName}:`, err.message);
-      setStatusText("Status hidden");
+      if (err.code !== 'permission-denied') {
+        console.warn(`Could not fetch squad info for ${friend.displayName}:`, err.message);
+      }
+      setStatusText("");
     });
 
     return () => unsub();
@@ -1421,7 +1424,7 @@ export default function App() {
         }
       } catch (e) { console.warn("Could not send squad invite notification:", e); }
 
-      showAlert("Squad invite sent!");
+
     } catch (error) {
       console.error("Error sending squad invite:", error);
       showAlert("Failed to send squad invite.");
@@ -1701,7 +1704,7 @@ export default function App() {
         }
       } catch (e) { console.warn("Could not send searching notification:", e); }
 
-      showAlert(`Searching for ${member.displayName?.split(' ')[0]}! They've been notified.`);
+      //  showAlert(`Searching for ${member.displayName?.split(' ')[0]}! They've been notified.`);
       setSelectedMember(null);
     } catch (err) {
       console.error(err);
@@ -1849,7 +1852,7 @@ export default function App() {
             <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
               {yesCount > noCount
                 ? <div style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '1.1rem' }}>We are going! 🏃‍♂️</div>
-                : <div style={{ color: 'var(--error)', fontWeight: 'bold', fontSize: '1.1rem' }}>Screw that! 🙅‍♂️</div>}
+                : <div style={{ color: 'var(--error)', fontWeight: 'bold', fontSize: '1.1rem' }}>Nope! We're not going! 🙅‍♂️</div>}
             </div>
 
             {isOwner && (
@@ -1967,11 +1970,14 @@ export default function App() {
       ...incomingFriendRequests.map(req => req.from),
       ...outgoingFriendRequests.map(req => req.to)
     ].filter(uid =>
+      uid &&
       uid !== userData?.uid &&
       !friendsData.some((f: any) => f.uid === uid) &&
       !(publicProfileCache[uid])
     );
+
     if (inviteUids.length === 0) return;
+
     inviteUids.forEach(async uid => {
       try {
         const docRef = doc(db, 'public/user_profiles/users', uid);
@@ -1985,10 +1991,15 @@ export default function App() {
               photoURL: profile.photoURL || null
             }
           }));
+        } else {
+          // Mark as not found to avoid repeated attempts
+          setPublicProfileCache(prev => ({ ...prev, [uid]: 'NOT_FOUND' }));
         }
-      } catch (e) { }
+      } catch (e) {
+        console.error(`Error fetching public profile for ${uid}:`, e);
+      }
     });
-  }, [incomingSquadInvites, outgoingSquadInvites, incomingFriendRequests, outgoingFriendRequests, friendsData, userData, publicProfileCache]);
+  }, [incomingSquadInvites, outgoingSquadInvites, incomingFriendRequests, outgoingFriendRequests, friendsData, userData]);
 
   const handleKickMemberConfirmed = async (member: UserData) => {
     if (!userData || !userData.squadId || !member.uid) return;
@@ -2155,7 +2166,7 @@ export default function App() {
         const snoozeTime = parseInt(localStorage.getItem('friendReqSnoozeTime') || '0');
         const snoozeCount = parseInt(localStorage.getItem('friendReqSnoozeCount') || '0');
         const isSnoozed = (Date.now() - snoozeTime) < 3600000; // 1 hour
-        
+
         // Only show if NOT snoozed OR if we have MORE requests than when we snoozed
         if (!isSnoozed || incomingFriendRequests.length > snoozeCount) {
           setActiveModal('friendRequests');
@@ -3247,7 +3258,7 @@ export default function App() {
                           : undefined,
                         transition: 'all 0.3s ease'
                       }}>
-                      <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
+                      <img src={getAvatarUrl(u.photoURL, u.displayName)} className="marker-avatar" alt={u.displayName} />
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                         <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
                       )}
@@ -3281,8 +3292,8 @@ export default function App() {
                         background: '#333',
                         padding: 0
                       }}>
-                        <img src={u1.photoURL || "/default-avatar.png"} style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
-                        <img src={u2.photoURL || "/default-avatar.png"} style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
+                        <img src={getAvatarUrl(u1.photoURL, u1.displayName)} style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
+                        <img src={getAvatarUrl(u2.photoURL, u2.displayName)} style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
                         {/* Divider line */}
                         <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'white' }}></div>
                       </div>
@@ -3314,11 +3325,11 @@ export default function App() {
                       gridTemplateRows: '1fr 1fr'
                     }}>
                       {/* TL */}
-                      <img src={displayUsers[0]?.photoURL || "/default-avatar.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarUrl(displayUsers[0]?.photoURL, displayUsers[0]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       {/* TR */}
-                      <img src={displayUsers[1]?.photoURL || "/default-avatar.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarUrl(displayUsers[1]?.photoURL, displayUsers[1]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       {/* BL */}
-                      <img src={displayUsers[2]?.photoURL || "/default-avatar.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarUrl(displayUsers[2]?.photoURL, displayUsers[2]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       {/* BR (Plus) */}
                       <div style={{ width: '100%', height: '100%', background: '#444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '10px' }}>
                         +
@@ -3346,7 +3357,7 @@ export default function App() {
                   top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`
                 }}>
                   <img
-                    src={u.photoURL || "/default-avatar.png"}
+                    src={getAvatarUrl(u.photoURL, u.displayName)}
                     className="marker-avatar"
                     alt={u.displayName}
                     style={{ borderColor }}
@@ -4101,7 +4112,7 @@ export default function App() {
           <div className="squad-list">
             {friendsData.filter((f: any) => userData?.friends?.includes(f.uid)).map((friend: any) => (
               <div key={friend.uid} className="card" onClick={() => { setSelectedMember(friend); setSelectedMemberContext('friend'); }}>
-                <img src={friend.photoURL || "/default-avatar.png"} className="avatar" alt="Avatar" />
+                <img src={getAvatarUrl(friend.photoURL, friend.displayName)} className="avatar" alt="Avatar" />
                 <div>
                   <h3>{friend.displayName}</h3>
                   <p><FriendStatus friend={friend} mySquadId={userData?.squadId} /></p>
@@ -4841,7 +4852,12 @@ export default function App() {
       }
 
       return (
-        <ChatTab userData={userData} squadId={userData.squadId} />
+        <ChatTab
+          userData={userData}
+          squadId={userData.squadId}
+          activeVote={activeVote}
+          onVote={castVote}
+        />
       );
     }
 
@@ -5126,7 +5142,7 @@ export default function App() {
 
             <div style={{ textAlign: 'center' }}>
               <img
-                src={selectedMember.photoURL || "/default-avatar.png"}
+                src={getAvatarUrl(selectedMember.photoURL, selectedMember.displayName)}
                 alt="Avatar"
                 className="avatar"
                 style={{ width: 80, height: 80, marginBottom: '0.75rem', border: '3px solid var(--primary)', padding: '2px' }}
@@ -5684,15 +5700,15 @@ export default function App() {
         activeModal === 'friendRequests' && (
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
-              <button 
-                onClick={() => setActiveModal(null)} 
+              <button
+                onClick={() => setActiveModal(null)}
                 style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
               >
                 <FaTimes />
               </button>
 
               <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>New Friend Requests! 👥</h3>
-              
+
               {incomingFriendRequests.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
                   <FaUserFriends size={48} style={{ marginBottom: '1rem', opacity: 0.2 }} />
@@ -5702,16 +5718,37 @@ export default function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {incomingFriendRequests.map(req => {
                     const friendProfile = publicProfileCache[req.from];
+                    const displayName = getDisplayNameByUid(req.from);
+                    const photoURL = (friendProfile && typeof friendProfile === 'object') ? friendProfile.photoURL : null;
+
                     return (
                       <div key={req.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                          <img 
-                            src={friendProfile?.photoURL || "/default-avatar.png"} 
-                            alt="Avatar" 
-                            style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid var(--primary)', padding: '2px' }} 
-                          />
+                          <div style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '50%',
+                            overflow: 'hidden',
+                            border: '2px solid var(--primary)',
+                            background: '#222',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            {photoURL ? (
+                              <img
+                                src={photoURL}
+                                alt="Avatar"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => { (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(displayName) + '&background=random'; }}
+                              />
+                            ) : (
+                              <div style={{ fontSize: '1.2rem', color: '#555' }}><FaUser /></div>
+                            )}
+                          </div>
                           <div style={{ flex: 1 }}>
-                            <strong style={{ fontSize: '1rem', display: 'block' }}>{friendProfile?.displayName || 'Someone'}</strong>
+                            <strong style={{ fontSize: '1rem', display: 'block' }}>{displayName === req.from ? 'Someone' : displayName}</strong>
                             <span style={{ fontSize: '0.8rem', color: '#888' }}>wants to be friends.</span>
                           </div>
                         </div>
@@ -5728,11 +5765,11 @@ export default function App() {
                           </button>
                           <button
                             className="btn"
-                            style={{ 
-                              flex: 1, 
-                              height: '40px', 
-                              background: 'rgba(255, 71, 87, 0.1)', 
-                              color: '#ff4757', 
+                            style={{
+                              flex: 1,
+                              height: '40px',
+                              background: 'rgba(255, 71, 87, 0.1)',
+                              color: '#ff4757',
                               border: '1px solid rgba(255, 71, 87, 0.2)',
                               fontWeight: '600'
                             }}
@@ -5749,20 +5786,20 @@ export default function App() {
                   })}
                 </div>
               )}
-              
+
               <div className="modal-actions" style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                <button 
+                <button
                   onClick={() => {
                     // Snooze for 1 hour
                     localStorage.setItem('friendReqSnoozeTime', Date.now().toString());
                     localStorage.setItem('friendReqSnoozeCount', incomingFriendRequests.length.toString());
                     setActiveModal(null);
-                  }} 
+                  }}
                   className="btn w-full"
-                  style={{ 
-                    background: 'rgba(255,255,255,0.05)', 
-                    color: '#aaa', 
-                    height: '48px', 
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#aaa',
+                    height: '48px',
                     fontSize: '0.9rem',
                     border: '1px solid #333'
                   }}
@@ -5938,7 +5975,7 @@ export default function App() {
                           border: '1px solid rgba(255,255,255,0.05)'
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <img src={friend.photoURL || "/default-avatar.png"} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid #444' }} alt="Avatar" />
+                            <img src={getAvatarUrl(friend.photoURL, friend.displayName)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid #444' }} alt="Avatar" />
                             <span style={{ fontWeight: '500' }}>{friend.displayName}</span>
                           </div>
                           {isInvited ? (
@@ -6067,7 +6104,7 @@ export default function App() {
                     setFriendEmail('');
                   } else {
                     await handleSendFriendRequest(friendUid);
-                    showAlert("Friend Invite Sent");
+
                     setActiveModal(null);
                     setFriendEmail('');
                   }
