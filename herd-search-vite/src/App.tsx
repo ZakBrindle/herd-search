@@ -729,7 +729,12 @@ export default function App() {
   };
 
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
-  const [dismissedVoteId, setDismissedVoteId] = useState<string | null>(null);
+  const [dismissedVoteId, setDismissedVoteId] = useState<string | null>(() => localStorage.getItem('dismissedVoteId'));
+
+  const handleDismissVote = (voteId: string) => {
+    setDismissedVoteId(voteId);
+    localStorage.setItem('dismissedVoteId', voteId);
+  };
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
@@ -1769,7 +1774,7 @@ export default function App() {
         {/* Close Button for everyone once completed */}
         {isCompleted && (
           <button
-            onClick={() => setDismissedVoteId(activeVote.id)}
+            onClick={() => handleDismissVote(activeVote.id)}
             style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.1rem' }}
           >
             <FaTimes />
