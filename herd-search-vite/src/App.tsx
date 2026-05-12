@@ -4520,10 +4520,50 @@ export default function App() {
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaCamera color="var(--primary)" /> Avatar Color
                 </h3>
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid #333' }}>
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center', justifyContent: 'center', padding: '15px 25px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid #333' }}>
                   {[
                     { id: 'blue', color: '#03dac6', name: 'Blue' },
-                    { id: 'purple', color: '#bb86fc', name: 'Purple' },
+                    { id: 'purple', color: '#bb86fc', name: 'Purple' }
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={async () => {
+                        if (currentUser) {
+                          try {
+                            await updateDoc(getUserDocRef(currentUser.uid), { avatarColor: c.color });
+                            await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), { avatarColor: c.color });
+                          } catch (err) { console.error(err); }
+                        }
+                      }}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        backgroundColor: c.color,
+                        border: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? '2px solid white' : 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                        transition: 'transform 0.2s',
+                        transform: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? 'scale(1.2)' : 'scale(1)'
+                      }}
+                    />
+                  ))}
+
+                  {/* LIVE PREVIEW */}
+                  <img 
+                    src={getAvatarUrl(userData?.photoURL, userData?.displayName)} 
+                    alt="Preview"
+                    style={{
+                      width: '45px',
+                      height: '45px',
+                      borderRadius: '50%',
+                      border: `3px solid ${userData?.avatarColor || '#03dac6'}`,
+                      padding: '2px',
+                      margin: '0 5px'
+                    }}
+                  />
+
+                  {[
                     { id: 'pink', color: '#f368e0', name: 'Pink' },
                     { id: 'green', color: '#43e97b', name: 'Green' }
                   ].map((c) => (
@@ -4533,25 +4573,21 @@ export default function App() {
                         if (currentUser) {
                           try {
                             await updateDoc(getUserDocRef(currentUser.uid), { avatarColor: c.color });
-                            // Also update public profile
                             await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), { avatarColor: c.color });
-                          } catch (err) {
-                            console.error("Failed to update avatar color:", err);
-                          }
+                          } catch (err) { console.error(err); }
                         }
                       }}
                       style={{
-                        width: '40px',
-                        height: '40px',
+                        width: '32px',
+                        height: '32px',
                         borderRadius: '50%',
                         backgroundColor: c.color,
-                        border: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? '3px solid white' : 'none',
+                        border: (userData?.avatarColor === c.color) ? '2px solid white' : 'none',
                         cursor: 'pointer',
                         boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
                         transition: 'transform 0.2s',
-                        transform: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? 'scale(1.1)' : 'scale(1)'
+                        transform: (userData?.avatarColor === c.color) ? 'scale(1.2)' : 'scale(1)'
                       }}
-                      title={c.name}
                     />
                   ))}
                 </div>
