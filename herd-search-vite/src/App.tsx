@@ -42,6 +42,8 @@ type GPSBounds = {
   west: number;  // Min Lon
 };
 
+const STATUS_EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 type Vote = {
   id: string;
   creatorId: string;
@@ -86,8 +88,8 @@ const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: str
   useEffect(() => {
     // Priority 1: Custom Status Message
     if (friend.statusMessage) {
-      // Check if it's not too old (e.g., 24h)
-      const isRecent = !friend.statusTimestamp || (Date.now() - friend.statusTimestamp < 24 * 60 * 60 * 1000);
+      // Check if it's not too old (2h)
+      const isRecent = !friend.statusTimestamp || (Date.now() - friend.statusTimestamp < STATUS_EXPIRY_MS);
       if (isRecent) {
         setStatusText(friend.statusMessage);
         return;
@@ -997,9 +999,7 @@ export default function App() {
     }
   }, [paymentStatus, currentUser]);
 
-  useEffect(() => {
-    setCurrentStatusInput(userData?.statusMessage || '');
-  }, [userData?.statusMessage]);
+  // Status Expiry
 
   const [mapCalibration, setMapCalibration] = useState<GPSBounds | null>(null);
 
@@ -3974,7 +3974,7 @@ export default function App() {
                           )
                         }
                       </p>
-                      {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < 2 * 60 * 60 * 1000) && (
+                      {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < STATUS_EXPIRY_MS) && (
                         <p style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0', fontStyle: 'italic' }}>
                           "{member.statusMessage}" <span style={{ color: '#666' }}>
                             ({(() => {
@@ -5169,20 +5169,32 @@ export default function App() {
               />
               <h2 style={{ marginBottom: '0.25rem', fontSize: '1.4rem' }}>{selectedMember.displayName}</h2>
 
-              <div style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                fontSize: '0.7rem',
-                fontWeight: '900',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                background: selectedMember.tier === 'premium' ? 'linear-gradient(45deg, #FFD700, #FFA500)' :
-                  selectedMember.tier === 'standard' ? 'linear-gradient(45deg, #00C9FF, #92FE9D)' : 'rgba(255,255,255,0.1)',
-                color: (selectedMember.tier === 'premium' || selectedMember.tier === 'standard') ? 'black' : '#aaa',
-                marginBottom: '1rem'
-              }}>
-                {selectedMember.tier || 'Free'} Plan
+              <div 
+                onClick={() => {
+                  if (selectedMember.uid === userData?.uid && selectedMember.tier !== 'festival') {
+                    setSelectedMember(null);
+                    setActiveTab('billing');
+                  }
+                }}
+                style={{
+                  display: 'inline-block',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.7rem',
+                  fontWeight: '900',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  background: selectedMember.tier === 'festival' ? 'linear-gradient(45deg, #FFD700, #FFA500)' : // Gold for Festival
+                    selectedMember.tier === 'premium' ? 'linear-gradient(45deg, #A020F0, #E0B0FF)' : // Purple for Premium
+                    selectedMember.tier === 'standard' ? 'linear-gradient(45deg, #00C9FF, #92FE9D)' : // Green for Standard
+                    selectedMember.tier === 'basic' ? 'linear-gradient(45deg, #FF7E5F, #FEB47B)' : // Orange for Basic
+                    'rgba(255,255,255,0.1)',
+                  color: (selectedMember.tier && selectedMember.tier !== 'free') ? 'black' : '#aaa',
+                  marginBottom: '1rem',
+                  cursor: (selectedMember.uid === userData?.uid && selectedMember.tier !== 'festival') ? 'pointer' : 'default'
+                }}
+              >
+                {(PLANS.find(p => p.id === selectedMember.tier)?.name || 'Free Plan')}
               </div>
 
               {selectedMemberContext !== 'friend' && selectedMember.uid !== userData?.uid && (
@@ -5229,12 +5241,13 @@ export default function App() {
                     background: 'rgba(255,255,255,0.05)',
                     borderRadius: '12px',
                     border: '1px solid #333',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    marginBottom: '12px'
                   }}>
                     <input
                       type="text"
                       id="statusInputSelf"
-                      placeholder="What's on your mind?"
+                      placeholder="Update your status..."
                       style={{
                         flex: 1,
                         height: '48px',
@@ -5249,13 +5262,14 @@ export default function App() {
                       onChange={(e) => setCurrentStatusInput(e.target.value)}
                       onKeyDown={async (e) => {
                         if (e.key === 'Enter') {
-                          const val = (e.target as HTMLInputElement).value;
+                          const val = currentStatusInput.trim();
+                          if (!val) return;
                           try {
                             await updateDoc(getUserDocRef(currentUser!.uid), {
                               statusMessage: val,
                               statusTimestamp: Date.now()
                             });
-                            showAlert("Status updated!");
+                            setCurrentStatusInput(''); // Clear input
                             if (userData?.squadId) {
                               addDoc(collection(db, "squads", userData.squadId, "messages"), {
                                 senderId: currentUser!.uid,
@@ -5266,20 +5280,20 @@ export default function App() {
                                 createdAt: Date.now()
                               }).catch(console.error);
                             }
-                            setSelectedMember(null);
                           } catch (err) { console.error(err); showAlert("Error updating status."); }
                         }
                       }}
                     />
                     <button
                       onClick={async () => {
-                        const val = currentStatusInput;
+                        const val = currentStatusInput.trim();
+                        if (!val) return;
                         try {
                           await updateDoc(getUserDocRef(currentUser!.uid), {
                             statusMessage: val,
                             statusTimestamp: Date.now()
                           });
-                          showAlert("Status updated!");
+                          setCurrentStatusInput(''); // Clear input
                           if (userData?.squadId) {
                             addDoc(collection(db, "squads", userData.squadId, "messages"), {
                               senderId: currentUser!.uid,
@@ -5290,7 +5304,6 @@ export default function App() {
                               createdAt: Date.now()
                             }).catch(console.error);
                           }
-                          setSelectedMember(null);
                         } catch (err) { console.error(err); showAlert("Error updating status."); }
                       }}
                       style={{ padding: '0 16px', background: 'var(--primary)', border: 'none', color: 'black', cursor: 'pointer', fontWeight: 'bold' }}
@@ -5298,6 +5311,44 @@ export default function App() {
                       ➜
                     </button>
                   </div>
+
+                  {/* Current Status Display */}
+                  {userData?.statusMessage && (Date.now() - (userData.statusTimestamp || 0) < STATUS_EXPIRY_MS) && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      background: 'rgba(255,255,255,0.03)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.05)'
+                    }}>
+                      <div style={{ fontSize: '0.85rem', color: '#aaa', fontStyle: 'italic', flex: 1 }}>
+                        "{userData.statusMessage}"
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await updateDoc(getUserDocRef(currentUser!.uid), {
+                              statusMessage: "",
+                              statusTimestamp: null
+                            });
+                          } catch (e) { console.error(e); }
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#ff4757',
+                          fontSize: '0.75rem',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
