@@ -3275,7 +3275,12 @@ export default function App() {
                           : undefined,
                         transition: 'all 0.3s ease'
                       }}>
-                      <img src={getAvatarUrl(u.photoURL, u.displayName)} className="marker-avatar" alt={u.displayName} />
+                      <img 
+                        src={getAvatarUrl(u.photoURL, u.displayName)} 
+                        className="marker-avatar" 
+                        alt={u.displayName} 
+                        style={{ borderColor: u.avatarColor || 'var(--secondary)' }} 
+                      />
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                         <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
                       )}
@@ -3609,7 +3614,7 @@ export default function App() {
                       );
                     })()}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <img src={member.photoURL!} className="avatar" alt="Avatar" />
+                      <img src={member.photoURL!} className="avatar" alt="Avatar" style={{ borderColor: member.avatarColor || 'var(--primary)' }} />
                       <div>
                         <span>{leaderUid === member.uid && '👑 '}{member.displayName}</span>
                       </div>
@@ -4129,7 +4134,7 @@ export default function App() {
           <div className="squad-list">
             {friendsData.filter((f: any) => userData?.friends?.includes(f.uid)).map((friend: any) => (
               <div key={friend.uid} className="card" onClick={() => { setSelectedMember(friend); setSelectedMemberContext('friend'); }}>
-                <img src={getAvatarUrl(friend.photoURL, friend.displayName)} className="avatar" alt="Avatar" />
+                <img src={getAvatarUrl(friend.photoURL, friend.displayName)} className="avatar" alt="Avatar" style={{ borderColor: friend.avatarColor || 'var(--primary)' }} />
                 <div>
                   <h3>{friend.displayName}</h3>
                   <p><FriendStatus friend={friend} mySquadId={userData?.squadId} /></p>
@@ -4176,7 +4181,7 @@ export default function App() {
             {userData?.photoURL && (
               tier !== 'free' ? (
                 <div className="premium-avatar-container">
-                  <img className="avatar-large" src={userData.photoURL} alt="Profile" />
+                  <img className="avatar-large" src={userData.photoURL} alt="Profile" style={{ borderColor: userData.avatarColor || 'var(--primary)' }} />
                   <div className="sparkles-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
                     <div className="sparkle"></div>
                     <div className="sparkle"></div>
@@ -4187,7 +4192,7 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <img className="avatar-large" src={userData.photoURL} alt="Profile" />
+                <img className="avatar-large" src={userData.photoURL} alt="Profile" style={{ borderColor: userData.avatarColor || 'var(--primary)' }} />
               )
             )}
             <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
@@ -4508,6 +4513,50 @@ export default function App() {
                   }} />
                 </div>
               </div>
+              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
+
+              {/* Avatar Color Section */}
+              <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaCamera color="var(--primary)" /> Avatar Color
+                </h3>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid #333' }}>
+                  {[
+                    { id: 'blue', color: '#03dac6', name: 'Blue' },
+                    { id: 'purple', color: '#bb86fc', name: 'Purple' },
+                    { id: 'pink', color: '#f368e0', name: 'Pink' },
+                    { id: 'green', color: '#43e97b', name: 'Green' }
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={async () => {
+                        if (currentUser) {
+                          try {
+                            await updateDoc(getUserDocRef(currentUser.uid), { avatarColor: c.color });
+                            // Also update public profile
+                            await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), { avatarColor: c.color });
+                          } catch (err) {
+                            console.error("Failed to update avatar color:", err);
+                          }
+                        }
+                      }}
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        backgroundColor: c.color,
+                        border: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? '3px solid white' : 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                        transition: 'transform 0.2s',
+                        transform: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? 'scale(1.1)' : 'scale(1)'
+                      }}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
               {/* Stay Hydrated Section */}
@@ -5170,7 +5219,7 @@ export default function App() {
                 src={getAvatarUrl(selectedMember.photoURL, selectedMember.displayName)}
                 alt="Avatar"
                 className="avatar"
-                style={{ width: 80, height: 80, marginBottom: '0.75rem', border: '3px solid var(--primary)', padding: '2px' }}
+                style={{ width: 80, height: 80, marginBottom: '0.75rem', border: `3px solid ${selectedMember.avatarColor || 'var(--primary)'}`, padding: '2px' }}
               />
               <h2 style={{ marginBottom: '0.25rem', fontSize: '1.4rem' }}>{selectedMember.displayName}</h2>
 
@@ -5178,7 +5227,7 @@ export default function App() {
                 onClick={() => {
                   if (selectedMember.uid === userData?.uid && selectedMember.tier !== 'festival') {
                     setSelectedMember(null);
-                    setActiveTab('billing');
+                    navigate('/upgrade');
                   }
                 }}
                 style={{
