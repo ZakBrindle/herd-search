@@ -283,8 +283,21 @@ export default function App() {
           const inviteSquad = params.get('inviteSquad');
           const inviter = params.get('inviter');
 
-          if (addFriend) localStorage.setItem('parkedAddFriend', addFriend);
-          if (inviteSquad && inviter) localStorage.setItem('parkedInviteSquad', JSON.stringify({ squadId: inviteSquad, inviter }));
+          if (addFriend) {
+            localStorage.setItem('parkedAddFriend', addFriend);
+            if (currentUser && addFriend !== currentUser.uid) {
+              handleSendFriendRequest(addFriend);
+              // Feedback is handled inside handleSendFriendRequest
+            }
+          }
+          
+          if (inviteSquad && inviter) {
+            localStorage.setItem('parkedInviteSquad', JSON.stringify({ squadId: inviteSquad, inviter }));
+            if (currentUser && inviter !== currentUser.uid) {
+              handleSendSquadJoinRequest(inviteSquad, inviter);
+              // Feedback is handled inside handleSendSquadJoinRequest
+            }
+          }
 
           if (html5QrCode) {
             html5QrCode.stop().then(() => {
