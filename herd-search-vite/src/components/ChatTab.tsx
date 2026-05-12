@@ -394,7 +394,7 @@ export default function ChatTab({ userData, squadId, activeVote, onVote }: ChatT
                 <div ref={messagesEndRef} />
 
                 {/* Active Vote Widget at the bottom of the chat */}
-                {activeVote && (
+                {activeVote && !activeVote.completedAt && (
                     <div className="card" style={{
                         margin: '16px 0',
                         backgroundColor: '#1a1a1a',

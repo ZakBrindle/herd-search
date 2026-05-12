@@ -727,6 +727,7 @@ export default function App() {
   };
 
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
+  const [dismissedVoteId, setDismissedVoteId] = useState<string | null>(null);
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
@@ -1734,6 +1735,7 @@ export default function App() {
   // Voting Widget (Appears on top of content if there is an active vote)
   const renderVoteWidget = () => {
     if (!activeVote || !userData) return null;
+    if (dismissedVoteId === activeVote.id) return null;
 
     // Check expiry
     if (activeVote.completedAt && (Date.now() - activeVote.completedAt > 30 * 60 * 1000)) return null;
@@ -1761,8 +1763,18 @@ export default function App() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '16px'
+        padding: '16px',
+        position: 'relative'
       }}>
+        {/* Close Button for everyone once completed */}
+        {isCompleted && (
+          <button
+            onClick={() => setDismissedVoteId(activeVote.id)}
+            style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.1rem' }}
+          >
+            <FaTimes />
+          </button>
+        )}
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
           <strong style={{ color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Squad Vote</strong>
@@ -4518,7 +4530,15 @@ export default function App() {
                     onClick={() => {
                       setWaterMapExpiry(Date.now() + 90000); // 90 seconds
                       setActiveTab('map');
-                      showAlert("Water taps are now highlighted on the map for 90 seconds!");
+                      
+                      const lastShown = localStorage.getItem('lastHydrationAlert');
+                      const now = Date.now();
+                      const SIX_HOURS = 6 * 60 * 60 * 1000;
+                      
+                      if (!lastShown || (now - parseInt(lastShown)) > SIX_HOURS) {
+                        showAlert("Water taps are now highlighted on the map for 90 seconds!");
+                        localStorage.setItem('lastHydrationAlert', now.toString());
+                      }
                     }}
                     className="btn btn-primary w-full"
                     style={{
