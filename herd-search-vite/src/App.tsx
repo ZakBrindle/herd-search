@@ -5761,109 +5761,154 @@ export default function App() {
         )
       }
 
-      {
-        activeModal === 'inviteToSquad' && (
-          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">Invite to Squad</h3>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-                <img src={inviteToSquadImg} alt="Invite" style={{ width: '80px', height: 'auto' }} />
-              </div>
+      {activeModal === 'inviteToSquad' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
+            <button 
+              onClick={() => setActiveModal(null)} 
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              <FaTimes />
+            </button>
 
-              {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
-                <div>
-                  {/* Upgrade Prompt if 0 spots - MOVED ABOVE TITLE */}
-                  {(() => {
-                    const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
-                    const limit = TIER_LIMITS[tier];
-                    const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
-                    const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
-                    const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
+            <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Invite to Squad</h3>
+            
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <img src={inviteToSquadImg} alt="Invite" style={{ width: '80px', height: 'auto' }} />
+            </div>
 
-                    if (spotsLeft === 0) {
+            {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
+              <div>
+                {/* Spots Indicator */}
+                {(() => {
+                  const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                  const limit = TIER_LIMITS[tier];
+                  const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
+                  const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
+                  const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
+
+                  if (spotsLeft === 0) {
+                    return (
+                      <div style={{ textAlign: 'center', padding: '1.25rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <p style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#fff' }}>You have 0 spots left.</p>
+                        <button onClick={() => navigate('/upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', border: 'none', color: 'black', fontWeight: 'bold' }}>Upgrade Plan ⚡</button>
+                      </div>
+                    )
+                  } else {
+                    return (
+                      <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.9rem', color: '#888' }}>Spots Available</span>
+                          <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--primary)' }}>{spotsLeft}</span>
+                        </div>
+                        <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${(spotsLeft / limit) * 100}%`, background: 'var(--primary)', transition: 'width 0.3s ease' }} />
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: '#666', marginTop: '8px', marginBottom: 0 }}>(Pending invites reserve a spot)</p>
+                      </div>
+                    )
+                  }
+                })()}
+
+                <h4 style={{ fontSize: '0.9rem', color: '#888', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Invite Friends</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '40vh', overflowY: 'auto', paddingRight: '5px' }} className="custom-scrollbar">
+                  {friendsData.filter((f: any) => f.squadId !== userData.squadId).length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '2rem 0', color: '#666' }}>
+                      <p style={{ margin: 0 }}>No available friends to invite.</p>
+                    </div>
+                  )}
+
+                  {friendsData
+                    .filter(f => f.squadId !== userData.squadId)
+                    .sort((a, b) => {
+                      const aInvited = outgoingSquadInvites.some(inv => inv.to === a.uid);
+                      const bInvited = outgoingSquadInvites.some(inv => inv.to === b.uid);
+                      if (aInvited && !bInvited) return -1;
+                      if (!aInvited && bInvited) return 1;
+                      return 0;
+                    })
+                    .map(friend => {
+                      const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
+                      const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                      const limit = TIER_LIMITS[tier];
+                      const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
+                      const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
+                      const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
+                      const inviteObj = outgoingSquadInvites.find(inv => inv.to === friend.uid && inv.from === currentUser.uid);
+
                       return (
-                        <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '16px', border: '1px solid #333' }}>
-                          <p style={{ fontSize: '1rem', margin: '0 0 12px 0', fontWeight: 'bold' }}>You have 0 spots left.</p>
-                          <button onClick={() => navigate('/upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>Upgrade Plan ⚡</button>
+                        <div key={friend.uid} style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between', 
+                          padding: '12px', 
+                          background: 'rgba(255,255,255,0.02)', 
+                          borderRadius: '12px',
+                          border: '1px solid rgba(255,255,255,0.05)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <img src={friend.photoURL || "/default-avatar.png"} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid #444' }} alt="Avatar" />
+                            <span style={{ fontWeight: '500' }}>{friend.displayName}</span>
+                          </div>
+                          {isInvited ? (
+                            <button
+                              onClick={() => inviteObj && handleWithdrawSquadInvite(inviteObj)}
+                              className="btn btn-danger"
+                              style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'transparent', border: '1px solid rgba(255, 71, 87, 0.3)', color: '#ff4757', borderRadius: '20px' }}
+                            >
+                              Withdraw
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleInviteToSquad(friend.uid)}
+                              className="btn btn-primary"
+                              disabled={spotsLeft <= 0}
+                              style={{ 
+                                padding: '6px 16px', 
+                                fontSize: '0.75rem', 
+                                background: spotsLeft <= 0 ? '#333' : 'var(--primary)', 
+                                color: spotsLeft <= 0 ? '#666' : 'black',
+                                border: 'none',
+                                borderRadius: '20px',
+                                fontWeight: 'bold',
+                                cursor: spotsLeft <= 0 ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              Invite
+                            </button>
+                          )}
                         </div>
                       )
-                    } else {
-                      return (
-                        <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#ccc' }}>
-                          You have <strong>{spotsLeft}</strong> spots left.
-                          <br />
-                          <span style={{ fontSize: '0.8rem', color: '#888' }}>(Pending invites reserve a spot)</span>
-                        </p>
-                      )
-                    }
-                  })()}
-
-                  <h4>Invite from Friends List</h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '50vh', overflowY: 'auto' }}>
-                    {friendsData.filter((f: any) => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
-
-                    {friendsData
-                      .filter(f => f.squadId !== userData.squadId) // Only show friends NOT in my squad
-                      .sort((a, b) => {
-                        const aInvited = outgoingSquadInvites.some(inv => inv.to === a.uid);
-                        const bInvited = outgoingSquadInvites.some(inv => inv.to === b.uid);
-                        if (aInvited && !bInvited) return -1;
-                        if (!aInvited && bInvited) return 1;
-                        return 0;
-                      })
-                      .map(friend => {
-                        const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
-                        // Recalculate spots for disable logic
-                        const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
-                        const limit = TIER_LIMITS[tier];
-                        const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
-                        const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
-                        const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
-
-                        // Find the invite object if isInvited
-                        const inviteObj = outgoingSquadInvites.find(inv => inv.to === friend.uid && inv.from === currentUser.uid);
-
-                        return (
-                          <div key={friend.uid} className="card" style={{ justifyContent: 'space-between', padding: '0.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <img src={friend.photoURL || "/default-avatar.png"} className="avatar" style={{ width: 30, height: 30 }} alt="Avatar" />
-                              <span>{friend.displayName}</span>
-                            </div>
-                            {isInvited ? (
-                              <button
-                                onClick={() => inviteObj && handleWithdrawSquadInvite(inviteObj)}
-                                className="btn btn-danger"
-                                style={{ padding: '4px 8px', fontSize: '0.8rem', background: 'transparent', border: '1px solid var(--error)' }}
-                              >
-                                Withdraw
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleInviteToSquad(friend.uid)}
-                                className="btn btn-primary"
-                                disabled={spotsLeft <= 0}
-                                style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: spotsLeft <= 0 ? 0.5 : 1, cursor: spotsLeft <= 0 ? 'not-allowed' : 'pointer' }}
-                              >
-                                Invite
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })}
-                  </div>
+                    })}
                 </div>
-              )}
-
-              <div className="modal-actions" style={{ marginTop: '1rem', justifyContent: 'space-between' }}>
-                {friendsData.filter((f: any) => f.squadId !== userData?.squadId).length === 0 ? (
-                  <button onClick={() => setActiveModal('addFriend')} className="btn btn-primary">Invite a Friend +</button>
-                ) : <div />}
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
               </div>
+            )}
+
+            <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              {friendsData.filter((f: any) => f.squadId !== userData?.squadId).length === 0 && (
+                <button 
+                  onClick={() => setActiveModal('addFriend')} 
+                  className="btn w-full"
+                  style={{ 
+                    background: 'rgba(255,255,255,0.05)', 
+                    color: 'white', 
+                    padding: '14px', 
+                    borderRadius: '12px', 
+                    border: '1px solid #333',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <FaUserPlus /> Invite a Friend +
+                </button>
+              )}
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
       {activeModal === 'addFriend' && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
