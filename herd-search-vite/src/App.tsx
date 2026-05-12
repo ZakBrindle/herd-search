@@ -6024,7 +6024,7 @@ export default function App() {
                 border: 'none'
               }}
             >
-              <FaCamera /> Open Camera to Scan
+              <FaCamera /> Add friend using QR code
             </button>
           </div>
         </div>
@@ -6464,7 +6464,7 @@ export default function App() {
                     onClick={() => setIsScannerOpen(true)}
                     style={{ background: 'var(--secondary)', color: 'black' }}
                   >
-                    <FaCamera style={{ marginRight: '8px' }} /> Open Camera to Scan
+                    <FaCamera style={{ marginRight: '8px' }} /> Add friend using QR code
                   </button>
                 </div>
               </>
