@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaUserPlus
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -5068,67 +5068,129 @@ export default function App() {
       </nav>
 
       {/* Modals */}
-      {
-        selectedMember && (
-          <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <div style={{ textAlign: 'center' }}>
-                <img src={selectedMember.photoURL!} alt="Avatar" className="avatar" style={{ width: 80, height: 80, marginBottom: '1rem' }} />
-                <h2>{selectedMember.displayName}</h2>
-                {selectedMemberContext !== 'friend' && (
-                  <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', margin: '0.5rem 0' }}>
-                    📍 {selectedMember.currentArea || "Unknown Location"}
-                    <span style={{ color: '#888', fontSize: '0.8rem' }}>
-                      ({(() => {
-                        const diff = (Date.now() - (selectedMember.lastUpdate || 0)) / 60000;
-                        if (diff < 2) return "Right Now";
-                        if (diff < 90) return `${Math.floor(diff)}m ago`;
-                        return `${Math.floor(diff / 60)}h ago`;
-                      })()})
+      {selectedMember && (
+        <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
+            <button 
+              onClick={() => setSelectedMember(null)} 
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              <FaTimes />
+            </button>
+
+            <div style={{ textAlign: 'center' }}>
+              <img 
+                src={selectedMember.photoURL || "/default-avatar.png"} 
+                alt="Avatar" 
+                className="avatar" 
+                style={{ width: 80, height: 80, marginBottom: '0.75rem', border: '3px solid var(--primary)', padding: '2px' }} 
+              />
+              <h2 style={{ marginBottom: '0.25rem', fontSize: '1.4rem' }}>{selectedMember.displayName}</h2>
+              
+              <div style={{ 
+                display: 'inline-block', 
+                padding: '4px 12px', 
+                borderRadius: '20px', 
+                fontSize: '0.7rem', 
+                fontWeight: '900', 
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                background: selectedMember.tier === 'premium' ? 'linear-gradient(45deg, #FFD700, #FFA500)' : 
+                            selectedMember.tier === 'standard' ? 'linear-gradient(45deg, #00C9FF, #92FE9D)' : 'rgba(255,255,255,0.1)',
+                color: (selectedMember.tier === 'premium' || selectedMember.tier === 'standard') ? 'black' : '#aaa',
+                marginBottom: '1rem'
+              }}>
+                {selectedMember.tier || 'Free'} Plan
+              </div>
+
+              {selectedMemberContext !== 'friend' && selectedMember.uid !== userData?.uid && (
+                <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', margin: '0.5rem 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  📍 {selectedMember.currentArea || "Unknown Location"}
+                  <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                    ({(() => {
+                      const diff = (Date.now() - (selectedMember.lastUpdate || 0)) / 60000;
+                      if (diff < 2) return "Right Now";
+                      if (diff < 90) return `${Math.floor(diff)}m ago`;
+                      return `${Math.floor(diff / 60)}h ago`;
+                    })()})
+                  </span>
+                </p>
+              )}
+
+              {/* Friendship Status */}
+              {selectedMember.uid !== userData?.uid && (
+                <div style={{ marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+                  {userData?.friends?.includes(selectedMember.uid) ? (
+                    <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '600' }}>
+                      <FaUserFriends /> Friends
                     </span>
-                  </p>
-                )}
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        handleSendFriendRequest(selectedMember.uid);
+                        setSelectedMember(null);
+                      }}
+                      className="btn"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid #444', borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                      + Send Friend Request
+                    </button>
+                  )}
+                </div>
+              )}
 
-                {/* Status Update for Self */}
-                {selectedMember.uid === userData?.uid && (
-                  <div style={{ marginTop: '1rem', width: '100%' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
-                      <input
-                        type="text"
-                        id="statusInputSelf"
-                        placeholder="What's on your mind?"
-                        className="input-field"
-                        style={{ flex: 1, height: '44px', boxSizing: 'border-box' }}
-                        value={currentStatusInput}
-                        onChange={(e) => setCurrentStatusInput(e.target.value)}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter') {
-                            const val = (e.target as HTMLInputElement).value;
-                            try {
-                              await updateDoc(getUserDocRef(currentUser!.uid), {
-                                statusMessage: val,
-                                statusTimestamp: Date.now()
-                              });
-                              showAlert("Status updated!");
-
-                              // Send to Chat
-                              if (userData.squadId) {
-                                addDoc(collection(db, "squads", userData.squadId, "messages"), {
-                                  senderId: currentUser.uid,
-                                  senderName: userData.displayName || 'Unknown',
-                                  senderPhotoURL: userData.photoURL || '',
-                                  content: val,
-                                  type: 'status_update',
-                                  createdAt: Date.now()
-                                }).catch(console.error);
-                              }
-
-                              setSelectedMember(null);
-                            } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
-                          }
-                        }}
-                      />
-                      <button onClick={async () => {
+              {/* Status Update for Self */}
+              {selectedMember.uid === userData?.uid && (
+                <div style={{ marginTop: '1rem', marginBottom: '1.5rem', width: '100%' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    borderRadius: '12px',
+                    border: '1px solid #333',
+                    overflow: 'hidden'
+                  }}>
+                    <input
+                      type="text"
+                      id="statusInputSelf"
+                      placeholder="What's on your mind?"
+                      style={{ 
+                        flex: 1, 
+                        height: '48px', 
+                        background: 'transparent', 
+                        border: 'none', 
+                        padding: '0 16px',
+                        color: 'white',
+                        outline: 'none',
+                        fontSize: '0.95rem'
+                      }}
+                      value={currentStatusInput}
+                      onChange={(e) => setCurrentStatusInput(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          const val = (e.target as HTMLInputElement).value;
+                          try {
+                            await updateDoc(getUserDocRef(currentUser!.uid), {
+                              statusMessage: val,
+                              statusTimestamp: Date.now()
+                            });
+                            showAlert("Status updated!");
+                            if (userData?.squadId) {
+                              addDoc(collection(db, "squads", userData.squadId, "messages"), {
+                                senderId: currentUser!.uid,
+                                senderName: userData.displayName || 'Unknown',
+                                senderPhotoURL: userData.photoURL || '',
+                                content: val,
+                                type: 'status_update',
+                                createdAt: Date.now()
+                              }).catch(console.error);
+                            }
+                            setSelectedMember(null);
+                          } catch (err) { console.error(err); showAlert("Error updating status."); }
+                        }
+                      }}
+                    />
+                    <button 
+                      onClick={async () => {
                         const val = currentStatusInput;
                         try {
                           await updateDoc(getUserDocRef(currentUser!.uid), {
@@ -5136,11 +5198,9 @@ export default function App() {
                             statusTimestamp: Date.now()
                           });
                           showAlert("Status updated!");
-
-                          // Send to Chat
-                          if (userData.squadId) {
+                          if (userData?.squadId) {
                             addDoc(collection(db, "squads", userData.squadId, "messages"), {
-                              senderId: currentUser.uid,
+                              senderId: currentUser!.uid,
                               senderName: userData.displayName || 'Unknown',
                               senderPhotoURL: userData.photoURL || '',
                               content: val,
@@ -5148,113 +5208,117 @@ export default function App() {
                               createdAt: Date.now()
                             }).catch(console.error);
                           }
-
                           setSelectedMember(null);
-                        } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
-                      }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', height: '44px', boxSizing: 'border-box' }}>➜</button>
-                    </div>
+                        } catch (err) { console.error(err); showAlert("Error updating status."); }
+                      }} 
+                      style={{ padding: '0 16px', background: 'var(--primary)', border: 'none', color: 'black', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      ➜
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* View Schedule Button - For all users */}
+              {/* View Schedule Button */}
+              <button
+                onClick={() => {
+                  if (selectedMember.uid === userData?.uid) {
+                    setWhatsOnInitialTab('schedule');
+                    setActiveTab('whats-on');
+                  } else {
+                    setScheduleViewingUser(selectedMember);
+                    setShowScheduleModal(true);
+                  }
+                  setSelectedMember(null);
+                }}
+                className="btn w-full"
+                style={{
+                  background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '14px',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  color: 'black',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <FaClock />
+                {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View Schedule`}
+              </button>
+
+              {/* Squad Actions */}
+              {selectedMember.uid !== userData?.uid && selectedMember.squadId === userData?.squadId && (
                 <button
-                  onClick={() => {
-                    if (selectedMember.uid === userData?.uid) {
-                      setWhatsOnInitialTab('schedule');
-                      setActiveTab('whats-on');
-                    } else {
-                      setScheduleViewingUser(selectedMember);
-                      setShowScheduleModal(true);
-                    }
-                    setSelectedMember(null);
-                  }}
+                  onClick={() => handleSearchForMember(selectedMember)}
                   className="btn w-full"
                   style={{
-                    background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                    marginTop: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '14px',
-                    fontSize: '1rem',
-                    fontWeight: 'bold'
+                    background: 'rgba(255, 215, 0, 0.1)',
+                    color: '#FFD700',
+                    border: '1px solid rgba(255, 215, 0, 0.3)',
+                    marginTop: '0.75rem',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    fontSize: '0.9rem',
+                    fontWeight: '600'
                   }}
                 >
-                  <FaClock />
-                  {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View ${selectedMember.displayName?.split(' ')[0]}'s Schedule`}
+                  🏮 Let them know you're searching!
                 </button>
+              )}
 
-                {/* Searching for you! Button */}
-                {selectedMember.uid !== userData?.uid && selectedMember.squadId === userData?.squadId && (
-                  <button
-                    onClick={() => handleSearchForMember(selectedMember)}
-                    className="btn w-full"
-                    style={{
-                      background: 'rgba(255, 215, 0, 0.15)',
-                      color: '#FFD700',
-                      border: '1px solid #FFD700',
-                      marginTop: '0.75rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      padding: '12px',
-                      fontSize: '0.9rem',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    🏮 Let them know you're searching for them!
-                  </button>
-                )}
-
-                {/* Separator Line */}
-                <hr style={{ borderColor: '#33333310', margin: '1.5rem 0', width: '100%' }} />
-
-                {/* Case 1: Friend is in MY squad and I am leader -> Kick */}
+              <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                {/* Kick from Squad */}
                 {getSquadLeaderUid() === userData?.uid && selectedMember.squadId === userData?.squadId && selectedMember.uid !== userData?.uid && (
-                  <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
+                  <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full">Kick from Squad</button>
                 )}
 
-                {/* Case 2: Friend is NOT in MY squad (could be no squad or other squad) and I have capacity -> Invite */}
+                {/* Invite to Squad */}
                 {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
                   <button onClick={() => {
                     if (userData?.tier === 'free') {
-                      setAlertMessage("Free tier users cannot invite friends to a squad. Please upgrade to create a squad.");
+                      setAlertMessage("Free tier users cannot invite friends to a squad.");
                       setAlertIsUpgrade(true);
                       setActiveModal('alert');
                       return;
                     }
                     setSelectedMember(null);
                     handleInviteToSquad(selectedMember.uid);
-                  }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
+                  }} className="btn btn-primary w-full">Invite to Squad</button>
                 )}
 
-
-
-                {/* Case 3: I want to remove them from my friend list (always available if not self) - ONLY IN FRIEND CONTEXT */}
+                {/* Remove Friend */}
                 {selectedMember.uid !== userData?.uid && selectedMemberContext === 'friend' && (
-                  <button onClick={() => {
-                    // Remove friend logic
-                    showConfirm(`Remove ${selectedMember.displayName} from friends ? `, async () => {
-                      try {
-                        await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
-                        setSelectedMember(null);
-                        showAlert("Friend removed.");
-                      } catch (e) { console.error(e); }
-                    });
-                  }} className="btn btn-danger w-full mt-4" style={{ background: 'transparent', border: '1px solid var(--error)' }}>Remove Friend</button>
+                  <button 
+                    onClick={() => {
+                      showConfirm(`Remove ${selectedMember.displayName} from friends?`, async () => {
+                        try {
+                          await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
+                          setSelectedMember(null);
+                          showAlert("Friend removed.");
+                        } catch (e) { console.error(e); }
+                      });
+                    }} 
+                    className="btn w-full" 
+                    style={{ background: 'transparent', border: '1px solid rgba(255, 71, 87, 0.3)', color: '#ff4757', marginTop: '0.5rem' }}
+                  >
+                    Remove Friend
+                  </button>
                 )}
 
-                {selectedMember.uid === userData?.uid && userData?.squadOwnerId !== userData?.uid && (
-                  <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4">Leave Squad</button>
+                {/* Leave Squad */}
+                {selectedMember.uid === userData?.uid && userData?.squadOwnerId && userData.squadOwnerId !== userData.uid && (
+                  <button onClick={handleLeaveSquad} className="btn btn-danger w-full">Leave Squad</button>
                 )}
-                <button onClick={() => setSelectedMember(null)} className="btn btn-secondary w-full mt-4">Close</button>
               </div>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
       {activeModal === 'settings' && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
@@ -5801,44 +5865,89 @@ export default function App() {
         )
       }
 
-      {
-        activeModal === 'addFriend' && (
-          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">Add Friend</h3>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+      {activeModal === 'addFriend' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
+            <button 
+              onClick={() => { setActiveModal(null); setFriendEmail(''); }} 
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              <FaTimes />
+            </button>
+            
+            <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Add Friend</h3>
+            
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ position: 'relative' }}>
                 <img src={addFriendImg} alt="Add Friend" style={{ width: '80px', height: 'auto' }} />
-              </div>
-              <div className="mt-4">
-                <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
-                <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
-                  <button onClick={() => { setActiveModal(null); setFriendEmail(''); }} className="btn btn-secondary" style={{ flex: '0 0 auto' }}>Close</button>
-                  <button onClick={async () => {
-                    if (!friendEmail || !currentUser) return;
-                    try {
-                      if (friendEmail.toLowerCase() === currentUser.email?.toLowerCase()) return;
-                      const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
-                      const querySnapshot = await getDocs(q);
-                      if (querySnapshot.empty) { showAlert("User not found! Share your invite link to invite them.", true); return; }
-                      const friendUid = querySnapshot.docs[0].id;
-
-                      // Check if already friends
-                      const userFriends = userData?.friends || [];
-                      if (userFriends.includes(friendUid)) {
-                        showAlert("You are already friends with this user!");
-                        setFriendEmail('');
-                      } else {
-                        // Send Friend Request
-                        await handleSendFriendRequest(friendUid);
-                      }
-                    } catch (e) { console.error(e); }
-                  }} className="btn btn-primary" style={{ flex: 1 }}>Send Friend Request</button>
+                <div style={{ position: 'absolute', bottom: '-5px', right: '-5px', background: 'var(--primary)', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #1a1a1a' }}>
+                  <FaUserPlus style={{ color: 'black', fontSize: '0.7rem' }} />
                 </div>
               </div>
             </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid #333', overflow: 'hidden', marginBottom: '1rem' }}>
+              <input 
+                type="email" 
+                value={friendEmail} 
+                onChange={e => setFriendEmail(e.target.value)} 
+                style={{ 
+                  width: '100%', 
+                  height: '50px', 
+                  background: 'transparent', 
+                  border: 'none', 
+                  padding: '0 16px', 
+                  color: 'white', 
+                  outline: 'none',
+                  fontSize: '1rem'
+                }} 
+                placeholder="friend@example.com" 
+              />
+            </div>
+
+            <button 
+              onClick={async () => {
+                if (!friendEmail || !currentUser) return;
+                const email = friendEmail.toLowerCase().trim();
+                try {
+                  if (email === currentUser.email?.toLowerCase()) {
+                    showAlert("You can't add yourself as a friend!");
+                    return;
+                  }
+                  
+                  const q = query(getPublicProfileCollection(), where("email", "==", email));
+                  const querySnapshot = await getDocs(q);
+                  
+                  if (querySnapshot.empty) { 
+                    showAlert("Friend not found, has not yet signed up.", true); 
+                    return; 
+                  }
+                  
+                  const friendUid = querySnapshot.docs[0].id;
+                  const userFriends = userData?.friends || [];
+                  
+                  if (userFriends.includes(friendUid)) {
+                    showAlert("You are already friends with this user!");
+                    setFriendEmail('');
+                  } else {
+                    await handleSendFriendRequest(friendUid);
+                    showAlert("Friend Invite Sent");
+                    setActiveModal(null);
+                    setFriendEmail('');
+                  }
+                } catch (e) { 
+                  console.error(e);
+                  showAlert("Error sending friend request.");
+                }
+              }} 
+              className="btn btn-primary w-full"
+              style={{ height: '50px', fontWeight: 'bold', fontSize: '1rem' }}
+            >
+              Send Friend Request
+            </button>
           </div>
-        )
-      }
+        </div>
+      )}
 
 
       {
