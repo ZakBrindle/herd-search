@@ -565,3 +565,125 @@ header {
   color: var(--text-muted) !important;
   font-size: 0.8rem !important;
 }
+
+/* Avatar Customisation Styles */
+.color-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #333;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.color-circle.selected {
+  border-color: white;
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.color-circle.selected::after {
+  content: "✔";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 14px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+.color-circle.locked::before {
+  content: "🔒";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.rainbow-circle {
+  background: conic-gradient(red, orange, yellow, green, cyan, blue, violet, red);
+}
+
+.effect-box {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  flex: 1;
+}
+
+.effect-box.selected {
+  border-color: var(--primary);
+  background: rgba(187, 134, 252, 0.1);
+}
+
+.effect-box.locked {
+  opacity: 0.6;
+}
+
+/* Avatar Effects Animations */
+@keyframes rainbow-border {
+  0% { border-color: red; }
+  14% { border-color: orange; }
+  28% { border-color: yellow; }
+  42% { border-color: green; }
+  56% { border-color: blue; }
+  70% { border-color: indigo; }
+  84% { border-color: violet; }
+  100% { border-color: red; }
+}
+
+.rainbow-animate {
+  animation: rainbow-border 5s linear infinite !important;
+}
+
+@keyframes glow-pulse {
+  0% { box-shadow: 0 0 5px var(--glow-color, var(--primary)); }
+  50% { box-shadow: 0 0 20px var(--glow-color, var(--primary)); }
+  100% { box-shadow: 0 0 5px var(--glow-color, var(--primary)); }
+}
+
+.glow-animate {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes spin-slow-custom {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-animate {
+  animation: spin-slow-custom 8s linear infinite;
+}
+
+.crown-icon {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 24px;
+  z-index: 10;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.crown-icon-marker {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  z-index: 5;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+}

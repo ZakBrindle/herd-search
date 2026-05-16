@@ -34,6 +34,9 @@ export type UserData = DocumentData & {
     searchingFor?: { uid: string; timestamp: number };
     mapPreference?: 'cartoon_light' | 'cartoon_dark' | 'satellite' | 'dynamic' | 'cartoon';
     hasRated?: boolean;
+    unlockedPersonalisePackage?: boolean;
+    avatarColor?: string;
+    avatarEffects?: string[];
 };
 
 interface AuthContextType {

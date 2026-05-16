@@ -52,23 +52,40 @@ export default async (req, res) => {
 
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const { userId, tierId } = session.metadata;
+        const { userId, tierId, purchaseId } = session.metadata;
 
         if (userId && tierId) {
             try {
-                const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days from now
-                const subscriptionEndDate = new Date(expiresAt).toISOString();
+                if (tierId === 'personalise_package') {
+                    // One-time purchase, no expiry
+                    await db.collection('users').doc(userId).update({
+                        unlockedPersonalisePackage: true
+                    });
+                } else {
+                    // Subscription purchase
+                    const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days from now
+                    const subscriptionEndDate = new Date(expiresAt).toISOString();
 
-                await db.collection('users').doc(userId).update({
-                    tier: tierId, // Used by Frontend
-                    subscriptionExpiry: expiresAt, // Used by Frontend
-                    subscriptionEndDate: subscriptionEndDate, // Readable Date
-                    tier_level: tierId, // Requested by User
-                    tier_expires_at: expiresAt // Requested by User
-                });
-                console.log(`Updated user ${userId} to tier ${tierId}`);
+                    await db.collection('users').doc(userId).update({
+                        tier: tierId,
+                        subscriptionExpiry: expiresAt,
+                        subscriptionEndDate: subscriptionEndDate,
+                        tier_level: tierId,
+                        tier_expires_at: expiresAt
+                    });
+                }
+
+                // Update purchase record if ID exists
+                if (purchaseId) {
+                    await db.collection('purchases').doc(purchaseId).update({
+                        status: 'completed',
+                        updatedAt: Date.now()
+                    });
+                }
+
+                console.log(`Successfully processed ${tierId} for user ${userId}`);
             } catch (error) {
-                console.error('Error updating user in Firestore:', error);
+                console.error('Error updating user/purchase in Firestore:', error);
                 return res.status(500).json({ error: 'Firestore update failed' });
             }
         }

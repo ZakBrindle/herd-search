@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem
 } from 'react-icons/fa';
 import {
   GoogleAuthProvider, signInWithPopup
@@ -26,6 +26,8 @@ import PaymentResultModal from './components/modals/PaymentResultModal';
 import QRCode from 'react-qr-code';
 import { Html5Qrcode } from 'html5-qrcode';
 import ChatTab from './components/ChatTab';
+import PersonaliseModal from './components/modals/PersonaliseModal';
+import { BASIC_COLORS, PREMIUM_COLORS, AVATAR_EFFECTS } from './constants/avatarConstants';
 import WrappedModal from './components/modals/WrappedModal';
 import ScheduleModal from './components/modals/ScheduleModal';
 import WhatsOnTab from './components/WhatsOn/WhatsOnTab';
@@ -696,7 +698,9 @@ export default function App() {
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
+  const [showPersonaliseModal, setShowPersonaliseModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // Check for payment return from Stripe
   // --- TASK A: TRAP PARAMS (Run ONCE on mount) ---
@@ -1128,6 +1132,104 @@ export default function App() {
     setAlertMessage(message);
     setShowShareLink(showShareButton);
     setActiveModal('alert');
+  };
+
+  const handleSelectColor = async (color: string, isPremium: boolean) => {
+    if (!userData) return;
+    if (isPremium && !userData.unlockedPersonalisePackage) {
+      setShowPersonaliseModal(true);
+      return;
+    }
+    try {
+      await updateDoc(getUserDocRef(userData.uid), { avatarColor: color });
+    } catch (err) {
+      console.error("Error updating avatar color:", err);
+    }
+  };
+
+  const handleToggleEffect = async (effectId: string) => {
+    if (!userData) return;
+    if (!userData.unlockedPersonalisePackage) {
+      setShowPersonaliseModal(true);
+      return;
+    }
+    const currentEffects = userData.avatarEffects || [];
+    const newEffects = currentEffects.includes(effectId)
+      ? currentEffects.filter(e => e !== effectId)
+      : [...currentEffects, effectId];
+    
+    try {
+      await updateDoc(getUserDocRef(userData.uid), { avatarEffects: newEffects });
+    } catch (err) {
+      console.error("Error updating avatar effects:", err);
+    }
+  };
+
+  const handlePurchasePersonalise = async () => {
+    if (!currentUser) return;
+    setLoading(true);
+    try {
+      const purchaseDoc = await addDoc(collection(db, "purchases"), {
+        userId: currentUser.uid,
+        userEmail: currentUser.email || 'Unknown',
+        userName: userData?.displayName || 'Unknown',
+        tier: 'personalise_package',
+        amount: '£3.99',
+        createdAt: Date.now(),
+        status: 'started'
+      });
+
+      localStorage.setItem('pendingPurchaseId', purchaseDoc.id);
+      localStorage.setItem('pendingType', 'personalise');
+
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tierId: 'personalise_package',
+          userId: currentUser.uid,
+          purchaseId: purchaseDoc.id,
+          successUrl: window.location.origin + '?checkout_success=true',
+          cancelUrl: window.location.origin + '?checkout_cancel=true',
+        })
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error("Purchase failed:", error);
+      showAlert("Failed to initiate purchase.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestorePersonalise = async () => {
+    if (!currentUser) return;
+    setLoading(true);
+    try {
+      const q = query(
+        collection(db, "purchases"),
+        where("userId", "==", currentUser.uid),
+        where("tier", "==", "personalise_package"),
+        where("status", "==", "completed")
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        await updateDoc(getUserDocRef(currentUser.uid), { unlockedPersonalisePackage: true });
+        showAlert("Successfully restored Personalise Package!");
+        setShowPersonaliseModal(false);
+      } else {
+        showAlert("No previous purchase found.");
+      }
+    } catch (err) {
+      console.error("Restore failed:", err);
+      showAlert("Failed to restore purchase.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const showConfirm = (message: string, onConfirm: () => void, confirmText?: string, cancelText?: string) => {
@@ -3175,7 +3277,8 @@ export default function App() {
                   const u = cluster.users[0];
                   const isMe = u.uid === userData?.uid;
                   return (
-                    <div key={u.uid} className="user-marker"
+                    <div key={u.uid} 
+                      className={`user-marker ${u.avatarEffects?.includes('spin') ? 'spin-animate' : ''} ${u.avatarEffects?.includes('glow') ? 'glow-animate' : ''} ${u.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (userData?.useGps === false && u.location) {
@@ -3191,6 +3294,11 @@ export default function App() {
                         top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
                         zIndex: isMe ? 20 : 10,
                         cursor: 'pointer',
+                        border: '2px solid',
+                        borderColor: u.avatarColor === 'rainbow' ? 'transparent' : (u.avatarColor || 'white'),
+                        borderRadius: '50%',
+                        padding: '2px',
+                        background: u.avatarColor === 'rainbow' ? 'transparent' : 'white',
                         // Highlight if they are searching for us OR if we are searching for them
                         filter: ((u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
                           ? 'drop-shadow(0 0 8px #FFD700) drop-shadow(0 0 12px #FFD700)'
@@ -3198,9 +3306,13 @@ export default function App() {
                         transform: ((u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
                           ? 'scale(1.2)'
                           : undefined,
-                        transition: 'all 0.3s ease'
-                      }}>
-                      <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} />
+                        transition: 'all 0.3s ease',
+                        ...(u.avatarEffects?.includes('glow') ? { '--glow-color': u.avatarColor === 'rainbow' ? 'var(--primary)' : (u.avatarColor || 'var(--primary)') } : {})
+                      } as any}>
+                      <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} style={{ border: 'none', margin: 0 }} />
+                      {u.avatarEffects?.includes('crown') && (
+                        <span className="crown-icon-marker">👑</span>
+                      )}
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                         <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
                       )}
@@ -3534,7 +3646,30 @@ export default function App() {
                       );
                     })()}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <img src={member.photoURL!} className="avatar" alt="Avatar" />
+                      <div style={{ position: 'relative' }}>
+                        <div 
+                          className={`
+                            ${member.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
+                            ${member.avatarEffects?.includes('glow') ? 'glow-animate' : ''}
+                            ${member.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}
+                          `}
+                          style={{
+                            borderRadius: '50%',
+                            padding: '2px',
+                            border: '2px solid',
+                            borderColor: member.avatarColor === 'rainbow' ? 'transparent' : (member.avatarColor || 'var(--primary)'),
+                            position: 'relative',
+                            display: 'inline-block',
+                            background: 'transparent',
+                            ...(member.avatarEffects?.includes('glow') ? { '--glow-color': member.avatarColor === 'rainbow' ? 'var(--primary)' : (member.avatarColor || 'var(--primary)') } : {})
+                          } as any}
+                        >
+                          <img src={member.photoURL!} className="avatar" alt="Avatar" style={{ margin: 0, border: 'none' }} />
+                        </div>
+                        {member.avatarEffects?.includes('crown') && (
+                          <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>👑</span>
+                        )}
+                      </div>
                       <div>
                         <span>{leaderUid === member.uid && '👑 '}{member.displayName}</span>
                       </div>
@@ -4099,21 +4234,41 @@ export default function App() {
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
             {userData?.photoURL && (
-              tier !== 'free' ? (
-                <div className="premium-avatar-container">
-                  <img className="avatar-large" src={userData.photoURL} alt="Profile" />
-                  <div className="sparkles-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-                    <div className="sparkle"></div>
-                    <div className="sparkle"></div>
-                    <div className="sparkle"></div>
-                    <div className="sparkle"></div>
-                    <div className="sparkle"></div>
-                    <div className="sparkle"></div>
-                  </div>
+              <div style={{ position: 'relative', marginBottom: '1rem' }}>
+                {userData.avatarEffects?.includes('crown') && (
+                  <span className="crown-icon">👑</span>
+                )}
+                <div 
+                  className={`
+                    ${userData.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
+                    ${userData.avatarEffects?.includes('glow') ? 'glow-animate' : ''}
+                    ${userData.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}
+                    ${tier !== 'free' && !userData.avatarColor && !userData.avatarEffects?.length ? 'premium-avatar-container' : ''}
+                  `}
+                  style={{
+                    borderRadius: '50%',
+                    padding: '4px',
+                    border: '3px solid',
+                    borderColor: userData.avatarColor === 'rainbow' ? 'transparent' : (userData.avatarColor || (tier !== 'free' ? 'transparent' : 'var(--primary)')),
+                    position: 'relative',
+                    display: 'inline-block',
+                    background: (tier !== 'free' && (!userData.avatarColor || userData.avatarColor === 'transparent')) ? 'linear-gradient(45deg, var(--primary), var(--secondary))' : 'transparent',
+                    ...(userData.avatarEffects?.includes('glow') ? { '--glow-color': userData.avatarColor === 'rainbow' ? 'var(--primary)' : (userData.avatarColor || 'var(--primary)') } : {})
+                  } as any}
+                >
+                  <img className="avatar-large" src={userData.photoURL} alt="Profile" style={{ margin: 0, border: 'none' }} />
+                  {tier !== 'free' && (
+                    <div className="sparkles-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <img className="avatar-large" src={userData.photoURL} alt="Profile" />
-              )
+              </div>
             )}
             <h1 style={{ margin: '0.5rem 0' }}>{userData?.displayName}</h1>
             <p style={{ color: 'var(--text-muted)' }}>{userData?.email}</p>
@@ -4175,6 +4330,51 @@ export default function App() {
 
                 </>
               )}
+              {/* Avatar Customisation Section */}
+              <div style={{ width: '100%', marginBottom: '2rem', boxSizing: 'border-box' }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaGem color="var(--primary)" /> Customise Profile
+                </h3>
+                
+                <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>RING COLOUR</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+                  {BASIC_COLORS.map(c => (
+                    <div
+                      key={c.id}
+                      className={`color-circle ${userData?.avatarColor === c.value ? 'selected' : ''}`}
+                      style={{ backgroundColor: c.value }}
+                      onClick={() => handleSelectColor(c.value, false)}
+                    />
+                  ))}
+                  {PREMIUM_COLORS.map(c => (
+                    <div
+                      key={c.id}
+                      className={`color-circle ${userData?.avatarColor === c.value ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
+                      style={{ backgroundColor: c.value }}
+                      onClick={() => handleSelectColor(c.value, true)}
+                    />
+                  ))}
+                  <div
+                    className={`color-circle rainbow-circle ${userData?.avatarColor === 'rainbow' ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
+                    onClick={() => handleSelectColor('rainbow', true)}
+                  />
+                </div>
+
+                <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>EFFECTS</p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {AVATAR_EFFECTS.map(e => (
+                    <div
+                      key={e.id}
+                      className={`effect-box ${userData?.avatarEffects?.includes(e.id) ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
+                      onClick={() => handleToggleEffect(e.id)}
+                    >
+                      <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{e.name}</span>
+                      {!userData?.unlockedPersonalisePackage && <span style={{ fontSize: '0.6rem' }}>🔒</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
               {/* Live Location Toggle */}
@@ -6252,6 +6452,16 @@ export default function App() {
             <button className="btn w-full mt-4" onClick={() => { setActiveQRModal(null); setIsScannerOpen(false); }}>Close</button>
           </div>
         </div>
+      )}
+
+      {/* Personalise Modal */}
+      {showPersonaliseModal && (
+        <PersonaliseModal
+          onClose={() => setShowPersonaliseModal(false)}
+          onPurchase={handlePurchasePersonalise}
+          onRestore={handleRestorePersonalise}
+          loading={loading}
+        />
       )}
 
     </div>

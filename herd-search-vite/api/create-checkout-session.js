@@ -5,6 +5,7 @@ const PRICES = {
     'standard': { amount: 499, name: 'Squad of 4 (Tier 2)' },
     'premium': { amount: 999, name: 'Full Squad (Tier 3)' },
     'festival': { amount: 1599, name: 'Festival Group (Tier 4)' },
+    'personalise_package': { amount: 399, name: 'Personalise Package' },
 };
 
 export default async (req, res) => {
@@ -13,7 +14,7 @@ export default async (req, res) => {
         return res.status(405).end('Method Not Allowed');
     }
 
-    const { tierId, userId, successUrl, cancelUrl, sandboxMode } = req.body;
+    const { tierId, userId, purchaseId, successUrl, cancelUrl, sandboxMode } = req.body;
 
     if (!tierId || !userId || !PRICES[tierId]) {
         return res.status(400).json({ error: 'Invalid parameters' });
@@ -50,6 +51,7 @@ export default async (req, res) => {
             metadata: {
                 userId,
                 tierId,
+                purchaseId
             },
             success_url: `${successUrl}?payment_intent={CHECKOUT_SESSION_ID}&redirect_status=succeeded`,
             cancel_url: `${cancelUrl}?redirect_status=canceled`,
