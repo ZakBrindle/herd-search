@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaGem, FaCoffee, FaCheckCircle, FaChevronRight } from 'react-icons/fa';
+import { FaGem, FaCoffee, FaCheckCircle } from 'react-icons/fa';
 
 interface PersonaliseModalProps {
     onClose: () => void;
