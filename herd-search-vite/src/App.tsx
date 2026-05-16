@@ -4,8 +4,9 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem, FaUserPlus
 } from 'react-icons/fa';
+import { getAvatarUrl } from './utils/userUtils';
 import {
   GoogleAuthProvider, signInWithPopup
 } from "firebase/auth";
@@ -42,6 +43,8 @@ type GPSBounds = {
   east: number;  // Max Lon
   west: number;  // Min Lon
 };
+
+const STATUS_EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 type Vote = {
   id: string;
@@ -82,9 +85,20 @@ import { PLANS, TIER_LIMITS } from './constants/plans';
 
 // --- Helper Components ---
 const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: string }) => {
-  const [statusText, setStatusText] = useState("Loading...");
+  const [statusText, setStatusText] = useState("");
 
   useEffect(() => {
+    // Priority 1: Custom Status Message
+    if (friend.statusMessage) {
+      // Check if it's not too old (2h)
+      const isRecent = !friend.statusTimestamp || (Date.now() - friend.statusTimestamp < STATUS_EXPIRY_MS);
+      if (isRecent) {
+        setStatusText(friend.statusMessage);
+        return;
+      }
+    }
+
+    // Priority 2: Squad Status
     if (!friend.squadId) {
       setStatusText("Alone or Free");
       return;
@@ -106,11 +120,18 @@ const FriendStatus = ({ friend, mySquadId }: { friend: UserData, mySquadId?: str
       } else {
         setStatusText("Alone or Free");
       }
+    }, (err) => {
+      // Handle permission errors (e.g. if we aren't friends yet in the rules' eyes)
+      if (err.code !== 'permission-denied') {
+        console.warn(`Could not fetch squad info for ${friend.displayName}:`, err.message);
+      }
+      setStatusText("");
     });
 
     return () => unsub();
-  }, [friend.squadId, mySquadId]);
+  }, [friend.squadId, mySquadId, friend.statusMessage, friend.statusTimestamp]);
 
+  if (!statusText) return null;
   return <span>Status: {statusText}</span>;
 };
 
@@ -193,7 +214,7 @@ export default function App() {
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
   const [incomingSquadJoinRequests, setIncomingSquadJoinRequests] = useState<DocumentData[]>([]);
   const [currentStatusInput, setCurrentStatusInput] = useState('');
-  const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: string }>({});
+  const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: any }>({});
   const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
   const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile' | 'chat' | 'billing' | 'whats-on'>('map');
   const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
@@ -261,6 +282,7 @@ export default function App() {
 
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleViewingUser, setScheduleViewingUser] = useState<UserData | null>(null);
+  const [whatsOnInitialTab, setWhatsOnInitialTab] = useState<'programme' | 'schedule'>('programme');
 
   // QR Code Modal State
   const [activeQRModal, setActiveQRModal] = useState<'friend' | 'squad' | null>(null);
@@ -279,13 +301,26 @@ export default function App() {
         try {
           const url = new URL(decodedText);
           const params = new URLSearchParams(url.search);
-          
+
           const addFriend = params.get('addFriend');
           const inviteSquad = params.get('inviteSquad');
           const inviter = params.get('inviter');
 
-          if (addFriend) localStorage.setItem('parkedAddFriend', addFriend);
-          if (inviteSquad && inviter) localStorage.setItem('parkedInviteSquad', JSON.stringify({ squadId: inviteSquad, inviter }));
+          if (addFriend) {
+            localStorage.setItem('parkedAddFriend', addFriend);
+            if (currentUser && addFriend !== currentUser.uid) {
+              handleSendFriendRequest(addFriend);
+              // Feedback is handled inside handleSendFriendRequest
+            }
+          }
+
+          if (inviteSquad && inviter) {
+            localStorage.setItem('parkedInviteSquad', JSON.stringify({ squadId: inviteSquad, inviter }));
+            if (currentUser && inviter !== currentUser.uid) {
+              handleSendSquadJoinRequest(inviteSquad, inviter);
+              // Feedback is handled inside handleSendSquadJoinRequest
+            }
+          }
 
           if (html5QrCode) {
             html5QrCode.stop().then(() => {
@@ -306,12 +341,12 @@ export default function App() {
           if (devices && devices.length > 0) {
             // Find back camera, fallback to first available
             const backCamera = devices.find((d: any) => d.label.toLowerCase().includes('back')) || devices[0];
-            
+
             await html5QrCode?.start(
               backCamera.id,
               { fps: 10, qrbox: { width: 250, height: 250 } },
               onScanSuccess,
-              () => {} // silent error handler for frames
+              () => { } // silent error handler for frames
             );
           } else {
             showAlert("No cameras found on this device.");
@@ -441,17 +476,17 @@ export default function App() {
     const now = new Date();
     const day = now.getDay(); // 0 is Sun, 1 is Mon, 2 is Tue
     const hasRated = userData?.hasRated || !!userData?.lastRatedWeek;
-    
+
     // Show Sun/Mon, hide Tue if not filled.
-    if (! (day === 0 || day === 1)) return null;
-    
+    if (!(day === 0 || day === 1)) return null;
+
     // If they have rated and we are NOT showing the thanks message, hide the widget
     if (hasRated && !showRatingThanks) return null;
 
     return (
-      <div style={{ 
-        textAlign: 'center', 
-        padding: '20px 0', 
+      <div style={{
+        textAlign: 'center',
+        padding: '20px 0',
         marginBottom: '20px',
         width: '100%'
       }}>
@@ -462,14 +497,14 @@ export default function App() {
           {[1, 2, 3, 4, 5].map(star => {
             const isFilled = showRatingThanks ? star <= ratingValue : star <= (isJiggling || 0);
             return (
-              <div 
-                key={star} 
+              <div
+                key={star}
                 onClick={() => !showRatingThanks && handleRateApp(star)}
                 className={isJiggling && star <= isJiggling ? 'jiggle' : ''}
                 style={{ cursor: showRatingThanks ? 'default' : 'pointer', transition: 'transform 0.2s', flex: 1, display: 'flex', justifyContent: 'center' }}
               >
-                {isFilled ? 
-                  <FaStar size={48} color="#FFD700" /> : 
+                {isFilled ?
+                  <FaStar size={48} color="#FFD700" /> :
                   <FaRegStar size={48} color="#333" />
                 }
               </div>
@@ -635,7 +670,7 @@ export default function App() {
       for (const day of daysToCheck) {
         // Only include Thu (4), Fri (5), Sat (6), Sun (0)
         const d = new Date(day + 'T12:00:00');
-        const dayOfWeek = d.getDay(); 
+        const dayOfWeek = d.getDay();
         const isFestivalDay = [0, 4, 5, 6].includes(dayOfWeek);
         if (!isFestivalDay) continue;
 
@@ -696,6 +731,12 @@ export default function App() {
   };
 
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
+  const [dismissedVoteId, setDismissedVoteId] = useState<string | null>(() => localStorage.getItem('dismissedVoteId'));
+
+  const handleDismissVote = (voteId: string) => {
+    setDismissedVoteId(voteId);
+    localStorage.setItem('dismissedVoteId', voteId);
+  };
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
   const [showPersonaliseModal, setShowPersonaliseModal] = useState(false);
@@ -718,7 +759,7 @@ export default function App() {
         redirectStatus: checkoutCancel === 'true' ? 'cancelled' : (redirectStatus || 'succeeded'),
         timestamp: Date.now()
       }));
-      
+
       urlParams.delete('payment_intent');
       urlParams.delete('payment_intent_client_secret');
       urlParams.delete('redirect_status');
@@ -780,12 +821,12 @@ export default function App() {
           setPaymentStatus('pending'); // Start with checking...
 
           const purchaseId = localStorage.getItem('pendingPurchaseId');
-          
+
           if (redirectStatus === 'cancelled') {
             setPaymentStatus('failed');
             if (purchaseId) {
-                updateDoc(doc(db, "purchases", purchaseId), { status: 'failed', updatedAt: Date.now() }).catch(console.error);
-                updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false }).catch(console.error);
+              updateDoc(doc(db, "purchases", purchaseId), { status: 'failed', updatedAt: Date.now() }).catch(console.error);
+              updateDoc(getUserDocRef(currentUser.uid), { isPaymentPending: false }).catch(console.error);
             }
             localStorage.removeItem('pendingPlan');
             localStorage.removeItem('pendingPurchaseId');
@@ -852,28 +893,26 @@ export default function App() {
         let q = query(
           collection(db, "purchases"),
           where("userId", "==", currentUser.uid),
-          where("status", "==", "completed"),
-          orderBy("createdAt", "desc"),
-          limit(1)
+          where("status", "==", "completed")
         );
 
         let snap = await getDocs(q);
+        let purchaseDocs = snap.docs.map(d => d.data()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
         // Fallback to Email if UID search fails
-        if (snap.empty && currentUser.email) {
+        if (purchaseDocs.length === 0 && currentUser.email) {
           console.log("Subscription Guard: No purchases found by UID, trying email fallback...");
           q = query(
             collection(db, "purchases"),
             where("userEmail", "==", currentUser.email.toLowerCase()),
-            where("status", "==", "completed"),
-            orderBy("createdAt", "desc"),
-            limit(1)
+            where("status", "==", "completed")
           );
           snap = await getDocs(q);
+          purchaseDocs = snap.docs.map(d => d.data()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         }
 
-        if (!snap.empty) {
-          const latestPurchase = snap.docs[0].data();
+        if (purchaseDocs.length > 0) {
+          const latestPurchase = purchaseDocs[0];
           const purchaseDate = latestPurchase.createdAt;
           const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
 
@@ -881,7 +920,7 @@ export default function App() {
             // This user HAS a valid recent purchase.
             const hasActive = hasActiveSubscription(userData);
             const correctExpiry = purchaseDate + (30 * 24 * 60 * 60 * 1000);
-            
+
             // If tier doesn't match or expiry is significantly off (more than 1 min difference)
             if (!hasActive || userData.tier !== latestPurchase.tier || Math.abs((userData.subscriptionExpiry || 0) - correctExpiry) > 60000) {
               console.log("Subscription Guard: Active purchase found but user profile is outdated. Fixing...");
@@ -902,12 +941,12 @@ export default function App() {
             }
           }
         } else if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev) {
-           // No purchases found at all, and they are not free/dev
-           console.log("Subscription Guard: No purchases found and not Dev. Resetting to free.");
-           await updateDoc(getUserDocRef(currentUser.uid), {
-             tier: 'free',
-             subscriptionExpiry: null
-           });
+          // No purchases found at all, and they are not free/dev
+          console.log("Subscription Guard: No purchases found and not Dev. Resetting to free.");
+          await updateDoc(getUserDocRef(currentUser.uid), {
+            tier: 'free',
+            subscriptionExpiry: null
+          });
         }
       } catch (e) {
         console.error("Subscription Guard Error:", e);
@@ -930,7 +969,7 @@ export default function App() {
     if (paymentStatus === 'pending') {
       console.log("Payment Resolution: Starting check...");
       const purchaseId = localStorage.getItem('pendingPurchaseId');
-      
+
       if (!purchaseId) {
         console.warn("Payment Resolution: No pendingPurchaseId found in localStorage.");
         const timer = setTimeout(() => {
@@ -969,9 +1008,7 @@ export default function App() {
     }
   }, [paymentStatus, currentUser]);
 
-  useEffect(() => {
-    setCurrentStatusInput(userData?.statusMessage || '');
-  }, [userData?.statusMessage]);
+  // Status Expiry
 
   const [mapCalibration, setMapCalibration] = useState<GPSBounds | null>(null);
 
@@ -1495,7 +1532,7 @@ export default function App() {
         }
       } catch (e) { console.warn("Could not send squad invite notification:", e); }
 
-      showAlert("Squad invite sent!");
+
     } catch (error) {
       console.error("Error sending squad invite:", error);
       showAlert("Failed to send squad invite.");
@@ -1775,7 +1812,7 @@ export default function App() {
         }
       } catch (e) { console.warn("Could not send searching notification:", e); }
 
-      showAlert(`Searching for ${member.displayName?.split(' ')[0]}! They've been notified.`);
+      //  showAlert(`Searching for ${member.displayName?.split(' ')[0]}! They've been notified.`);
       setSelectedMember(null);
     } catch (err) {
       console.error(err);
@@ -1805,6 +1842,7 @@ export default function App() {
   // Voting Widget (Appears on top of content if there is an active vote)
   const renderVoteWidget = () => {
     if (!activeVote || !userData) return null;
+    if (dismissedVoteId === activeVote.id) return null;
 
     // Check expiry
     if (activeVote.completedAt && (Date.now() - activeVote.completedAt > 30 * 60 * 1000)) return null;
@@ -1832,8 +1870,18 @@ export default function App() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '16px'
+        padding: '16px',
+        position: 'relative'
       }}>
+        {/* Close Button for everyone once completed */}
+        {isCompleted && (
+          <button
+            onClick={() => handleDismissVote(activeVote.id)}
+            style={{ position: 'absolute', top: '12px', right: '12px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.1rem' }}
+          >
+            <FaTimes />
+          </button>
+        )}
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
           <strong style={{ color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Squad Vote</strong>
@@ -1923,7 +1971,7 @@ export default function App() {
             <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
               {yesCount > noCount
                 ? <div style={{ color: 'var(--primary)', fontWeight: 'bold', fontSize: '1.1rem' }}>We are going! 🏃‍♂️</div>
-                : <div style={{ color: 'var(--error)', fontWeight: 'bold', fontSize: '1.1rem' }}>Screw that! 🙅‍♂️</div>}
+                : <div style={{ color: 'var(--error)', fontWeight: 'bold', fontSize: '1.1rem' }}>Nope! We're not going! 🙅‍♂️</div>}
             </div>
 
             {isOwner && (
@@ -2029,7 +2077,9 @@ export default function App() {
     if (uid === userData?.uid) return userData.displayName || uid;
     const friend = friendsData.find((f: any) => f.uid === uid);
     if (friend?.displayName) return friend.displayName;
-    return publicProfileCache[uid] || uid;
+    const cached = publicProfileCache[uid];
+    if (cached && typeof cached === 'object') return cached.displayName || uid;
+    return cached || uid;
   };
 
   useEffect(() => {
@@ -2039,11 +2089,14 @@ export default function App() {
       ...incomingFriendRequests.map(req => req.from),
       ...outgoingFriendRequests.map(req => req.to)
     ].filter(uid =>
+      uid &&
       uid !== userData?.uid &&
       !friendsData.some((f: any) => f.uid === uid) &&
       !(publicProfileCache[uid])
     );
+
     if (inviteUids.length === 0) return;
+
     inviteUids.forEach(async uid => {
       try {
         const docRef = doc(db, 'public/user_profiles/users', uid);
@@ -2052,12 +2105,20 @@ export default function App() {
           const profile = docSnap.data();
           setPublicProfileCache(prev => ({
             ...prev,
-            [uid]: profile.displayName || uid
+            [uid]: {
+              displayName: profile.displayName || uid,
+              photoURL: profile.photoURL || null
+            }
           }));
+        } else {
+          // Mark as not found to avoid repeated attempts
+          setPublicProfileCache(prev => ({ ...prev, [uid]: 'NOT_FOUND' }));
         }
-      } catch (e) { }
+      } catch (e) {
+        console.error(`Error fetching public profile for ${uid}:`, e);
+      }
     });
-  }, [incomingSquadInvites, outgoingSquadInvites, incomingFriendRequests, outgoingFriendRequests, friendsData, userData, publicProfileCache]);
+  }, [incomingSquadInvites, outgoingSquadInvites, incomingFriendRequests, outgoingFriendRequests, friendsData, userData]);
 
   const handleKickMemberConfirmed = async (member: UserData) => {
     if (!userData || !userData.squadId || !member.uid) return;
@@ -2220,7 +2281,18 @@ export default function App() {
 
     if (incomingFriendRequests.length > prevFriendReqCount.current) {
       if (incomingFriendRequests.length > 0) {
-        setActiveModal('friendRequests');
+        // Check snooze
+        const snoozeTime = parseInt(localStorage.getItem('friendReqSnoozeTime') || '0');
+        const snoozeCount = parseInt(localStorage.getItem('friendReqSnoozeCount') || '0');
+        const isSnoozed = (Date.now() - snoozeTime) < 3600000; // 1 hour
+
+        // Only show if NOT snoozed OR if we have MORE requests than when we snoozed
+        if (!isSnoozed || incomingFriendRequests.length > snoozeCount) {
+          setActiveModal('friendRequests');
+          // Reset snooze count so we don't trigger again for the same set
+          localStorage.removeItem('friendReqSnoozeTime');
+          localStorage.removeItem('friendReqSnoozeCount');
+        }
       }
     }
     prevFriendReqCount.current = incomingFriendRequests.length;
@@ -2300,6 +2372,10 @@ export default function App() {
             return [...others, mData];
           });
         }
+      }, (err) => {
+        console.error(`Friend Listener Error for ${uid}:`, err);
+        // If it's a permission error, it might be a race condition during friend add.
+        // We don't do anything special here, but at least we don't crash the whole app.
       })
     );
 
@@ -2506,13 +2582,13 @@ export default function App() {
       const q = query(
         collection(db, "friendRequests"),
         where("from", "==", currentUser.uid),
-        where("to", "==", friendUid),
-        orderBy("createdAt", "desc"),
-        limit(1)
+        where("to", "==", friendUid)
       );
       const snap = await getDocs(q);
       if (!snap.empty) {
-        const existing = snap.docs[0].data();
+        // Sort in memory to avoid composite index requirement
+        const docs = snap.docs.map(d => d.data()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        const existing = docs[0];
         if (existing.status === 'pending') {
           showAlert("Friend request is already pending.");
           return;
@@ -2625,13 +2701,12 @@ export default function App() {
       const q = query(
         collection(db, "squadJoinRequests"),
         where("from", "==", currentUser.uid),
-        where("to", "==", leaderUid),
-        orderBy("createdAt", "desc"),
-        limit(1)
+        where("to", "==", leaderUid)
       );
       const snap = await getDocs(q);
       if (!snap.empty) {
-        const existing = snap.docs[0].data();
+        const docs = snap.docs.map(d => d.data()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        const existing = docs[0];
         if (existing.status === 'pending') {
           showAlert("Join request already pending.");
           return;
@@ -2689,7 +2764,7 @@ export default function App() {
       const squadRef = doc(db, 'squads', userData.squadId);
       const squadSnap = await getDoc(squadRef);
       if (!squadSnap.exists()) return;
-      
+
       const members = squadSnap.data().members || [];
       if (members.length >= limit + 1) {
         showAlert("Your squad is full! Upgrade to add more people.");
@@ -2742,15 +2817,15 @@ export default function App() {
   if (authLoading) {
     return (
       <div className="app-container" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#121212', color: 'white' }}>
-        <img 
-          src="/logo-main.png" 
-          alt="Herd Search" 
-          style={{ 
-            width: 'min(180px, 40vw)', 
-            height: 'auto', 
+        <img
+          src="/logo-main.png"
+          alt="Herd Search"
+          style={{
+            width: 'min(180px, 40vw)',
+            height: 'auto',
             marginBottom: '2.5rem',
             animation: 'pulsate 3s infinite ease-in-out'
-          }} 
+          }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <div className="spinner" style={{
@@ -3309,7 +3384,7 @@ export default function App() {
                         transition: 'all 0.3s ease',
                         ...(u.avatarEffects?.includes('glow') ? { '--glow-color': u.avatarColor === 'rainbow' ? 'var(--primary)' : (u.avatarColor || 'var(--primary)') } : {})
                       } as any}>
-                      <img src={u.photoURL || "/default-avatar.png"} className="marker-avatar" alt={u.displayName} style={{ border: 'none', margin: 0 }} />
+                      <img src={getAvatarUrl(u.photoURL, u.displayName)} className="marker-avatar" alt={u.displayName} style={{ border: 'none', margin: 0, borderColor: u.avatarColor || 'var(--secondary)' }} />
                       {u.avatarEffects?.includes('crown') && (
                         <span className="crown-icon-marker">👑</span>
                       )}
@@ -3346,8 +3421,8 @@ export default function App() {
                         background: '#333',
                         padding: 0
                       }}>
-                        <img src={u1.photoURL || "/default-avatar.png"} style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
-                        <img src={u2.photoURL || "/default-avatar.png"} style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
+                        <img src={getAvatarUrl(u1.photoURL, u1.displayName)} style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
+                        <img src={getAvatarUrl(u2.photoURL, u2.displayName)} style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
                         {/* Divider line */}
                         <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'white' }}></div>
                       </div>
@@ -3379,11 +3454,11 @@ export default function App() {
                       gridTemplateRows: '1fr 1fr'
                     }}>
                       {/* TL */}
-                      <img src={displayUsers[0]?.photoURL || "/default-avatar.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarUrl(displayUsers[0]?.photoURL, displayUsers[0]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       {/* TR */}
-                      <img src={displayUsers[1]?.photoURL || "/default-avatar.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarUrl(displayUsers[1]?.photoURL, displayUsers[1]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       {/* BL */}
-                      <img src={displayUsers[2]?.photoURL || "/default-avatar.png"} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarUrl(displayUsers[2]?.photoURL, displayUsers[2]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       {/* BR (Plus) */}
                       <div style={{ width: '100%', height: '100%', background: '#444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '10px' }}>
                         +
@@ -3411,7 +3486,7 @@ export default function App() {
                   top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`
                 }}>
                   <img
-                    src={u.photoURL || "/default-avatar.png"}
+                    src={getAvatarUrl(u.photoURL, u.displayName)}
                     className="marker-avatar"
                     alt={u.displayName}
                     style={{ borderColor }}
@@ -3664,7 +3739,7 @@ export default function App() {
                             ...(member.avatarEffects?.includes('glow') ? { '--glow-color': member.avatarColor === 'rainbow' ? 'var(--primary)' : (member.avatarColor || 'var(--primary)') } : {})
                           } as any}
                         >
-                          <img src={member.photoURL!} className="avatar" alt="Avatar" style={{ margin: 0, border: 'none' }} />
+                          <img src={getAvatarUrl(member.photoURL, member.displayName)} className="avatar" alt="Avatar" style={{ margin: 0, border: 'none' }} />
                         </div>
                         {member.avatarEffects?.includes('crown') && (
                           <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>👑</span>
@@ -4039,7 +4114,7 @@ export default function App() {
                           )
                         }
                       </p>
-                      {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < 2 * 60 * 60 * 1000) && (
+                      {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < STATUS_EXPIRY_MS) && (
                         <p style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0', fontStyle: 'italic' }}>
                           "{member.statusMessage}" <span style={{ color: '#666' }}>
                             ({(() => {
@@ -4150,23 +4225,23 @@ export default function App() {
                   const pendingInvites = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid);
                   const usedFriendSpots = (currentMembers.length - 1) + pendingInvites.length;
                   const remaining = Math.max(0, limit - usedFriendSpots);
-                  
+
                   if (tier !== 'free' && remaining > 0) {
                     return (
-                      <div 
+                      <div
                         className="card"
                         onClick={() => setActiveQRModal('squad')}
                         style={{
-                           width: '70px',
-                           cursor: 'pointer',
-                           justifyContent: 'center',
-                           background: 'rgba(255, 255, 255, 0.05)',
-                           border: '1px dashed var(--primary)',
-                           color: 'var(--primary)',
-                           padding: '16px',
-                           display: 'flex',
-                           alignItems: 'center',
-                           flexDirection: 'column'
+                          width: '70px',
+                          cursor: 'pointer',
+                          justifyContent: 'center',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px dashed var(--primary)',
+                          color: 'var(--primary)',
+                          padding: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexDirection: 'column'
                         }}>
                         <FaQrcode size={24} />
                       </div>
@@ -4189,7 +4264,7 @@ export default function App() {
           <div className="squad-list">
             {friendsData.filter((f: any) => userData?.friends?.includes(f.uid)).map((friend: any) => (
               <div key={friend.uid} className="card" onClick={() => { setSelectedMember(friend); setSelectedMemberContext('friend'); }}>
-                <img src={friend.photoURL || "/default-avatar.png"} className="avatar" alt="Avatar" />
+                <img src={getAvatarUrl(friend.photoURL, friend.displayName)} className="avatar" alt="Avatar" style={{ borderColor: friend.avatarColor || 'var(--primary)' }} />
                 <div>
                   <h3>{friend.displayName}</h3>
                   <p><FriendStatus friend={friend} mySquadId={userData?.squadId} /></p>
@@ -4202,7 +4277,7 @@ export default function App() {
                 <FaPlus size={14} />
                 <p style={{ margin: 0 }}>Add Friend</p>
               </div>
-              <div 
+              <div
                 className="card"
                 onClick={() => setActiveQRModal('friend')}
                 style={{
@@ -4256,7 +4331,7 @@ export default function App() {
                     ...(userData.avatarEffects?.includes('glow') ? { '--glow-color': userData.avatarColor === 'rainbow' ? 'var(--primary)' : (userData.avatarColor || 'var(--primary)') } : {})
                   } as any}
                 >
-                  <img className="avatar-large" src={userData.photoURL} alt="Profile" style={{ margin: 0, border: 'none' }} />
+                  <img className="avatar-large" src={getAvatarUrl(userData.photoURL, userData.displayName)} alt="Profile" style={{ margin: 0, border: 'none' }} />
                   {tier !== 'free' && (
                     <div className="sparkles-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
                       <div className="sparkle"></div>
@@ -4507,12 +4582,12 @@ export default function App() {
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaMap color="#03dac6" /> Map Style
                 </h3>
-                <div style={{ 
-                  width: '100%', 
-                  height: '120px', 
-                  borderRadius: '12px', 
-                  marginBottom: '15px', 
-                  overflow: 'hidden', 
+                <div style={{
+                  width: '100%',
+                  height: '120px',
+                  borderRadius: '12px',
+                  marginBottom: '15px',
+                  overflow: 'hidden',
                   border: '1px solid #333',
                   display: 'flex',
                   position: 'relative'
@@ -4635,35 +4710,123 @@ export default function App() {
               </div>
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
+              {/* Avatar Color Section */}
+              <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaCamera color="var(--primary)" /> Avatar Color
+                </h3>
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center', justifyContent: 'center', padding: '15px 25px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid #333' }}>
+                  {[
+                    { id: 'blue', color: '#03dac6', name: 'Blue' },
+                    { id: 'purple', color: '#bb86fc', name: 'Purple' }
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={async () => {
+                        if (currentUser) {
+                          try {
+                            await updateDoc(getUserDocRef(currentUser.uid), { avatarColor: c.color });
+                            await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), { avatarColor: c.color });
+                          } catch (err) { console.error(err); }
+                        }
+                      }}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        backgroundColor: c.color,
+                        border: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? '2px solid white' : 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                        transition: 'transform 0.2s',
+                        transform: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? 'scale(1.2)' : 'scale(1)'
+                      }}
+                    />
+                  ))}
+
+                  {/* LIVE PREVIEW */}
+                  <img 
+                    src={getAvatarUrl(userData?.photoURL, userData?.displayName)} 
+                    alt="Preview"
+                    style={{
+                      width: '45px',
+                      height: '45px',
+                      borderRadius: '50%',
+                      border: `3px solid ${userData?.avatarColor || '#03dac6'}`,
+                      padding: '2px',
+                      margin: '0 5px'
+                    }}
+                  />
+
+                  {[
+                    { id: 'pink', color: '#f368e0', name: 'Pink' },
+                    { id: 'green', color: '#43e97b', name: 'Green' }
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={async () => {
+                        if (currentUser) {
+                          try {
+                            await updateDoc(getUserDocRef(currentUser.uid), { avatarColor: c.color });
+                            await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), { avatarColor: c.color });
+                          } catch (err) { console.error(err); }
+                        }
+                      }}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        backgroundColor: c.color,
+                        border: (userData?.avatarColor === c.color) ? '2px solid white' : 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                        transition: 'transform 0.2s',
+                        transform: (userData?.avatarColor === c.color) ? 'scale(1.2)' : 'scale(1)'
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
+
               {/* Stay Hydrated Section */}
               <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaTint color="#4facfe" /> Stay Hydrated
                 </h3>
                 <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '16px' }}>
-                  <img 
-                    src="/WATER.png" 
-                    alt="Hydration" 
-                    style={{ 
-                      width: '120px', 
-                      height: 'auto', 
-                      borderRadius: '12px', 
-                      marginBottom: '12px', 
+                  <img
+                    src="/WATER.png"
+                    alt="Hydration"
+                    style={{
+                      width: '120px',
+                      height: 'auto',
+                      borderRadius: '12px',
+                      marginBottom: '12px',
                       border: '1px solid rgba(255,255,255,0.1)',
                       alignSelf: 'center'
-                    }} 
+                    }}
                   />
                   <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#ccc', lineHeight: '1.4' }}>
                     It's going to be a big one! Remember to stay hydrated. Free water taps are scattered all around the festival site.
                   </p>
-                  <button 
+                  <button
                     onClick={() => {
                       setWaterMapExpiry(Date.now() + 90000); // 90 seconds
                       setActiveTab('map');
-                      showAlert("Water taps are now highlighted on the map for 90 seconds!");
+                      
+                      const lastShown = localStorage.getItem('lastHydrationAlert');
+                      const now = Date.now();
+                      const SIX_HOURS = 6 * 60 * 60 * 1000;
+                      
+                      if (!lastShown || (now - parseInt(lastShown)) > SIX_HOURS) {
+                        showAlert("Water taps are now highlighted on the map for 90 seconds!");
+                        localStorage.setItem('lastHydrationAlert', now.toString());
+                      }
                     }}
                     className="btn btn-primary w-full"
-                    style={{ 
+                    style={{
                       background: 'linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)',
                       border: 'none',
                       color: 'white',
@@ -4956,15 +5119,15 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {billingHistory.map((item) => (
                   <div key={item.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '16px', background: 'rgba(255,255,255,0.03)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <strong style={{ color: 'var(--primary)', textTransform: 'capitalize', fontSize: '1.1rem' }}>{item.tier} Plan</strong>
-                          <span style={{ fontSize: '0.7rem', color: '#666' }}>ID: {item.id}</span>
-                        </div>
-                        <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.amount}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <strong style={{ color: 'var(--primary)', textTransform: 'capitalize', fontSize: '1.1rem' }}>{item.tier} Plan</strong>
+                        <span style={{ fontSize: '0.7rem', color: '#666' }}>ID: {item.id}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#888' }}>
-                        <span>{new Date(item.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.amount}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#888' }}>
+                      <span>{new Date(item.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                       <span style={{
                         color: item.status === 'completed' ? 'var(--secondary)' : 'var(--error)',
                         fontWeight: '600',
@@ -4994,18 +5157,34 @@ export default function App() {
       }
 
       return (
-        <ChatTab userData={userData} squadId={userData.squadId} />
+        <ChatTab
+          userData={userData}
+          squadId={userData.squadId}
+          activeVote={activeVote}
+          onVote={castVote}
+        />
       );
     }
 
     if (activeTab === 'whats-on') {
+      const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
+      const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+      const hasWhatsOnAccess = tier !== 'free' || (userData?.squadId && squadMembers.length > 1);
+
+      if (!hasWhatsOnAccess) {
+        setTimeout(() => setActiveTab('map'), 0);
+        return null;
+      }
+
       return (
         <>
           {renderHeader()}
-          <WhatsOnTab 
-            userData={userData} 
-            showAlert={showAlert} 
-            showConfirm={showConfirm} 
+          <WhatsOnTab
+            key={whatsOnInitialTab}
+            userData={userData}
+            showAlert={showAlert}
+            showConfirm={showConfirm}
+            initialSubTab={whatsOnInitialTab}
           />
         </>
       );
@@ -5227,10 +5406,24 @@ export default function App() {
           )}
         </button>
 
-        <button className={`nav-item ${activeTab === 'whats-on' ? 'active' : ''}`} onClick={() => setActiveTab('whats-on')}>
-          <FaClock />
-          <span>What's On</span>
-        </button>
+        {(() => {
+          const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
+          const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+          const hasWhatsOnAccess = tier !== 'free' || (userData?.squadId && squadMembers.length > 1);
+
+          if (hasWhatsOnAccess) {
+            return (
+              <button className={`nav-item ${activeTab === 'whats-on' ? 'active' : ''}`} onClick={() => {
+                setWhatsOnInitialTab('programme');
+                setActiveTab('whats-on');
+              }}>
+                <FaClock />
+                <span>What's On</span>
+              </button>
+            );
+          }
+          return null;
+        })()}
 
         <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
           <FaUser />
@@ -5242,79 +5435,153 @@ export default function App() {
       </nav>
 
       {/* Modals */}
-      {
-        selectedMember && (
-          <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <div style={{ textAlign: 'center' }}>
-                <img src={selectedMember.photoURL!} alt="Avatar" className="avatar" style={{ width: 80, height: 80, marginBottom: '1rem' }} />
-                <h2>{selectedMember.displayName}</h2>
-                {selectedMemberContext !== 'friend' && (
-                  <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', margin: '0.5rem 0' }}>
-                    📍 {selectedMember.currentArea || "Unknown Location"}
-                    <span style={{ color: '#888', fontSize: '0.8rem' }}>
-                      ({(() => {
-                        const diff = (Date.now() - (selectedMember.lastUpdate || 0)) / 60000;
-                        if (diff < 2) return "Right Now";
-                        if (diff < 90) return `${Math.floor(diff)}m ago`;
-                        return `${Math.floor(diff / 60)}h ago`;
-                      })()})
+      {selectedMember && (
+        <div className="modal-overlay" onClick={() => setSelectedMember(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
+            <button
+              onClick={() => setSelectedMember(null)}
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              <FaTimes />
+            </button>
+
+            <div style={{ textAlign: 'center' }}>
+              <img
+                src={getAvatarUrl(selectedMember.photoURL, selectedMember.displayName)}
+                alt="Avatar"
+                className="avatar"
+                style={{ width: 80, height: 80, marginBottom: '0.75rem', border: `3px solid ${selectedMember.avatarColor || 'var(--primary)'}`, padding: '2px' }}
+              />
+              <h2 style={{ marginBottom: '0.25rem', fontSize: '1.4rem' }}>{selectedMember.displayName}</h2>
+
+              <div 
+                onClick={() => {
+                  if (selectedMember.uid === userData?.uid && selectedMember.tier !== 'festival') {
+                    setSelectedMember(null);
+                    navigate('/upgrade');
+                  }
+                }}
+                style={{
+                  display: 'inline-block',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.7rem',
+                  fontWeight: '900',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  background: selectedMember.tier === 'festival' ? 'linear-gradient(45deg, #FFD700, #FFA500)' : // Gold for Festival
+                    selectedMember.tier === 'premium' ? 'linear-gradient(45deg, #A020F0, #E0B0FF)' : // Purple for Premium
+                    selectedMember.tier === 'standard' ? 'linear-gradient(45deg, #00C9FF, #92FE9D)' : // Green for Standard
+                    selectedMember.tier === 'basic' ? 'linear-gradient(45deg, #FF7E5F, #FEB47B)' : // Orange for Basic
+                    'rgba(255,255,255,0.1)',
+                  color: (selectedMember.tier && selectedMember.tier !== 'free') ? 'black' : '#aaa',
+                  marginBottom: '1rem',
+                  cursor: (selectedMember.uid === userData?.uid && selectedMember.tier !== 'festival') ? 'pointer' : 'default'
+                }}
+              >
+                {(PLANS.find(p => p.id === selectedMember.tier)?.name || 'Free Plan')}
+              </div>
+
+              {selectedMemberContext !== 'friend' && selectedMember.uid !== userData?.uid && (
+                <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', margin: '0.5rem 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                  📍 {selectedMember.currentArea || "Unknown Location"}
+                  <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                    ({(() => {
+                      const diff = (Date.now() - (selectedMember.lastUpdate || 0)) / 60000;
+                      if (diff < 2) return "Right Now";
+                      if (diff < 90) return `${Math.floor(diff)}m ago`;
+                      return `${Math.floor(diff / 60)}h ago`;
+                    })()})
+                  </span>
+                </p>
+              )}
+
+              {/* Friendship Status */}
+              {selectedMember.uid !== userData?.uid && (
+                <div style={{ marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+                  {userData?.friends?.includes(selectedMember.uid) ? (
+                    <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '600' }}>
+                      <FaUserFriends /> Friends
                     </span>
-                  </p>
-                )}
+                  ) : (
+                    <button
+                      onClick={() => {
+                        handleSendFriendRequest(selectedMember.uid);
+                        setSelectedMember(null);
+                      }}
+                      className="btn"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid #444', borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                      + Send Friend Request
+                    </button>
+                  )}
+                </div>
+              )}
 
-                {/* Status Update for Self */}
-                {selectedMember.uid === userData?.uid && (
-                  <div style={{ marginTop: '1rem', width: '100%' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
-                      <input
-                        type="text"
-                        id="statusInputSelf"
-                        placeholder="What's on your mind?"
-                        className="input-field"
-                        style={{ flex: 1, height: '44px', boxSizing: 'border-box' }}
-                        value={currentStatusInput}
-                        onChange={(e) => setCurrentStatusInput(e.target.value)}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter') {
-                            const val = (e.target as HTMLInputElement).value;
-                            try {
-                              await updateDoc(getUserDocRef(currentUser!.uid), {
-                                statusMessage: val,
-                                statusTimestamp: Date.now()
-                              });
-                              showAlert("Status updated!");
-
-                              // Send to Chat
-                              if (userData.squadId) {
-                                addDoc(collection(db, "squads", userData.squadId, "messages"), {
-                                  senderId: currentUser.uid,
-                                  senderName: userData.displayName || 'Unknown',
-                                  senderPhotoURL: userData.photoURL || '',
-                                  content: val,
-                                  type: 'status_update',
-                                  createdAt: Date.now()
-                                }).catch(console.error);
-                              }
-
-                              setSelectedMember(null);
-                            } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
-                          }
-                        }}
-                      />
-                      <button onClick={async () => {
-                        const val = currentStatusInput;
+              {/* Status Update for Self */}
+              {selectedMember.uid === userData?.uid && (
+                <div style={{ marginTop: '1rem', marginBottom: '1.5rem', width: '100%' }}>
+                  <div style={{
+                    display: 'flex',
+                    background: 'rgba(255,255,255,0.05)',
+                    borderRadius: '12px',
+                    border: '1px solid #333',
+                    overflow: 'hidden',
+                    marginBottom: '12px'
+                  }}>
+                    <input
+                      type="text"
+                      id="statusInputSelf"
+                      placeholder="Update your status..."
+                      style={{
+                        flex: 1,
+                        height: '48px',
+                        background: 'transparent',
+                        border: 'none',
+                        padding: '0 16px',
+                        color: 'white',
+                        outline: 'none',
+                        fontSize: '0.95rem'
+                      }}
+                      value={currentStatusInput}
+                      onChange={(e) => setCurrentStatusInput(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          const val = currentStatusInput.trim();
+                          if (!val) return;
+                          try {
+                            await updateDoc(getUserDocRef(currentUser!.uid), {
+                              statusMessage: val,
+                              statusTimestamp: Date.now()
+                            });
+                            setCurrentStatusInput(''); // Clear input
+                            if (userData?.squadId) {
+                              addDoc(collection(db, "squads", userData.squadId, "messages"), {
+                                senderId: currentUser!.uid,
+                                senderName: userData.displayName || 'Unknown',
+                                senderPhotoURL: userData.photoURL || '',
+                                content: val,
+                                type: 'status_update',
+                                createdAt: Date.now()
+                              }).catch(console.error);
+                            }
+                          } catch (err) { console.error(err); showAlert("Error updating status."); }
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={async () => {
+                        const val = currentStatusInput.trim();
+                        if (!val) return;
                         try {
                           await updateDoc(getUserDocRef(currentUser!.uid), {
                             statusMessage: val,
                             statusTimestamp: Date.now()
                           });
-                          showAlert("Status updated!");
-
-                          // Send to Chat
-                          if (userData.squadId) {
+                          setCurrentStatusInput(''); // Clear input
+                          if (userData?.squadId) {
                             addDoc(collection(db, "squads", userData.squadId, "messages"), {
-                              senderId: currentUser.uid,
+                              senderId: currentUser!.uid,
                               senderName: userData.displayName || 'Unknown',
                               senderPhotoURL: userData.photoURL || '',
                               content: val,
@@ -5322,108 +5589,154 @@ export default function App() {
                               createdAt: Date.now()
                             }).catch(console.error);
                           }
-
-                          setSelectedMember(null);
-                        } catch (err) { console.error(err); showAlert("Error updating status. Check permissions."); }
-                      }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', height: '44px', boxSizing: 'border-box' }}>➜</button>
-                    </div>
+                        } catch (err) { console.error(err); showAlert("Error updating status."); }
+                      }}
+                      style={{ padding: '0 16px', background: 'var(--primary)', border: 'none', color: 'black', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      ➜
+                    </button>
                   </div>
-                )}
 
-                {/* View Schedule Button - For all users */}
-                <button
-                  onClick={() => {
-                    setScheduleViewingUser(selectedMember.uid === userData?.uid ? null : selectedMember);
-                    setShowScheduleModal(true);
-                    setSelectedMember(null);
-                  }}
-                  className="btn w-full"
-                  style={{
-                    background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                    marginTop: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    padding: '14px',
-                    fontSize: '1rem',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  <FaClock />
-                  {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View ${selectedMember.displayName?.split(' ')[0]}'s Schedule`}
-                </button>
-
-                {/* Searching for you! Button */}
-                {selectedMember.uid !== userData?.uid && selectedMember.squadId === userData?.squadId && (
-                  <button
-                    onClick={() => handleSearchForMember(selectedMember)}
-                    className="btn w-full"
-                    style={{
-                      background: 'rgba(255, 215, 0, 0.15)',
-                      color: '#FFD700',
-                      border: '1px solid #FFD700',
-                      marginTop: '0.75rem',
+                  {/* Current Status Display */}
+                  {userData?.statusMessage && (Date.now() - (userData.statusTimestamp || 0) < STATUS_EXPIRY_MS) && (
+                    <div style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      padding: '12px',
-                      fontSize: '0.9rem',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    🏮 Let them know you're searching for them!
-                  </button>
-                )}
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      background: 'rgba(255,255,255,0.03)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.05)'
+                    }}>
+                      <div style={{ fontSize: '0.85rem', color: '#aaa', fontStyle: 'italic', flex: 1 }}>
+                        "{userData.statusMessage}"
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await updateDoc(getUserDocRef(currentUser!.uid), {
+                              statusMessage: "",
+                              statusTimestamp: null
+                            });
+                          } catch (e) { console.error(e); }
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#ff4757',
+                          fontSize: '0.75rem',
+                          padding: '4px 8px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
-                {/* Separator Line */}
-                <hr style={{ borderColor: '#33333310', margin: '1.5rem 0', width: '100%' }} />
+              {/* View Schedule Button */}
+              <button
+                onClick={() => {
+                  if (selectedMember.uid === userData?.uid) {
+                    setWhatsOnInitialTab('schedule');
+                    setActiveTab('whats-on');
+                  } else {
+                    setScheduleViewingUser(selectedMember);
+                    setShowScheduleModal(true);
+                  }
+                  setSelectedMember(null);
+                }}
+                className="btn w-full"
+                style={{
+                  background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '14px',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  color: 'black',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <FaClock />
+                {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View Schedule`}
+              </button>
 
-                {/* Case 1: Friend is in MY squad and I am leader -> Kick */}
+              {/* Squad Actions */}
+              {selectedMember.uid !== userData?.uid && selectedMember.squadId === userData?.squadId && (
+                <button
+                  onClick={() => handleSearchForMember(selectedMember)}
+                  className="btn w-full"
+                  style={{
+                    background: 'rgba(255, 215, 0, 0.1)',
+                    color: '#FFD700',
+                    border: '1px solid rgba(255, 215, 0, 0.3)',
+                    marginTop: '0.75rem',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    fontSize: '0.9rem',
+                    fontWeight: '600'
+                  }}
+                >
+                  🏮 Let them know you're searching!
+                </button>
+              )}
+
+              <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                {/* Kick from Squad */}
                 {getSquadLeaderUid() === userData?.uid && selectedMember.squadId === userData?.squadId && selectedMember.uid !== userData?.uid && (
-                  <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full mt-4">Kick from Squad</button>
+                  <button onClick={() => handleKickMember(selectedMember)} className="btn btn-danger w-full">Kick from Squad</button>
                 )}
 
-                {/* Case 2: Friend is NOT in MY squad (could be no squad or other squad) and I have capacity -> Invite */}
+                {/* Invite to Squad */}
                 {selectedMember.squadId !== userData?.squadId && userData?.squadId && getSquadLeaderUid() === userData?.uid && selectedMember.uid !== userData?.uid && (
                   <button onClick={() => {
                     if (userData?.tier === 'free') {
-                      setAlertMessage("Free tier users cannot invite friends to a squad. Please upgrade to create a squad.");
+                      setAlertMessage("Free tier users cannot invite friends to a squad.");
                       setAlertIsUpgrade(true);
                       setActiveModal('alert');
                       return;
                     }
                     setSelectedMember(null);
                     handleInviteToSquad(selectedMember.uid);
-                  }} className="btn btn-primary w-full mt-4">Invite to Squad</button>
+                  }} className="btn btn-primary w-full">Invite to Squad</button>
                 )}
 
-
-
-                {/* Case 3: I want to remove them from my friend list (always available if not self) - ONLY IN FRIEND CONTEXT */}
+                {/* Remove Friend */}
                 {selectedMember.uid !== userData?.uid && selectedMemberContext === 'friend' && (
-                  <button onClick={() => {
-                    // Remove friend logic
-                    showConfirm(`Remove ${selectedMember.displayName} from friends ? `, async () => {
-                      try {
-                        await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
-                        setSelectedMember(null);
-                        showAlert("Friend removed.");
-                      } catch (e) { console.error(e); }
-                    });
-                  }} className="btn btn-danger w-full mt-4" style={{ background: 'transparent', border: '1px solid var(--error)' }}>Remove Friend</button>
+                  <button
+                    onClick={() => {
+                      showConfirm(`Remove ${selectedMember.displayName} from friends?`, async () => {
+                        try {
+                          await updateDoc(getUserDocRef(currentUser!.uid), { friends: arrayRemove(selectedMember.uid) });
+                          setSelectedMember(null);
+                          showAlert("Friend removed.");
+                        } catch (e) { console.error(e); }
+                      });
+                    }}
+                    className="btn w-full"
+                    style={{ background: 'transparent', border: '1px solid rgba(255, 71, 87, 0.3)', color: '#ff4757', marginTop: '0.5rem' }}
+                  >
+                    Remove Friend
+                  </button>
                 )}
 
-                {selectedMember.uid === userData?.uid && userData?.squadOwnerId !== userData?.uid && (
-                  <button onClick={handleLeaveSquad} className="btn btn-danger w-full mt-4">Leave Squad</button>
+                {/* Leave Squad */}
+                {selectedMember.uid === userData?.uid && userData?.squadOwnerId && userData.squadOwnerId !== userData.uid && (
+                  <button onClick={handleLeaveSquad} className="btn btn-danger w-full">Leave Squad</button>
                 )}
-                <button onClick={() => setSelectedMember(null)} className="btn btn-secondary w-full mt-4">Close</button>
               </div>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
       {activeModal === 'settings' && (
         <div className="modal-overlay" onClick={() => setActiveModal(null)}>
@@ -5742,47 +6055,113 @@ export default function App() {
       {
         activeModal === 'friendRequests' && (
           <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">New Friend Requests! 👥</h3>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
+              <button
+                onClick={() => setActiveModal(null)}
+                style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
+              >
+                <FaTimes />
+              </button>
+
+              <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>New Friend Requests! 👥</h3>
+
               {incomingFriendRequests.length === 0 ? (
-                <p>No new requests.</p>
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+                  <FaUserFriends size={48} style={{ marginBottom: '1rem', opacity: 0.2 }} />
+                  <p>No new requests.</p>
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {incomingFriendRequests.map(req => (
-                    <div key={req.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                        <div className="avatar" style={{ background: '#444', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>?</div>
-                        <strong>{getDisplayNameByUid(req.from)}</strong>
-                        <span style={{ fontSize: '0.8rem', color: '#888' }}> wants to be friends.</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {incomingFriendRequests.map(req => {
+                    const friendProfile = publicProfileCache[req.from];
+                    const displayName = getDisplayNameByUid(req.from);
+                    const photoURL = (friendProfile && typeof friendProfile === 'object') ? friendProfile.photoURL : null;
+
+                    return (
+                      <div key={req.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                          <div style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '50%',
+                            overflow: 'hidden',
+                            border: '2px solid var(--primary)',
+                            background: '#222',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            {photoURL ? (
+                              <img
+                                src={photoURL}
+                                alt="Avatar"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => { (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(displayName) + '&background=random'; }}
+                              />
+                            ) : (
+                              <div style={{ fontSize: '1.2rem', color: '#555' }}><FaUser /></div>
+                            )}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <strong style={{ fontSize: '1rem', display: 'block' }}>{displayName === req.from ? 'Someone' : displayName}</strong>
+                            <span style={{ fontSize: '0.8rem', color: '#888' }}>wants to be friends.</span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button
+                            className="btn btn-primary"
+                            style={{ flex: 1, height: '40px', fontWeight: 'bold' }}
+                            onClick={() => {
+                              handleAcceptFriendRequest(req);
+                              if (incomingFriendRequests.length <= 1) setActiveModal(null);
+                            }}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            className="btn"
+                            style={{
+                              flex: 1,
+                              height: '40px',
+                              background: 'rgba(255, 71, 87, 0.1)',
+                              color: '#ff4757',
+                              border: '1px solid rgba(255, 71, 87, 0.2)',
+                              fontWeight: '600'
+                            }}
+                            onClick={() => {
+                              handleDeclineFriendRequest(req);
+                              if (incomingFriendRequests.length <= 1) setActiveModal(null);
+                            }}
+                          >
+                            Decline
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          className="btn btn-primary"
-                          style={{ flex: 1 }}
-                          onClick={() => {
-                            handleAcceptFriendRequest(req);
-                            if (incomingFriendRequests.length <= 1) setActiveModal(null);
-                          }}
-                        >
-                          Accept
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          style={{ flex: 1, background: 'transparent', border: '1px solid var(--error)' }}
-                          onClick={() => {
-                            handleDeclineFriendRequest(req);
-                            if (incomingFriendRequests.length <= 1) setActiveModal(null);
-                          }}
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
-              <div className="modal-actions" style={{ marginTop: '1rem' }}>
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary w-full">Close (Decide Later)</button>
+
+              <div className="modal-actions" style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <button
+                  onClick={() => {
+                    // Snooze for 1 hour
+                    localStorage.setItem('friendReqSnoozeTime', Date.now().toString());
+                    localStorage.setItem('friendReqSnoozeCount', incomingFriendRequests.length.toString());
+                    setActiveModal(null);
+                  }}
+                  className="btn w-full"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#aaa',
+                    height: '48px',
+                    fontSize: '0.9rem',
+                    border: '1px solid #333'
+                  }}
+                >
+                  Close (Decide Later)
+                </button>
               </div>
             </div>
           </div>
@@ -5866,148 +6245,261 @@ export default function App() {
         )
       }
 
-      {
-        activeModal === 'inviteToSquad' && (
-          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">Invite to Squad</h3>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-                <img src={inviteToSquadImg} alt="Invite" style={{ width: '80px', height: 'auto' }} />
-              </div>
+      {activeModal === 'inviteToSquad' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
+            <button
+              onClick={() => setActiveModal(null)}
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              <FaTimes />
+            </button>
 
-              {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
-                <div>
-                  {/* Upgrade Prompt if 0 spots - MOVED ABOVE TITLE */}
-                  {(() => {
-                    const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
-                    const limit = TIER_LIMITS[tier];
-                    const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
-                    const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
-                    const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
+            <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Invite to Squad</h3>
 
-                    if (spotsLeft === 0) {
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <img src={inviteToSquadImg} alt="Invite" style={{ width: '80px', height: 'auto' }} />
+            </div>
+
+            {userData?.squadId && getSquadLeaderUid() === userData?.uid && (
+              <div>
+                {/* Spots Indicator */}
+                {(() => {
+                  const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                  const limit = TIER_LIMITS[tier];
+                  const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
+                  const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
+                  const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
+
+                  if (spotsLeft === 0) {
+                    return (
+                      <div style={{ textAlign: 'center', padding: '1.25rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <p style={{ fontSize: '0.95rem', margin: '0 0 12px 0', color: '#fff' }}>You have 0 spots left.</p>
+                        <button onClick={() => navigate('/upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))', border: 'none', color: 'black', fontWeight: 'bold' }}>Upgrade Plan ⚡</button>
+                      </div>
+                    )
+                  } else {
+                    return (
+                      <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.9rem', color: '#888' }}>Spots Available</span>
+                          <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--primary)' }}>{spotsLeft}</span>
+                        </div>
+                        <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginTop: '8px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${(spotsLeft / limit) * 100}%`, background: 'var(--primary)', transition: 'width 0.3s ease' }} />
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: '#666', marginTop: '8px', marginBottom: 0 }}>(Pending invites reserve a spot)</p>
+                      </div>
+                    )
+                  }
+                })()}
+
+                <h4 style={{ fontSize: '0.9rem', color: '#888', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Invite Friends</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '40vh', overflowY: 'auto', paddingRight: '5px' }} className="custom-scrollbar">
+                  {friendsData.filter((f: any) => f.squadId !== userData.squadId).length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '2rem 0', color: '#666' }}>
+                      <p style={{ margin: 0 }}>No available friends to invite.</p>
+                    </div>
+                  )}
+
+                  {friendsData
+                    .filter(f => f.squadId !== userData.squadId)
+                    .sort((a, b) => {
+                      const aInvited = outgoingSquadInvites.some(inv => inv.to === a.uid);
+                      const bInvited = outgoingSquadInvites.some(inv => inv.to === b.uid);
+                      if (aInvited && !bInvited) return -1;
+                      if (!aInvited && bInvited) return 1;
+                      return 0;
+                    })
+                    .map(friend => {
+                      const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
+                      const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
+                      const limit = TIER_LIMITS[tier];
+                      const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
+                      const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
+                      const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
+                      const inviteObj = outgoingSquadInvites.find(inv => inv.to === friend.uid && inv.from === currentUser.uid);
+
                       return (
-                        <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginBottom: '16px', border: '1px solid #333' }}>
-                          <p style={{ fontSize: '1rem', margin: '0 0 12px 0', fontWeight: 'bold' }}>You have 0 spots left.</p>
-                          <button onClick={() => navigate('/upgrade')} className="btn btn-primary w-full" style={{ background: 'linear-gradient(45deg, var(--primary), var(--secondary))' }}>Upgrade Plan ⚡</button>
+                        <div key={friend.uid} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '12px',
+                          background: 'rgba(255,255,255,0.02)',
+                          borderRadius: '12px',
+                          border: '1px solid rgba(255,255,255,0.05)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <img src={getAvatarUrl(friend.photoURL, friend.displayName)} style={{ width: 36, height: 36, borderRadius: '50%', border: '1px solid #444' }} alt="Avatar" />
+                            <span style={{ fontWeight: '500' }}>{friend.displayName}</span>
+                          </div>
+                          {isInvited ? (
+                            <button
+                              onClick={() => inviteObj && handleWithdrawSquadInvite(inviteObj)}
+                              className="btn btn-danger"
+                              style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'transparent', border: '1px solid rgba(255, 71, 87, 0.3)', color: '#ff4757', borderRadius: '20px' }}
+                            >
+                              Withdraw
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleInviteToSquad(friend.uid)}
+                              className="btn btn-primary"
+                              disabled={spotsLeft <= 0}
+                              style={{
+                                padding: '6px 16px',
+                                fontSize: '0.75rem',
+                                background: spotsLeft <= 0 ? '#333' : 'var(--primary)',
+                                color: spotsLeft <= 0 ? '#666' : 'black',
+                                border: 'none',
+                                borderRadius: '20px',
+                                fontWeight: 'bold',
+                                cursor: spotsLeft <= 0 ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              Invite
+                            </button>
+                          )}
                         </div>
                       )
-                    } else {
-                      return (
-                        <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#ccc' }}>
-                          You have <strong>{spotsLeft}</strong> spots left.
-                          <br />
-                          <span style={{ fontSize: '0.8rem', color: '#888' }}>(Pending invites reserve a spot)</span>
-                        </p>
-                      )
-                    }
-                  })()}
-
-                  <h4>Invite from Friends List</h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '50vh', overflowY: 'auto' }}>
-                    {friendsData.filter((f: any) => f.squadId !== userData.squadId).length === 0 && <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No available friends to invite.</p>}
-
-                    {friendsData
-                      .filter(f => f.squadId !== userData.squadId) // Only show friends NOT in my squad
-                      .sort((a, b) => {
-                        const aInvited = outgoingSquadInvites.some(inv => inv.to === a.uid);
-                        const bInvited = outgoingSquadInvites.some(inv => inv.to === b.uid);
-                        if (aInvited && !bInvited) return -1;
-                        if (!aInvited && bInvited) return 1;
-                        return 0;
-                      })
-                      .map(friend => {
-                        const isInvited = outgoingSquadInvites.some(inv => inv.to === friend.uid);
-                        // Recalculate spots for disable logic
-                        const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
-                        const limit = TIER_LIMITS[tier];
-                        const currentCount = [userData, ...friendsData].filter((u: any) => u.squadId === userData?.squadId).length - 1;
-                        const pendingCount = outgoingSquadInvites.filter(inv => inv.from === currentUser.uid).length;
-                        const spotsLeft = Math.max(0, limit - (currentCount + pendingCount));
-
-                        // Find the invite object if isInvited
-                        const inviteObj = outgoingSquadInvites.find(inv => inv.to === friend.uid && inv.from === currentUser.uid);
-
-                        return (
-                          <div key={friend.uid} className="card" style={{ justifyContent: 'space-between', padding: '0.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <img src={friend.photoURL || "/default-avatar.png"} className="avatar" style={{ width: 30, height: 30 }} alt="Avatar" />
-                              <span>{friend.displayName}</span>
-                            </div>
-                            {isInvited ? (
-                              <button
-                                onClick={() => inviteObj && handleWithdrawSquadInvite(inviteObj)}
-                                className="btn btn-danger"
-                                style={{ padding: '4px 8px', fontSize: '0.8rem', background: 'transparent', border: '1px solid var(--error)' }}
-                              >
-                                Withdraw
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleInviteToSquad(friend.uid)}
-                                className="btn btn-primary"
-                                disabled={spotsLeft <= 0}
-                                style={{ padding: '4px 8px', fontSize: '0.8rem', opacity: spotsLeft <= 0 ? 0.5 : 1, cursor: spotsLeft <= 0 ? 'not-allowed' : 'pointer' }}
-                              >
-                                Invite
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })}
-                  </div>
+                    })}
                 </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              {friendsData.filter((f: any) => f.squadId !== userData?.squadId).length === 0 && (
+                <button
+                  onClick={() => setActiveModal('addFriend')}
+                  className="btn w-full"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    color: 'white',
+                    padding: '14px',
+                    borderRadius: '12px',
+                    border: '1px solid #333',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <FaUserPlus /> Invite a Friend +
+                </button>
               )}
-
-              <div className="modal-actions" style={{ marginTop: '1rem', justifyContent: 'space-between' }}>
-                {friendsData.filter((f: any) => f.squadId !== userData?.squadId).length === 0 ? (
-                  <button onClick={() => setActiveModal('addFriend')} className="btn btn-primary">Invite a Friend +</button>
-                ) : <div />}
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary">Close</button>
-              </div>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
-      {
-        activeModal === 'addFriend' && (
-          <div className="modal-overlay" onClick={() => setActiveModal(null)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3 className="modal-header">Add Friend</h3>
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+      {activeModal === 'addFriend' && (
+        <div className="modal-overlay" onClick={() => setActiveModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '2rem' }}>
+            <button
+              onClick={() => { setActiveModal(null); setFriendEmail(''); }}
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '1.2rem' }}
+            >
+              <FaTimes />
+            </button>
+
+            <h3 className="modal-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Add Friend</h3>
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ position: 'relative' }}>
                 <img src={addFriendImg} alt="Add Friend" style={{ width: '80px', height: 'auto' }} />
-              </div>
-              <div className="mt-4">
-                <input type="email" value={friendEmail} onChange={e => setFriendEmail(e.target.value)} className="input-field" placeholder="friend@example.com" />
-                <div style={{ display: 'flex', gap: '8px', marginTop: '1rem' }}>
-                  <button onClick={() => { setActiveModal(null); setFriendEmail(''); }} className="btn btn-secondary" style={{ flex: '0 0 auto' }}>Close</button>
-                  <button onClick={async () => {
-                    if (!friendEmail || !currentUser) return;
-                    try {
-                      if (friendEmail.toLowerCase() === currentUser.email?.toLowerCase()) return;
-                      const q = query(getPublicProfileCollection(), where("email", "==", friendEmail.toLowerCase()));
-                      const querySnapshot = await getDocs(q);
-                      if (querySnapshot.empty) { showAlert("User not found! Share your invite link to invite them.", true); return; }
-                      const friendUid = querySnapshot.docs[0].id;
-
-                      // Check if already friends
-                      const userFriends = userData?.friends || [];
-                      if (userFriends.includes(friendUid)) {
-                        showAlert("You are already friends with this user!");
-                        setFriendEmail('');
-                      } else {
-                        // Send Friend Request
-                        await handleSendFriendRequest(friendUid);
-                      }
-                    } catch (e) { console.error(e); }
-                  }} className="btn btn-primary" style={{ flex: 1 }}>Send Friend Request</button>
+                <div style={{ position: 'absolute', bottom: '-5px', right: '-5px', background: 'var(--primary)', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #1a1a1a' }}>
+                  <FaUserPlus style={{ color: 'black', fontSize: '0.7rem' }} />
                 </div>
               </div>
             </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid #333', overflow: 'hidden', marginBottom: '1rem' }}>
+              <input
+                type="email"
+                value={friendEmail}
+                onChange={e => setFriendEmail(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '50px',
+                  background: 'transparent',
+                  border: 'none',
+                  padding: '0 16px',
+                  color: 'white',
+                  outline: 'none',
+                  fontSize: '1rem'
+                }}
+                placeholder="friend@example.com"
+              />
+            </div>
+
+            <button
+              onClick={async () => {
+                if (!friendEmail || !currentUser) return;
+                const email = friendEmail.toLowerCase().trim();
+                try {
+                  if (email === currentUser.email?.toLowerCase()) {
+                    showAlert("You can't add yourself as a friend!");
+                    return;
+                  }
+
+                  const q = query(getPublicProfileCollection(), where("email", "==", email));
+                  const querySnapshot = await getDocs(q);
+
+                  if (querySnapshot.empty) {
+                    showAlert("Friend not found, has not yet signed up.", true);
+                    return;
+                  }
+
+                  const friendUid = querySnapshot.docs[0].id;
+                  const userFriends = userData?.friends || [];
+
+                  if (userFriends.includes(friendUid)) {
+                    showAlert("You are already friends with this user!");
+                    setFriendEmail('');
+                  } else {
+                    await handleSendFriendRequest(friendUid);
+
+                    setActiveModal(null);
+                    setFriendEmail('');
+                  }
+                } catch (e) {
+                  console.error(e);
+                  showAlert("Error sending friend request.");
+                }
+              }}
+              className="btn btn-primary w-full"
+              style={{ height: '50px', fontWeight: 'bold', fontSize: '1rem', marginBottom: '10px' }}
+            >
+              Send Friend Request
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveModal(null);
+                setActiveQRModal('friend');
+                setIsScannerOpen(true);
+              }}
+              className="btn w-full"
+              style={{
+                height: '50px',
+                background: '#03DAC6',
+                color: 'black',
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                border: 'none'
+              }}
+            >
+              <FaCamera /> Scan QR Code
+            </button>
           </div>
-        )
-      }
+        </div>
+      )}
 
 
       {
@@ -6088,8 +6580,8 @@ export default function App() {
             />
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={() => setActiveModal(null)} className="btn btn-secondary flex-1">Cancel</button>
-              <button 
-                onClick={() => saveFeedback(ratingValue, ratingNote)} 
+              <button
+                onClick={() => saveFeedback(ratingValue, ratingNote)}
                 className="btn btn-primary flex-1"
               >
                 Submit
@@ -6100,21 +6592,21 @@ export default function App() {
       )}
 
       {activeModal === 'confirm' && confirmAction && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <h3 className="modal-header">Confirm</h3>
-              <p className="text-center" style={{ marginBottom: '1.5rem', lineHeight: '1.5' }}>{confirmAction.message}</p>
-              <div className="modal-actions" style={{ gap: '12px' }}>
-                <button onClick={() => setActiveModal(null)} className="btn btn-secondary" style={{ flex: 1 }}>
-                  {confirmAction.cancelText || 'Cancel'}
-                </button>
-                <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); }} className="btn btn-danger" style={{ flex: 1 }}>
-                  {confirmAction.confirmText || 'Confirm'}
-                </button>
-              </div>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 className="modal-header">Confirm</h3>
+            <p className="text-center" style={{ marginBottom: '1.5rem', lineHeight: '1.5' }}>{confirmAction.message}</p>
+            <div className="modal-actions" style={{ gap: '12px' }}>
+              <button onClick={() => setActiveModal(null)} className="btn btn-secondary" style={{ flex: 1 }}>
+                {confirmAction.cancelText || 'Cancel'}
+              </button>
+              <button onClick={() => { confirmAction.onConfirm(); setActiveModal(null); }} className="btn btn-danger" style={{ flex: 1 }}>
+                {confirmAction.confirmText || 'Confirm'}
+              </button>
             </div>
           </div>
-        )
+        </div>
+      )
       }
 
       {/* Install Instructions Modal */}
@@ -6417,18 +6909,18 @@ export default function App() {
             <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '20px' }}>
               {isScannerOpen ? 'Point your camera at a QR code' : (activeQRModal === 'friend' ? 'Scan to instantly become friends!' : 'Scan to join this squad!')}
             </p>
-            
+
             {isScannerOpen ? (
               <div id="qr-reader" style={{ width: '100%', marginBottom: '20px' }}></div>
             ) : (
               <>
                 <div style={{ background: 'white', padding: '20px', borderRadius: '16px', display: 'inline-block' }}>
-                  <QRCode 
+                  <QRCode
                     value={
-                      activeQRModal === 'friend' 
+                      activeQRModal === 'friend'
                         ? `${window.location.origin}/?addFriend=${currentUser.uid}`
                         : `${window.location.origin}/?inviteSquad=${userData?.squadId}&inviter=${currentUser.uid}`
-                    } 
+                    }
                     size={220}
                     style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                     viewBox={`0 0 256 256`}
@@ -6438,17 +6930,17 @@ export default function App() {
                   <p style={{ fontSize: '0.8rem', color: '#666' }}>
                     Show this code to a friend, or scan theirs!
                   </p>
-                  <button 
-                    className="btn btn-primary w-full" 
+                  <button
+                    className="btn btn-primary w-full"
                     onClick={() => setIsScannerOpen(true)}
                     style={{ background: 'var(--secondary)', color: 'black' }}
                   >
-                    <FaCamera style={{ marginRight: '8px' }} /> Open Camera to Scan
+                    <FaCamera style={{ marginRight: '8px' }} /> Open Camera to Scan QR Code
                   </button>
                 </div>
               </>
             )}
-            
+
             <button className="btn w-full mt-4" onClick={() => { setActiveQRModal(null); setIsScannerOpen(false); }}>Close</button>
           </div>
         </div>

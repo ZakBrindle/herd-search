@@ -19,9 +19,10 @@ export interface UserSchedule {
 interface ScheduleModalProps {
     userData: UserData;
     viewingUser?: UserData | null; // If viewing someone else's schedule
-    onClose: () => void;
+    onClose?: () => void;
     showAlert: (message: string) => void;
     showConfirm: (message: string, onConfirm: () => void, confirmText?: string, cancelText?: string) => void;
+    inline?: boolean;
 }
 
 // List of stages (can be customized)
@@ -68,7 +69,7 @@ const generateTimeSlots = () => {
 const TIME_SLOTS = generateTimeSlots();
 const DAYS: Array<'Thursday' | 'Friday' | 'Saturday' | 'Sunday'> = ['Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export default function ScheduleModal({ userData, viewingUser, onClose, showAlert, showConfirm }: ScheduleModalProps) {
+export default function ScheduleModal({ userData, viewingUser, onClose, showAlert, showConfirm, inline }: ScheduleModalProps) {
     const isViewingOwnSchedule = !viewingUser || viewingUser.uid === userData.uid;
     const targetUser = viewingUser || userData;
 
@@ -138,7 +139,7 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
                 });
 
                 showAlert(`Copied ${item.performer} to your schedule!`);
-                onClose(); // Close the modal so they can see the next popup or return to map
+                if (onClose) onClose(); // Close the modal so they can see the next popup or return to map
             } catch (error) {
                 console.error("Error copying to schedule:", error);
                 showAlert("Failed to copy to your schedule");
@@ -146,7 +147,7 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
         };
 
         if (existingItem && !isViewingOwnSchedule) {
-            onClose(); // Close instantly so they see the confirm popup
+            if (onClose) onClose(); // Close instantly so they see the confirm popup
             showConfirm(
                 `You already have "${existingItem.performer}" scheduled for ${item.day} at ${item.time}. Which would you like to keep?`,
                 performCopy,
@@ -154,7 +155,7 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
                 `Keep ${existingItem.performer}`
             );
         } else {
-            onClose(); // Close instantly
+            if (onClose) onClose(); // Close instantly
             await performCopy();
         }
     };
@@ -183,6 +184,13 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
     };
 
     if (loading) {
+        if (inline) {
+            return (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#aaa' }}>
+                    Loading schedule...
+                </div>
+            );
+        }
         return (
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -192,10 +200,10 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
         );
     }
 
-    return (
-        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
-            <div className="modal-content card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1100px', width: '98%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
-                {/* Header */}
+    const content = (
+        <div className={inline ? "" : "modal-content card"} onClick={inline ? undefined : (e) => e.stopPropagation()} style={inline ? { flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '16px' } : { maxWidth: '1100px', width: '98%', maxHeight: '92vh', display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
+            {/* Header */}
+            {!inline && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '1rem' }}>
                     <div>
                         <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -206,31 +214,34 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
                             {isViewingOwnSchedule ? 'Plan your festival weekend' : 'View and copy to your schedule'}
                         </p>
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '1.5rem' }}>
-                        <FaTimes />
-                    </button>
-                </div>
-
-                {/* Day Tabs */}
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                    {DAYS.map(day => (
-                        <button
-                            key={day}
-                            onClick={() => setSelectedDay(day)}
-                            className="btn"
-                            style={{
-                                flex: 1,
-                                minWidth: '100px',
-                                background: selectedDay === day ? 'var(--primary)' : '#333',
-                                color: selectedDay === day ? 'black' : 'white',
-                                fontWeight: selectedDay === day ? 'bold' : 'normal',
-                                padding: '8px 12px'
-                            }}
-                        >
-                            {day}
+                    {onClose && (
+                        <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#aaa', cursor: 'pointer', fontSize: '1.5rem' }}>
+                            <FaTimes />
                         </button>
-                    ))}
+                    )}
                 </div>
+            )}
+
+            {/* Day Tabs */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '4px' }}>
+                {DAYS.map(day => (
+                    <button
+                        key={day}
+                        onClick={() => setSelectedDay(day)}
+                        className="btn"
+                        style={{
+                            flex: 1,
+                            minWidth: '80px',
+                            padding: '8px',
+                            background: selectedDay === day ? 'var(--primary)' : '#333',
+                            color: selectedDay === day ? 'black' : 'white',
+                            fontWeight: selectedDay === day ? 'bold' : 'normal'
+                        }}
+                    >
+                        {day.substring(0, 3)}
+                    </button>
+                ))}
+            </div>
 
                 {/* Schedule Grid */}
                 <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #333', borderRadius: '12px', background: '#1a1a1a' }}>
@@ -440,6 +451,15 @@ export default function ScheduleModal({ userData, viewingUser, onClose, showAler
                     })}
                 </div>
             </div>
+    );
+
+    if (inline) {
+        return content;
+    }
+
+    return (
+        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
+            {content}
         </div>
     );
 }

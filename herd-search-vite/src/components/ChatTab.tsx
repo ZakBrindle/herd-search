@@ -22,12 +22,25 @@ interface ChatMessage {
     type?: 'chat' | 'status_update' | 'vote_ended' | 'search_notification';
 }
 
+interface Vote {
+    id: string;
+    creatorId: string;
+    creatorName: string;
+    targetAreaId: string;
+    targetAreaName: string;
+    createdAt: number;
+    votes: { [uid: string]: 'yes' | 'no' };
+    completedAt?: number;
+}
+
 interface ChatTabProps {
     userData: UserData | null;
     squadId: string | null;
+    activeVote?: Vote | null;
+    onVote?: (voteVal: 'yes' | 'no') => Promise<void>;
 }
 
-export default function ChatTab({ userData, squadId }: ChatTabProps) {
+export default function ChatTab({ userData, squadId, activeVote, onVote }: ChatTabProps) {
     const [allMessages, setAllMessages] = useState<ChatMessage[]>([]);
     const [displayedMessages, setDisplayedMessages] = useState<ChatMessage[]>([]);
     const [messagesToShow, setMessagesToShow] = useState(20);
@@ -79,10 +92,10 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
 
     // Auto-scroll when new messages arrive (but not when loading more)
     useEffect(() => {
-        if (displayedMessages.length > 0 && messagesToShow === 20) {
+        if ((displayedMessages.length > 0 || activeVote) && messagesToShow === 20) {
             scrollToBottom();
         }
-    }, [displayedMessages.length]);
+    }, [displayedMessages.length, activeVote]);
 
 
     const scrollToBottom = () => {
@@ -379,6 +392,75 @@ export default function ChatTab({ userData, squadId }: ChatTabProps) {
                     );
                 })}
                 <div ref={messagesEndRef} />
+
+                {/* Active Vote Widget at the bottom of the chat */}
+                {activeVote && !activeVote.completedAt && (
+                    <div className="card" style={{
+                        margin: '16px 0',
+                        backgroundColor: '#1a1a1a',
+                        border: '1px solid var(--primary)',
+                        padding: '20px',
+                        borderRadius: '16px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '12px',
+                        animation: 'fadeIn 0.5s ease-out'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--primary)', fontWeight: 'bold', letterSpacing: '1px' }}>Active Squad Vote</span>
+                            <span>📋</span>
+                        </div>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', textAlign: 'center' }}>
+                            Go to <span style={{ color: 'var(--primary)' }}>{activeVote.targetAreaName}</span>?
+                        </h3>
+
+                        <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '8px' }}>
+                            {/* Yes Button */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <button
+                                    onClick={() => onVote?.('yes')}
+                                    className="btn"
+                                    style={{
+                                        width: '100%',
+                                        background: activeVote.votes[userData?.uid || ''] === 'yes' ? 'var(--primary)' : '#333',
+                                        color: activeVote.votes[userData?.uid || ''] === 'yes' ? 'black' : 'white',
+                                        padding: '12px',
+                                        fontWeight: 'bold',
+                                        border: 'none'
+                                    }}
+                                >
+                                    Lets Go
+                                </button>
+                                <div style={{ fontSize: '0.75rem', textAlign: 'center', opacity: 0.7 }}>
+                                    {Object.values(activeVote.votes).filter(v => v === 'yes').length} votes
+                                </div>
+                            </div>
+
+                            {/* No Button */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <button
+                                    onClick={() => onVote?.('no')}
+                                    className="btn"
+                                    style={{
+                                        width: '100%',
+                                        background: activeVote.votes[userData?.uid || ''] === 'no' ? 'var(--error)' : '#333',
+                                        color: activeVote.votes[userData?.uid || ''] === 'no' ? 'white' : 'white',
+                                        padding: '12px',
+                                        fontWeight: 'bold',
+                                        border: 'none'
+                                    }}
+                                >
+                                    F*** That
+                                </button>
+                                <div style={{ fontSize: '0.75rem', textAlign: 'center', opacity: 0.7 }}>
+                                    {Object.values(activeVote.votes).filter(v => v === 'no').length} votes
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Input Area */}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { UserData } from '../../contexts/AuthContext';
 import { FaMapMarkerAlt, FaUserFriends, FaTimes } from 'react-icons/fa';
+import { getAvatarUrl } from '../../utils/userUtils';
 
 interface DailyStats {
     date: string;
@@ -256,7 +257,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                                             margin: '0 auto 30px',
                                             width: '150px'
                                         }}>
-                                            <img src={topFriend.photoURL || "/default-avatar.png"} style={{ width: '150px', height: '150px', borderRadius: '50%', border: '4px solid #fdbb2d' }} />
+                                            <img src={getAvatarUrl(topFriend.photoURL, topFriend.displayName)} style={{ width: '150px', height: '150px', borderRadius: '50%', border: '4px solid #fdbb2d' }} />
                                             <div style={{ position: 'absolute', bottom: 0, right: 0, fontSize: '40px' }}>👯‍♀️</div>
                                         </div>
 
@@ -359,7 +360,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                                             margin: '0 auto 30px',
                                             width: '150px'
                                         }}>
-                                            <img src={topFriend.photoURL || "/default-avatar.png"} style={{ width: '150px', height: '150px', borderRadius: '50%', border: '4px solid #fdbb2d' }} />
+                                            <img src={getAvatarUrl(topFriend.photoURL, topFriend.displayName)} style={{ width: '150px', height: '150px', borderRadius: '50%', border: '4px solid #fdbb2d' }} />
                                             <div style={{ position: 'absolute', bottom: 0, right: 0, fontSize: '40px' }}>👯‍♀️</div>
                                         </div>
 
