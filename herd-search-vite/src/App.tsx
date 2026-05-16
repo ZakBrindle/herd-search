@@ -3353,7 +3353,7 @@ export default function App() {
                   const isMe = u.uid === userData?.uid;
                   return (
                     <div key={u.uid} 
-                      className={`user-marker ${u.avatarEffects?.includes('spin') ? 'spin-animate' : ''} ${u.avatarEffects?.includes('glow') ? 'glow-animate' : ''} ${u.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}`}
+                      className="user-marker"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (userData?.useGps === false && u.location) {
@@ -3369,11 +3369,6 @@ export default function App() {
                         top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
                         zIndex: isMe ? 20 : 10,
                         cursor: 'pointer',
-                        border: '2px solid',
-                        borderColor: u.avatarColor === 'rainbow' ? 'transparent' : (u.avatarColor || 'white'),
-                        borderRadius: '50%',
-                        padding: '2px',
-                        background: u.avatarColor === 'rainbow' ? 'transparent' : 'white',
                         // Highlight if they are searching for us OR if we are searching for them
                         filter: ((u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
                           ? 'drop-shadow(0 0 8px #FFD700) drop-shadow(0 0 12px #FFD700)'
@@ -3381,13 +3376,28 @@ export default function App() {
                         transform: ((u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
                           ? 'scale(1.2)'
                           : undefined,
-                        transition: 'all 0.3s ease',
-                        ...(u.avatarEffects?.includes('glow') ? { '--glow-color': u.avatarColor === 'rainbow' ? 'var(--primary)' : (u.avatarColor || 'var(--primary)') } : {})
+                        transition: 'all 0.3s ease'
                       } as any}>
-                      <img src={getAvatarUrl(u.photoURL, u.displayName)} className="marker-avatar" alt={u.displayName} style={{ border: 'none', margin: 0, borderColor: u.avatarColor || 'var(--secondary)' }} />
-                      {u.avatarEffects?.includes('crown') && (
-                        <span className="crown-icon-marker">👑</span>
-                      )}
+                      <div 
+                        className={`${u.avatarEffects?.includes('spin') ? 'spin-animate' : ''} ${u.avatarEffects?.includes('glow') ? 'glow-animate' : ''} ${u.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}`}
+                        style={{
+                          border: '2px solid',
+                          borderColor: u.avatarColor === 'rainbow' ? 'transparent' : (u.avatarColor || 'white'),
+                          borderRadius: '50%',
+                          padding: '2px',
+                          background: u.avatarColor === 'rainbow' ? 'transparent' : 'white',
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          ...(u.avatarEffects?.includes('glow') ? { '--glow-color': u.avatarColor === 'rainbow' ? 'var(--primary)' : (u.avatarColor || 'var(--primary)') } : {})
+                        } as any}
+                      >
+                        <img src={getAvatarUrl(u.photoURL, u.displayName)} className="marker-avatar" alt={u.displayName} style={{ border: 'none', margin: 0 }} />
+                        {u.avatarEffects?.includes('crown') && (
+                          <span className="crown-icon-marker">👑</span>
+                        )}
+                      </div>
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                         <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
                       )}
