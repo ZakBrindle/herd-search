@@ -1172,13 +1172,14 @@ export default function App() {
   };
 
   const handleSelectColor = async (color: string, isPremium: boolean) => {
-    if (!userData) return;
+    if (!userData || !currentUser) return;
     if (isPremium && !userData.unlockedPersonalisePackage) {
       setShowPersonaliseModal(true);
       return;
     }
     try {
       await updateDoc(getUserDocRef(userData.uid), { avatarColor: color });
+      await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), { avatarColor: color });
     } catch (err) {
       console.error("Error updating avatar color:", err);
     }
@@ -4420,44 +4421,92 @@ export default function App() {
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaGem color="var(--primary)" /> Customise Profile
                 </h3>
-                
-                <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>RING COLOUR</p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
-                  {BASIC_COLORS.map(c => (
-                    <div
-                      key={c.id}
-                      className={`color-circle ${userData?.avatarColor === c.value ? 'selected' : ''}`}
-                      style={{ backgroundColor: c.value }}
-                      onClick={() => handleSelectColor(c.value, false)}
-                    />
-                  ))}
-                  {PREMIUM_COLORS.map(c => (
-                    <div
-                      key={c.id}
-                      className={`color-circle ${userData?.avatarColor === c.value ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
-                      style={{ backgroundColor: c.value }}
-                      onClick={() => handleSelectColor(c.value, true)}
-                    />
-                  ))}
-                  <div
-                    className={`color-circle rainbow-circle ${userData?.avatarColor === 'rainbow' ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
-                    onClick={() => handleSelectColor('rainbow', true)}
-                  />
-                </div>
 
-                <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>EFFECTS</p>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  {AVATAR_EFFECTS.map(e => (
-                    <div
-                      key={e.id}
-                      className={`effect-box ${userData?.avatarEffects?.includes(e.id) ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
-                      onClick={() => handleToggleEffect(e.id)}
-                    >
-                      <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{e.name}</span>
-                      {!userData?.unlockedPersonalisePackage && <span style={{ fontSize: '0.6rem' }}>🔒</span>}
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '20px', 
+                  background: 'rgba(255,255,255,0.02)', 
+                  padding: '20px', 
+                  borderRadius: '16px', 
+                  border: '1px solid rgba(255,255,255,0.05)' 
+                }}>
+                  {/* Preview and Ring Colors Row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <div 
+                        className={`
+                          ${userData?.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
+                          ${userData?.avatarEffects?.includes('glow') ? 'glow-animate' : ''}
+                          ${userData?.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}
+                        `}
+                        style={{
+                          borderRadius: '50%',
+                          padding: '3px',
+                          border: '3px solid',
+                          borderColor: userData?.avatarColor === 'rainbow' ? 'transparent' : (userData?.avatarColor || 'var(--primary)'),
+                          position: 'relative',
+                          display: 'inline-block',
+                          background: 'transparent',
+                          ...(userData?.avatarEffects?.includes('glow') ? { '--glow-color': userData?.avatarColor === 'rainbow' ? 'var(--primary)' : (userData?.avatarColor || 'var(--primary)') } : {})
+                        } as any}
+                      >
+                        <img src={getAvatarUrl(userData?.photoURL, userData?.displayName)} className="avatar" alt="Avatar" style={{ margin: 0, border: 'none', width: '50px', height: '50px' }} />
+                        {userData?.avatarEffects?.includes('crown') && (
+                          <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>👑</span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '0.65rem', color: '#666', fontWeight: 'bold', textTransform: 'uppercase' }}>Preview</span>
                     </div>
-                  ))}
+
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: '0.75rem', color: '#888', marginBottom: '8px', fontWeight: 'bold' }}>RING COLOUR</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                        {BASIC_COLORS.map(c => (
+                          <div
+                            key={c.id}
+                            className={`color-circle ${userData?.avatarColor === c.value ? 'selected' : ''}`}
+                            style={{ backgroundColor: c.value, width: '28px', height: '28px' }}
+                            onClick={() => handleSelectColor(c.value, false)}
+                          />
+                        ))}
+                        {PREMIUM_COLORS.map(c => (
+                          <div
+                            key={c.id}
+                            className={`color-circle ${userData?.avatarColor === c.value ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
+                            style={{ backgroundColor: c.value, width: '28px', height: '28px' }}
+                            onClick={() => handleSelectColor(c.value, true)}
+                          />
+                        ))}
+                        <div
+                          className={`color-circle rainbow-circle ${userData?.avatarColor === 'rainbow' ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
+                          style={{ width: '28px', height: '28px' }}
+                          onClick={() => handleSelectColor('rainbow', true)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+
+                  {/* Effects Section */}
+                  <div>
+                    <p style={{ fontSize: '0.75rem', color: '#888', marginBottom: '10px', fontWeight: 'bold' }}>EFFECTS</p>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      {AVATAR_EFFECTS.map(e => (
+                        <div
+                          key={e.id}
+                          className={`effect-box ${userData?.avatarEffects?.includes(e.id) ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
+                          style={{ padding: '10px 5px', minWidth: '60px' }}
+                          onClick={() => handleToggleEffect(e.id)}
+                        >
+                          <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 'bold' }}>{e.name}</span>
+                          {!userData?.unlockedPersonalisePackage && <span style={{ fontSize: '0.55rem' }}>🔒</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
@@ -4720,85 +4769,6 @@ export default function App() {
               </div>
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
-              {/* Avatar Color Section */}
-              <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
-                <h3 style={{ fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FaCamera color="var(--primary)" /> Avatar Color
-                </h3>
-                <div style={{ display: 'flex', gap: '15px', alignItems: 'center', justifyContent: 'center', padding: '15px 25px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid #333' }}>
-                  {[
-                    { id: 'blue', color: '#03dac6', name: 'Blue' },
-                    { id: 'purple', color: '#bb86fc', name: 'Purple' }
-                  ].map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={async () => {
-                        if (currentUser) {
-                          try {
-                            await updateDoc(getUserDocRef(currentUser.uid), { avatarColor: c.color });
-                            await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), { avatarColor: c.color });
-                          } catch (err) { console.error(err); }
-                        }
-                      }}
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '50%',
-                        backgroundColor: c.color,
-                        border: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? '2px solid white' : 'none',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-                        transition: 'transform 0.2s',
-                        transform: (userData?.avatarColor === c.color || (!userData?.avatarColor && c.id === 'blue')) ? 'scale(1.2)' : 'scale(1)'
-                      }}
-                    />
-                  ))}
-
-                  {/* LIVE PREVIEW */}
-                  <img 
-                    src={getAvatarUrl(userData?.photoURL, userData?.displayName)} 
-                    alt="Preview"
-                    style={{
-                      width: '45px',
-                      height: '45px',
-                      borderRadius: '50%',
-                      border: `3px solid ${userData?.avatarColor || '#03dac6'}`,
-                      padding: '2px',
-                      margin: '0 5px'
-                    }}
-                  />
-
-                  {[
-                    { id: 'pink', color: '#f368e0', name: 'Pink' },
-                    { id: 'green', color: '#43e97b', name: 'Green' }
-                  ].map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={async () => {
-                        if (currentUser) {
-                          try {
-                            await updateDoc(getUserDocRef(currentUser.uid), { avatarColor: c.color });
-                            await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), { avatarColor: c.color });
-                          } catch (err) { console.error(err); }
-                        }
-                      }}
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '50%',
-                        backgroundColor: c.color,
-                        border: (userData?.avatarColor === c.color) ? '2px solid white' : 'none',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-                        transition: 'transform 0.2s',
-                        transform: (userData?.avatarColor === c.color) ? 'scale(1.2)' : 'scale(1)'
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
               {/* Stay Hydrated Section */}
               <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>

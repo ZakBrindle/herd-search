@@ -1,15 +1,15 @@
 export const BASIC_COLORS = [
-    { id: 'blue', value: '#2196F3' },
-    { id: 'green', value: '#4CAF50' },
-    { id: 'pink', value: '#E91E63' },
-    { id: 'orange', value: '#FF9800' }
+    { id: 'HS-blue', value: '#03dac6' },
+    { id: 'HS-purple', value: '#bb86fc' },
+    { id: 'HS-pink', value: '#f368e0' },
+    { id: 'HS-green', value: '#43e97b' }
 ];
 
 export const PREMIUM_COLORS = [
-    { id: 'purple', value: '#9C27B0' },
-    { id: 'black', value: '#000000' },
+    { id: 'gold', value: '#FFD700' },
     { id: 'cyan', value: '#00BCD4' },
-    { id: 'white', value: '#FFFFFF' }
+    { id: 'white', value: '#FFFFFF' },
+    { id: 'black', value: '#000000' }
 ];
 
 export const AVATAR_EFFECTS = [
