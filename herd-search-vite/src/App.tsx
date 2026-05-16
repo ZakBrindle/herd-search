@@ -4335,11 +4335,13 @@ export default function App() {
                   `}
                   style={{
                     borderRadius: '50%',
-                    padding: '4px',
+                    padding: '0',
                     border: '3px solid',
                     borderColor: userData.avatarColor === 'rainbow' ? 'transparent' : (userData.avatarColor || (tier !== 'free' ? 'transparent' : 'var(--primary)')),
                     position: 'relative',
-                    display: 'inline-block',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     background: (tier !== 'free' && (!userData.avatarColor || userData.avatarColor === 'transparent')) ? 'linear-gradient(45deg, var(--primary), var(--secondary))' : 'transparent',
                     ...(userData.avatarEffects?.includes('glow') ? { '--glow-color': userData.avatarColor === 'rainbow' ? 'var(--primary)' : (userData.avatarColor || 'var(--primary)') } : {})
                   } as any}
