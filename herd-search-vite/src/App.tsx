@@ -3385,8 +3385,8 @@ export default function App() {
                           border: '2px solid',
                           borderColor: u.avatarColor === 'rainbow' ? 'transparent' : (u.avatarColor || 'white'),
                           borderRadius: '50%',
-                          padding: '2px',
-                          background: u.avatarColor === 'rainbow' ? 'transparent' : 'white',
+                          padding: '0',
+                          background: 'transparent',
                           position: 'relative',
                           display: 'flex',
                           alignItems: 'center',
@@ -3741,11 +3741,13 @@ export default function App() {
                           `}
                           style={{
                             borderRadius: '50%',
-                            padding: '2px',
+                            padding: '0',
                             border: '2px solid',
                             borderColor: member.avatarColor === 'rainbow' ? 'transparent' : (member.avatarColor || 'var(--primary)'),
                             position: 'relative',
-                            display: 'inline-block',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             background: 'transparent',
                             ...(member.avatarEffects?.includes('glow') ? { '--glow-color': member.avatarColor === 'rainbow' ? 'var(--primary)' : (member.avatarColor || 'var(--primary)') } : {})
                           } as any}
@@ -4442,11 +4444,13 @@ export default function App() {
                         `}
                         style={{
                           borderRadius: '50%',
-                          padding: '3px',
+                          padding: '0',
                           border: '3px solid',
                           borderColor: userData?.avatarColor === 'rainbow' ? 'transparent' : (userData?.avatarColor || 'var(--primary)'),
                           position: 'relative',
-                          display: 'inline-block',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                           background: 'transparent',
                           ...(userData?.avatarEffects?.includes('glow') ? { '--glow-color': userData?.avatarColor === 'rainbow' ? 'var(--primary)' : (userData?.avatarColor || 'var(--primary)') } : {})
                         } as any}
