@@ -1284,6 +1284,13 @@ export default function App() {
       newEffects = newEffects.filter(e => e === effectId || !headwear.includes(e));
     }
 
+    // Mutual exclusion for animation effects (Glow, Spin)
+    if (effectId === 'glow' && newEffects.includes('glow')) {
+      newEffects = newEffects.filter(e => e !== 'spin');
+    } else if (effectId === 'spin' && newEffects.includes('spin')) {
+      newEffects = newEffects.filter(e => e !== 'glow');
+    }
+
     try {
       await updateDoc(getUserDocRef(userData.uid), { avatarEffects: newEffects });
     } catch (err) {
