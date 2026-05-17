@@ -4906,31 +4906,31 @@ export default function App() {
                             onTouchEnd={endHold}
                           >
                             {e.id === 'trafficcone' ? (
-                              <img 
+                              <img
                                 src={userData?.avatarEffects?.includes('trafficcone')
                                   ? getTrafficconeImg(userData?.avatarTrafficconeSkin)
                                   : ['/traffic-cone.png', '/traffic-cone-green.png', '/traffic-cone-purple.png', '/traffic-cone-rainbow.png'][trafficconeCycleIndex]
-                                } 
-                                style={{ width: '24px', height: '24px', objectFit: 'contain' }} 
-                                alt="Traffic Cone" 
+                                }
+                                style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+                                alt="Traffic Cone"
                               />
                             ) : e.id === 'partyhat' ? (
-                              <img 
+                              <img
                                 src={userData?.avatarEffects?.includes('partyhat')
                                   ? getPartyhatImg(userData?.avatarPartyhatSkin)
                                   : ['/party-hat.png', '/dino-hat.png', '/princess-hat.png', '/wizard-hat.png'][partyhatCycleIndex]
-                                } 
-                                style={{ width: '24px', height: '24px', objectFit: 'contain' }} 
-                                alt="Party Hat" 
+                                }
+                                style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+                                alt="Party Hat"
                               />
                             ) : e.id === 'halo' ? (
-                              <img 
+                              <img
                                 src={userData?.avatarEffects?.includes('halo')
                                   ? `/halo-${userData?.avatarHaloSkin || 'birthday'}.png`
                                   : ['/halo-birthday.png', '/halo-purple.png', '/halo-swiss.png', '/halo-lightning.png'][haloCycleIndex]
-                                } 
-                                style={{ width: '24px', height: '24px', objectFit: 'contain' }} 
-                                alt="Halo" 
+                                }
+                                style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+                                alt="Halo"
                               />
                             ) : (
                               <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
@@ -5229,10 +5229,10 @@ export default function App() {
                 >
                   <div style={{ flex: 1 }}>
                     <h4 style={{ margin: 0, color: userData?.useHighQualityImages ? '#03dac6' : 'white' }}>
-                      Use High Quality Images (Not Recommended)
+                      Uncompressed Map Images
                     </h4>
                     <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                      Use original uncompressed map images (uses more data)
+                      Use the original uncompressed map images (not recommended as this uses significantly more data, and well.. you're in a field).
                     </p>
                   </div>
                   <div style={{
@@ -7542,7 +7542,7 @@ export default function App() {
       {showHaloSkinModal && (
         <div className="modal-overlay" onClick={() => setShowHaloSkinModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '520px', padding: '30px', borderRadius: '24px', position: 'relative', textAlign: 'center', overflow: 'hidden' }}>
-            
+
             {/* Ambient Background Glow */}
             <div style={{
               position: 'absolute',
@@ -7703,7 +7703,7 @@ export default function App() {
       {showPartyhatSkinModal && (
         <div className="modal-overlay" onClick={() => setShowPartyhatSkinModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '520px', padding: '30px', borderRadius: '24px', position: 'relative', textAlign: 'center', overflow: 'hidden' }}>
-            
+
             {/* Ambient Background Glow */}
             <div style={{
               position: 'absolute',
@@ -7864,7 +7864,7 @@ export default function App() {
       {showTrafficconeSkinModal && (
         <div className="modal-overlay" onClick={() => setShowTrafficconeSkinModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '520px', padding: '30px', borderRadius: '24px', position: 'relative', textAlign: 'center', overflow: 'hidden' }}>
-            
+
             {/* Ambient Background Glow */}
             <div style={{
               position: 'absolute',
