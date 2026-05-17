@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem, FaUserPlus
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem, FaUserPlus, FaFirstAid
 } from 'react-icons/fa';
 import { getAvatarUrl } from './utils/userUtils';
 import {
@@ -257,6 +257,7 @@ export default function App() {
   }, [selectedAreaForVote, selectedAreaForCheckIn]);
 
   const [waterMapExpiry, setWaterMapExpiry] = useState<number | null>(null);
+  const [medTentMapExpiry, setMedTentMapExpiry] = useState<number | null>(null);
 
   // Water Map Expiry Effect
   useEffect(() => {
@@ -267,6 +268,16 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [waterMapExpiry]);
+
+  // Med Tent Map Expiry Effect
+  useEffect(() => {
+    if (medTentMapExpiry && medTentMapExpiry > Date.now()) {
+      const timer = setTimeout(() => {
+        setMedTentMapExpiry(null);
+      }, medTentMapExpiry - Date.now());
+      return () => clearTimeout(timer);
+    }
+  }, [medTentMapExpiry]);
 
   // Wrapped Stats State
   const [showWrappedModal, setShowWrappedModal] = useState(false);
@@ -3344,9 +3355,6 @@ export default function App() {
             <img
               ref={mapImageRef}
               src={(() => {
-                if (waterMapExpiry && waterMapExpiry > Date.now()) {
-                  return "/BH water map.png";
-                }
                 const pref = userData?.mapPreference;
                 if (!pref || pref === 'dynamic' || pref === 'cartoon') {
                   const hour = new Date().getHours();
@@ -3360,6 +3368,38 @@ export default function App() {
               className="map-image"
               onLoad={resizeCanvas}
             />
+            {waterMapExpiry && waterMapExpiry > Date.now() && (
+              <img
+                src="/BH water map overlap.png"
+                alt="Water Taps Overlap"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 1,
+                  borderRadius: 'inherit'
+                }}
+              />
+            )}
+            {medTentMapExpiry && medTentMapExpiry > Date.now() && (
+              <img
+                src="/BH med tent map overlay.png"
+                alt="Med Tent Overlap"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  zIndex: 1,
+                  borderRadius: 'inherit'
+                }}
+              />
+            )}
             <canvas
               ref={canvasRef}
               className="map-canvas"
@@ -3368,7 +3408,7 @@ export default function App() {
               onPointerMove={handlePointerMove}
               onPointerLeave={handlePointerLeave}
               // onClick={handleCanvasClick} // Removed in favor of Pointer events
-              style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default') }}
+              style={{ cursor: isDevMode ? 'crosshair' : (userData?.useGps === false ? 'pointer' : 'default'), zIndex: 1 }}
             />
 
             {/* CLUSTERED MARKERS (Me + Friends) */}
@@ -4850,27 +4890,90 @@ export default function App() {
                   </p>
                   <button
                     onClick={() => {
-                      setWaterMapExpiry(Date.now() + 90000); // 90 seconds
-                      setActiveTab('map');
-                      
-                      const lastShown = localStorage.getItem('lastHydrationAlert');
-                      const now = Date.now();
-                      const SIX_HOURS = 6 * 60 * 60 * 1000;
-                      
-                      if (!lastShown || (now - parseInt(lastShown)) > SIX_HOURS) {
-                        showAlert("Water taps are now highlighted on the map for 90 seconds!");
-                        localStorage.setItem('lastHydrationAlert', now.toString());
+                      if (waterMapExpiry && waterMapExpiry > Date.now()) {
+                        setWaterMapExpiry(null);
+                      } else {
+                        setWaterMapExpiry(Date.now() + 90000); // 90 seconds
+                        setMedTentMapExpiry(null); // Hide med tent
+                        setActiveTab('map');
+                        
+                        const lastShown = localStorage.getItem('lastHydrationAlert');
+                        const now = Date.now();
+                        const SIX_HOURS = 6 * 60 * 60 * 1000;
+                        
+                        if (!lastShown || (now - parseInt(lastShown)) > SIX_HOURS) {
+                          showAlert("Water taps are now highlighted on the map for 90 seconds!");
+                          localStorage.setItem('lastHydrationAlert', now.toString());
+                        }
                       }
                     }}
                     className="btn btn-primary w-full"
                     style={{
-                      background: 'linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)',
+                      background: (waterMapExpiry && waterMapExpiry > Date.now()) 
+                        ? 'linear-gradient(45deg, #757f9a 0%, #d7dde8 100%)' 
+                        : 'linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)',
                       border: 'none',
                       color: 'white',
                       fontWeight: 'bold'
                     }}
                   >
-                    View Water Taps on Map
+                    {(waterMapExpiry && waterMapExpiry > Date.now()) ? 'Hide Taps' : 'View Water Taps on Map'}
+                  </button>
+                </div>
+              </div>
+              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
+
+              {/* Not Feeling Right Section */}
+              <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaFirstAid color="#ff4b4b" /> Not feeling right?
+                </h3>
+                <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '16px' }}>
+                  <img
+                    src="/med-tent-icon.png"
+                    alt="Medical Tent"
+                    style={{
+                      width: '120px',
+                      height: 'auto',
+                      borderRadius: '12px',
+                      marginBottom: '12px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      alignSelf: 'center'
+                    }}
+                  />
+                  <p style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#ccc', lineHeight: '1.4' }}>
+                    If you or a friend are feeling unwell, head straight to the Medical Tent. Press below to find it instantly.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (medTentMapExpiry && medTentMapExpiry > Date.now()) {
+                        setMedTentMapExpiry(null);
+                      } else {
+                        setMedTentMapExpiry(Date.now() + 90000); // 90 seconds
+                        setWaterMapExpiry(null); // Hide water taps
+                        setActiveTab('map');
+                        
+                        const lastShown = localStorage.getItem('lastMedicalAlert');
+                        const now = Date.now();
+                        const SIX_HOURS = 6 * 60 * 60 * 1000;
+                        
+                        if (!lastShown || (now - parseInt(lastShown)) > SIX_HOURS) {
+                          showAlert("Medical tents are now highlighted on the map for 90 seconds!");
+                          localStorage.setItem('lastMedicalAlert', now.toString());
+                        }
+                      }
+                    }}
+                    className="btn btn-primary w-full"
+                    style={{
+                      background: (medTentMapExpiry && medTentMapExpiry > Date.now()) 
+                        ? 'linear-gradient(45deg, #757f9a 0%, #d7dde8 100%)' 
+                        : 'linear-gradient(45deg, #ff416c 0%, #ff4b2b 100%)',
+                      border: 'none',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {(medTentMapExpiry && medTentMapExpiry > Date.now()) ? 'Hide Med Tent' : 'Click to view Med Tent on Map'}
                   </button>
                 </div>
               </div>
