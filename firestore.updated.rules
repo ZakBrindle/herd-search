@@ -175,6 +175,9 @@ service cloud.firestore {
           request.auth.uid == request.resource.data.senderId &&
           request.auth.uid in get(/databases/$(database)/documents/squads/$(squadId)).data.members
         );
+        allow update: if request.auth != null && (
+          request.auth.uid in get(/databases/$(database)/documents/squads/$(squadId)).data.members
+        );
       }
     }
     

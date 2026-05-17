@@ -6,7 +6,9 @@ import {
     onSnapshot,
     addDoc,
     where,
-    getDocs
+    getDocs,
+    doc,
+    updateDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { UserData } from '../contexts/AuthContext';
@@ -23,6 +25,12 @@ interface ChatMessage {
     replyToId?: string;
     replyToName?: string;
     replyToContent?: string;
+    reactions?: {
+        [uid: string]: {
+            emoji: string;
+            displayName: string;
+        }
+    };
 }
 
 interface Vote {
@@ -45,6 +53,37 @@ interface ChatTabProps {
 }
 
 export default function ChatTab({ userData, squadId, activeVote, onVote, onSelectMemberByUid }: ChatTabProps) {
+    const handleToggleReaction = async (msg: ChatMessage, emoji: string) => {
+        if (!userData || !squadId) return;
+        const msgRef = doc(db, 'squads', squadId, 'messages', msg.id);
+        
+        const currentReaction = msg.reactions?.[userData.uid];
+        let updatedReactions = { ...(msg.reactions || {}) };
+
+        if (currentReaction && currentReaction.emoji === emoji) {
+            delete updatedReactions[userData.uid];
+        } else {
+            updatedReactions[userData.uid] = {
+                emoji: emoji,
+                displayName: userData.displayName || 'Squad Member'
+            };
+        }
+
+        try {
+            await updateDoc(msgRef, {
+                reactions: updatedReactions
+            });
+            setActiveMessageForAction(prev => {
+                if (prev && prev.id === msg.id) {
+                    return { ...prev, reactions: updatedReactions };
+                }
+                return prev;
+            });
+        } catch (error) {
+            console.error("Error toggling reaction: ", error);
+        }
+    };
+
     const [allMessages, setAllMessages] = useState<ChatMessage[]>([]);
     const [displayedMessages, setDisplayedMessages] = useState<ChatMessage[]>([]);
     const [messagesToShow, setMessagesToShow] = useState(20);
@@ -459,6 +498,42 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                                             setActiveMessageForAction(msg);
                                         }
                                     }}
+                                    onTouchStart={(e) => {
+                                        const timer = setTimeout(() => {
+                                            if (msg.type !== 'status_update' && msg.type !== 'vote_ended' && msg.type !== 'search_notification') {
+                                                setActiveMessageForAction(msg);
+                                            }
+                                        }, 600);
+                                        (e.currentTarget as any)._holdTimer = timer;
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        if ((e.currentTarget as any)._holdTimer) {
+                                            clearTimeout((e.currentTarget as any)._holdTimer);
+                                            delete (e.currentTarget as any)._holdTimer;
+                                        }
+                                    }}
+                                    onMouseDown={(e) => {
+                                        const timer = setTimeout(() => {
+                                            if (msg.type !== 'status_update' && msg.type !== 'vote_ended' && msg.type !== 'search_notification') {
+                                                setActiveMessageForAction(msg);
+                                            }
+                                        }, 600);
+                                        (e.currentTarget as any)._holdTimer = timer;
+                                    }}
+                                    onMouseUp={(e) => {
+                                        if ((e.currentTarget as any)._holdTimer) {
+                                            clearTimeout((e.currentTarget as any)._holdTimer);
+                                            delete (e.currentTarget as any)._holdTimer;
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.filter = 'brightness(1)';
+                                        if ((e.currentTarget as any)._holdTimer) {
+                                            clearTimeout((e.currentTarget as any)._holdTimer);
+                                            delete (e.currentTarget as any)._holdTimer;
+                                        }
+                                    }}
                                     style={{
                                         maxWidth: '75%',
                                         padding: '8px 12px',
@@ -478,13 +553,64 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                                         e.currentTarget.style.transform = 'scale(1.02)';
                                         e.currentTarget.style.filter = 'brightness(1.1)';
                                     }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.filter = 'brightness(1)';
-                                    }}
                                 >
                                     {msg.content}
                                 </div>
+
+                                {/* Emoji Reaction Pill Counter */}
+                                {(() => {
+                                    const reactionsMap = msg.reactions || {};
+                                    const emojiCounts: { [emoji: string]: number } = {};
+                                    Object.values(reactionsMap).forEach(r => {
+                                        emojiCounts[r.emoji] = (emojiCounts[r.emoji] || 0) + 1;
+                                    });
+                                    if (Object.keys(emojiCounts).length === 0) return null;
+                                    return (
+                                        <div 
+                                            style={{ 
+                                                display: 'flex', 
+                                                gap: '6px', 
+                                                marginTop: '4px',
+                                                marginLeft: isMe ? 'auto' : '32px',
+                                                marginRight: isMe ? '32px' : 'auto',
+                                                flexWrap: 'wrap',
+                                                justifyContent: isMe ? 'flex-end' : 'flex-start',
+                                                userSelect: 'none'
+                                            }}
+                                        >
+                                            {Object.entries(emojiCounts).map(([emoji, count]) => (
+                                                <div 
+                                                    key={emoji}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (msg.type !== 'status_update' && msg.type !== 'vote_ended' && msg.type !== 'search_notification') {
+                                                            setActiveMessageForAction(msg);
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        background: 'rgba(255, 255, 255, 0.08)',
+                                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                                        borderRadius: '12px',
+                                                        padding: '2px 8px',
+                                                        fontSize: '0.75rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        color: '#fff',
+                                                        fontWeight: 'bold',
+                                                        cursor: 'pointer',
+                                                        transition: 'transform 0.1s ease'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+                                                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                                                >
+                                                    <span>{emoji}</span>
+                                                    <span style={{ fontSize: '0.7rem', color: 'var(--primary)' }}>{count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     );
@@ -669,15 +795,38 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                             background: '#1e1e1e',
                             border: '1px solid rgba(255, 255, 255, 0.1)',
                             borderRadius: '16px',
-                            padding: '24px',
+                            padding: '28px 24px 24px 24px',
                             maxWidth: '320px',
                             width: '90%',
                             textAlign: 'center',
                             boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                            animation: 'scaleUp 0.2s ease-out'
+                            animation: 'scaleUp 0.2s ease-out',
+                            position: 'relative'
                         }}
                     >
-                        <h4 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', color: '#fff', fontWeight: 'bold' }}>Message Options</h4>
+                        {/* Cancel Cross Button in Top Right */}
+                        <button
+                            onClick={() => setActiveMessageForAction(null)}
+                            style={{
+                                position: 'absolute',
+                                top: '12px',
+                                right: '12px',
+                                background: 'none',
+                                border: 'none',
+                                color: '#888',
+                                fontSize: '1.25rem',
+                                cursor: 'pointer',
+                                transition: 'color 0.2s',
+                                lineHeight: '1',
+                                padding: '4px'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+                            onMouseLeave={e => e.currentTarget.style.color = '#888'}
+                        >
+                            ✕
+                        </button>
+
+                        <h4 style={{ margin: '0 0 12px 0', fontSize: '1.2rem', color: '#fff', fontWeight: 'bold' }}>Message Options</h4>
                         <p style={{ 
                             fontSize: '0.85rem', 
                             color: '#aaa', 
@@ -692,6 +841,70 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                         }}>
                             "{activeMessageForAction.content}"
                         </p>
+
+                        {/* Who Reacted With What Emoji Detail List */}
+                        {activeMessageForAction.reactions && Object.keys(activeMessageForAction.reactions).length > 0 && (
+                            <div style={{
+                                textAlign: 'left',
+                                marginBottom: '20px',
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                borderRadius: '12px',
+                                padding: '12px',
+                                maxHeight: '120px',
+                                overflowY: 'auto'
+                            }}>
+                                <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>
+                                    Reactions
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {Object.entries(activeMessageForAction.reactions).map(([uid, r]) => {
+                                        return (
+                                            <div key={uid} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                                <span style={{ color: '#ccc', fontWeight: '500' }}>{r.displayName}</span>
+                                                <span style={{ fontSize: '1.1rem' }}>{r.emoji}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 6 Emoji Reaction Selector Bar */}
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            padding: '8px 10px',
+                            borderRadius: '24px',
+                            marginBottom: '16px',
+                            border: '1px solid rgba(255, 255, 255, 0.08)'
+                        }}>
+                            {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => {
+                                const hasReacted = activeMessageForAction.reactions?.[userData?.uid || '']?.emoji === emoji;
+                                return (
+                                    <button
+                                        key={emoji}
+                                        onClick={() => handleToggleReaction(activeMessageForAction, emoji)}
+                                        style={{
+                                            background: hasReacted ? 'rgba(255, 255, 255, 0.15)' : 'none',
+                                            border: 'none',
+                                            fontSize: '1.3rem',
+                                            cursor: 'pointer',
+                                            padding: '4px',
+                                            borderRadius: '8px',
+                                            transition: 'transform 0.15s ease, background 0.15s ease',
+                                            transform: hasReacted ? 'scale(1.2)' : 'scale(1)'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.3)'}
+                                        onMouseLeave={e => e.currentTarget.style.transform = hasReacted ? 'scale(1.2)' : 'scale(1)'}
+                                    >
+                                        {emoji}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <button
                                 onClick={() => {
@@ -715,22 +928,6 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                                 }}
                             >
                                 <FaReply /> Reply
-                            </button>
-                            <button
-                                onClick={() => setActiveMessageForAction(null)}
-                                className="btn"
-                                style={{
-                                    background: 'rgba(255, 255, 255, 0.05)',
-                                    color: 'white',
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #444',
-                                    cursor: 'pointer',
-                                    width: '100%',
-                                    fontWeight: '600'
-                                }}
-                            >
-                                Cancel
                             </button>
                         </div>
                     </div>
