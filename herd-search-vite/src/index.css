@@ -749,3 +749,26 @@ header {
   z-index: 5;
   filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
 }
+
+.trafficcone-icon {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  z-index: 10;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.trafficcone-icon-marker {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 18px;
+  z-index: 5;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+}

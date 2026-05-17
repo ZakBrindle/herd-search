@@ -202,6 +202,8 @@ export default function App() {
   const [alertMessage, setAlertMessage] = useState('');
   const [bannerMessage, setBannerMessage] = useState<string | null>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHoldTriggered = useRef(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [showZones, setShowZones] = useState(false);
   const [renamingArea, setRenamingArea] = useState<Area | null>(null);
@@ -1224,9 +1226,27 @@ export default function App() {
     }
   };
 
-  const handleSelectColor = async (color: string, isPremium: boolean) => {
+  const startHold = (action: () => void) => {
+    if (currentUser?.email?.toLowerCase() === 'z4kbrindle@gmail.com') {
+      isHoldTriggered.current = false;
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = setTimeout(() => {
+        action();
+        isHoldTriggered.current = true;
+      }, 700); // 700ms hold
+    }
+  };
+
+  const endHold = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+
+  const handleSelectColor = async (color: string, isPremium: boolean, bypassLock = false) => {
     if (!userData || !currentUser) return;
-    if (isPremium && !userData.unlockedPersonalisePackage) {
+    if (!bypassLock && isPremium && !userData.unlockedPersonalisePackage) {
       setShowPersonaliseModal(true);
       return;
     }
@@ -1238,16 +1258,16 @@ export default function App() {
     }
   };
 
-  const handleToggleEffect = async (effectId: string) => {
+  const handleToggleEffect = async (effectId: string, bypassLock = false) => {
     if (!userData) return;
 
     if (effectId === 'crown') {
-      if (!isEligibleForCrown(userData)) {
+      if (!bypassLock && !isEligibleForCrown(userData)) {
         showAlert("The Crown is a special benefit for Squad Leaders with an active paid plan!");
         return;
       }
     } else {
-      if (!userData.unlockedPersonalisePackage) {
+      if (!bypassLock && !userData.unlockedPersonalisePackage) {
         setShowPersonaliseModal(true);
         return;
       }
@@ -3503,6 +3523,9 @@ export default function App() {
                         {u.avatarEffects?.includes('partyhat') && (
                           <span className="partyhat-icon-marker">🥳</span>
                         )}
+                        {u.avatarEffects?.includes('trafficcone') && (
+                          <img src="/traffic-cone.png" className="trafficcone-icon-marker" alt="Traffic Cone" />
+                        )}
                       </div>
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                         <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
@@ -3867,6 +3890,9 @@ export default function App() {
                         )}
                         {member.avatarEffects?.includes('partyhat') && (
                           <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>🥳</span>
+                        )}
+                        {member.avatarEffects?.includes('trafficcone') && (
+                          <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Traffic Cone" />
                         )}
                       </div>
                       <div>
@@ -4443,6 +4469,9 @@ export default function App() {
                 {userData.avatarEffects?.includes('partyhat') && (
                   <span className="partyhat-icon">🥳</span>
                 )}
+                {userData.avatarEffects?.includes('trafficcone') && (
+                  <img src="/traffic-cone.png" className="trafficcone-icon" alt="Traffic Cone" />
+                )}
                 <div
                   className={`
                     ${userData.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
@@ -4584,6 +4613,9 @@ export default function App() {
                         {userData?.avatarEffects?.includes('partyhat') && (
                           <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>🥳</span>
                         )}
+                        {userData?.avatarEffects?.includes('trafficcone') && (
+                          <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-18px', left: '50%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Traffic Cone" />
+                        )}
                       </div>
                       <span style={{ fontSize: '0.65rem', color: '#666', fontWeight: 'bold', textTransform: 'uppercase' }}>Preview</span>
                     </div>
@@ -4604,13 +4636,35 @@ export default function App() {
                             key={c.id}
                             className={`color-circle ${userData?.avatarColor === c.value ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
                             style={{ backgroundColor: c.value, width: '28px', height: '28px' }}
-                            onClick={() => handleSelectColor(c.value, true)}
+                            onClick={() => {
+                              if (isHoldTriggered.current) {
+                                isHoldTriggered.current = false;
+                                return;
+                              }
+                              handleSelectColor(c.value, true);
+                            }}
+                            onMouseDown={() => startHold(() => handleSelectColor(c.value, true, true))}
+                            onMouseUp={endHold}
+                            onMouseLeave={endHold}
+                            onTouchStart={() => startHold(() => handleSelectColor(c.value, true, true))}
+                            onTouchEnd={endHold}
                           />
                         ))}
                         <div
                           className={`color-circle rainbow-circle ${userData?.avatarColor === 'rainbow' ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
                           style={{ width: '28px', height: '28px' }}
-                          onClick={() => handleSelectColor('rainbow', true)}
+                          onClick={() => {
+                            if (isHoldTriggered.current) {
+                              isHoldTriggered.current = false;
+                              return;
+                            }
+                            handleSelectColor('rainbow', true);
+                          }}
+                          onMouseDown={() => startHold(() => handleSelectColor('rainbow', true, true))}
+                          onMouseUp={endHold}
+                          onMouseLeave={endHold}
+                          onTouchStart={() => startHold(() => handleSelectColor('rainbow', true, true))}
+                          onTouchEnd={endHold}
                         />
                       </div>
                     </div>
@@ -4621,7 +4675,7 @@ export default function App() {
                   {/* Effects Section */}
                   <div>
                     <p style={{ fontSize: '0.75rem', color: '#888', marginBottom: '10px', fontWeight: 'bold' }}>EFFECTS</p>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                       {AVATAR_EFFECTS.map(e => {
                         const isLocked = e.id === 'crown'
                           ? !isEligibleForCrown(userData)
@@ -4630,10 +4684,25 @@ export default function App() {
                           <div
                             key={e.id}
                             className={`effect-box ${userData?.avatarEffects?.includes(e.id) ? 'selected' : ''} ${isLocked ? 'locked' : ''}`}
-                            style={{ padding: '10px 5px', minWidth: '60px' }}
-                            onClick={() => handleToggleEffect(e.id)}
+                            style={{ padding: '10px 5px', minWidth: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                            onClick={() => {
+                              if (isHoldTriggered.current) {
+                                isHoldTriggered.current = false;
+                                return;
+                              }
+                              handleToggleEffect(e.id);
+                            }}
+                            onMouseDown={() => startHold(() => handleToggleEffect(e.id, true))}
+                            onMouseUp={endHold}
+                            onMouseLeave={endHold}
+                            onTouchStart={() => startHold(() => handleToggleEffect(e.id, true))}
+                            onTouchEnd={endHold}
                           >
-                            <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
+                            {e.id === 'trafficcone' ? (
+                              <img src="/traffic-cone.png" style={{ width: '24px', height: '24px', objectFit: 'contain' }} alt="Traffic Cone" />
+                            ) : (
+                              <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
+                            )}
                             <span style={{ fontSize: '0.65rem', fontWeight: 'bold' }}>{e.name}</span>
                             {isLocked && <span style={{ fontSize: '0.55rem' }}>🔒</span>}
                           </div>
@@ -5687,6 +5756,9 @@ export default function App() {
                 )}
                 {selectedMember.avatarEffects?.includes('partyhat') && (
                   <span className="partyhat-icon">🥳</span>
+                )}
+                {selectedMember.avatarEffects?.includes('trafficcone') && (
+                  <img src="/traffic-cone.png" className="trafficcone-icon" alt="Traffic Cone" />
                 )}
                 <div
                   className={`
