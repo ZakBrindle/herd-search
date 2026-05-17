@@ -769,6 +769,7 @@ export default function App() {
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
   const [showPersonaliseModal, setShowPersonaliseModal] = useState(false);
+  const [showUncompressedMapImages, setShowUncompressedMapImages] = useState(false);
   const [showHaloSkinModal, setShowHaloSkinModal] = useState(false);
   const [showPartyhatSkinModal, setShowPartyhatSkinModal] = useState(false);
   const [showTrafficconeSkinModal, setShowTrafficconeSkinModal] = useState(false);
@@ -5204,44 +5205,77 @@ export default function App() {
                   }} />
                 </div>
 
-                {/* High Quality Map Images Toggle */}
+                {/* Subtle Show More arrow under Dynamic Map */}
                 <div
-                  className="card"
-                  onClick={() => {
-                    if (currentUser) {
-                      const currentVal = !!userData?.useHighQualityImages;
-                      updateDoc(getUserDocRef(currentUser.uid), { useHighQualityImages: !currentVal }).catch(console.error);
-                    }
-                  }}
+                  onClick={() => setShowUncompressedMapImages(!showUncompressedMapImages)}
                   style={{
-                    cursor: 'pointer',
-                    marginTop: '12px',
-                    backgroundColor: userData?.useHighQualityImages ? '#333' : '#1e1e1e',
-                    border: userData?.useHighQualityImages ? '2px solid #03dac6' : '1px solid #333',
-                    alignItems: 'center',
-                    padding: '12px 16px',
                     display: 'flex',
-                    flexDirection: 'row',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    transition: 'all 0.2s'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '8px 0',
+                    cursor: 'pointer',
+                    color: '#888',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    userSelect: 'none',
+                    transition: 'color 0.2s',
+                    marginTop: '8px',
+                    textAlign: 'center'
                   }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#03dac6'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; }}
                 >
-                  <div style={{ flex: 1 }}>
-                    <h4 style={{ margin: 0, color: userData?.useHighQualityImages ? '#03dac6' : 'white' }}>
-                      Uncompressed Map Images
-                    </h4>
-                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                      Use the original uncompressed map images (not recommended as this uses significantly more data, and well.. you're in a field).
-                    </p>
-                  </div>
-                  <div style={{
-                    width: '20px', height: '20px', borderRadius: '50%',
-                    backgroundColor: userData?.useHighQualityImages ? '#03dac6' : '#333',
-                    border: '1px solid #555',
-                    transition: 'background-color 0.2s'
-                  }} />
+                  <span>{showUncompressedMapImages ? 'Show Less' : 'Show More'}</span>
+                  <FaChevronDown
+                    style={{
+                      transform: showUncompressedMapImages ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.3s ease',
+                      fontSize: '0.75rem'
+                    }}
+                  />
                 </div>
+
+                {/* High Quality Map Images Toggle */}
+                {showUncompressedMapImages && (
+                  <div
+                    className="card"
+                    onClick={() => {
+                      if (currentUser) {
+                        const currentVal = !!userData?.useHighQualityImages;
+                        updateDoc(getUserDocRef(currentUser.uid), { useHighQualityImages: !currentVal }).catch(console.error);
+                      }
+                    }}
+                    style={{
+                      cursor: 'pointer',
+                      marginTop: '12px',
+                      backgroundColor: userData?.useHighQualityImages ? '#333' : '#1e1e1e',
+                      border: userData?.useHighQualityImages ? '2px solid #03dac6' : '1px solid #333',
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      flexDirection: 'row',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <h4 style={{ margin: 0, color: userData?.useHighQualityImages ? '#03dac6' : 'white' }}>
+                        Uncompressed Map Images
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                        Use the original uncompressed map images (not recommended as this uses significantly more data, and well.. you're in a field).
+                      </p>
+                    </div>
+                    <div style={{
+                      width: '20px', height: '20px', borderRadius: '50%',
+                      backgroundColor: userData?.useHighQualityImages ? '#03dac6' : '#333',
+                      border: '1px solid #555',
+                      transition: 'background-color 0.2s'
+                    }} />
+                  </div>
+                )}
 
               </div>
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />

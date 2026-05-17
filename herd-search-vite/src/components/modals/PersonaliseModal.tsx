@@ -290,7 +290,7 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                         marginBottom: '16px',
                         lineHeight: '1.4'
                     }}>
-                        By purchasing this package you agree to our{' '}
+                        By purchasing this package you agree<br />to our{' '}
                         <a 
                             href="/terms" 
                             style={{ 
