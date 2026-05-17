@@ -854,8 +854,8 @@ header {
 
 .partyhat-icon {
   position: absolute;
-  top: -24px;
-  left: 50%;
+  top: -16px;
+  left: 40%;
   transform: translateX(-50%);
   width: 32px;
   height: 32px;

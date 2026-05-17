@@ -3947,7 +3947,7 @@ export default function App() {
                           <img src={`/halo-${member.avatarHaloSkin || 'birthday'}.png`} style={{ position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Halo" />
                         )}
                         {member.avatarEffects?.includes('partyhat') && (
-                          <img src="/party-hat.png" style={{ position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Party Hat" />
+                          <img src="/party-hat.png" style={{ position: 'absolute', top: '-10px', left: '40%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Party Hat" />
                         )}
                         {member.avatarEffects?.includes('trafficcone') && (
                           <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-15px', left: '15%', width: '22px', height: '22px', zIndex: 5 }} alt="Traffic Cone" />
@@ -4669,7 +4669,7 @@ export default function App() {
                           <img src={`/halo-${userData.avatarHaloSkin || 'birthday'}.png`} style={{ position: 'absolute', top: '-18px', left: '50%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Halo" />
                         )}
                         {userData?.avatarEffects?.includes('partyhat') && (
-                          <img src="/party-hat.png" style={{ position: 'absolute', top: '-18px', left: '50%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Party Hat" />
+                          <img src="/party-hat.png" style={{ position: 'absolute', top: '-12px', left: '40%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Party Hat" />
                         )}
                         {userData?.avatarEffects?.includes('trafficcone') && (
                           <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-18px', left: '15%', width: '28px', height: '28px', zIndex: 5 }} alt="Traffic Cone" />
