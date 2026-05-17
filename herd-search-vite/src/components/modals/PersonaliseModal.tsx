@@ -40,7 +40,7 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                     }}>
                         <FaGem size={35} color="white" />
                     </div>
-                    <button 
+                    <button
                         onClick={onClose}
                         style={{
                             position: 'absolute',
@@ -58,9 +58,9 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                 </div>
 
                 <div style={{ padding: '24px', textAlign: 'center' }}>
-                    <h2 style={{ 
-                        fontSize: '1.5rem', 
-                        fontWeight: '800', 
+                    <h2 style={{
+                        fontSize: '1.5rem',
+                        fontWeight: '800',
                         marginBottom: '8px',
                         color: 'white'
                     }}>
@@ -107,8 +107,8 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                             }}>
                                 {/* Halo Preview */}
                                 <div style={{ position: 'relative', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <img 
-                                        src={haloSkins[cycleIndex % haloSkins.length]} 
+                                    <img
+                                        src={haloSkins[cycleIndex % haloSkins.length]}
                                         style={{
                                             position: 'absolute',
                                             top: '-10px',
@@ -139,8 +139,8 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
 
                                 {/* Party Hat Preview */}
                                 <div style={{ position: 'relative', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <img 
-                                        src={partyhatSkins[cycleIndex % partyhatSkins.length]} 
+                                    <img
+                                        src={partyhatSkins[cycleIndex % partyhatSkins.length]}
                                         style={{
                                             position: 'absolute',
                                             top: '-12px',
@@ -171,8 +171,8 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
 
                                 {/* Traffic Cone Preview */}
                                 <div style={{ position: 'relative', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <img 
-                                        src={coneSkins[cycleIndex % coneSkins.length]} 
+                                    <img
+                                        src={coneSkins[cycleIndex % coneSkins.length]}
                                         style={{
                                             position: 'absolute',
                                             top: '-12px',
@@ -203,7 +203,7 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
 
                                 {/* Color Ring Preview */}
                                 <div style={{ position: 'relative', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div 
+                                    <div
                                         className={cycleIndex % colors.length === colors.length - 1 ? 'rainbow-animate' : ''}
                                         style={{
                                             width: '36px',
@@ -239,7 +239,7 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                             <FaCheckCircle color="#03dac6" />
-                            <span style={{ fontSize: '0.9rem' }}>Special Effects: Glow, Spin, Halo, Party Hat & Traffic Cone</span>
+                            <span style={{ fontSize: '0.9rem' }}>Glow, Spin, Halo, Party Hat & Traffic Cone</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FaCheckCircle color="#03dac6" />
@@ -247,9 +247,9 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                         </div>
                     </div>
 
-                    <div style={{ 
-                        fontSize: '2rem', 
-                        fontWeight: 'bold', 
+                    <div style={{
+                        fontSize: '2rem',
+                        fontWeight: 'bold',
                         marginBottom: '24px',
                         color: 'var(--primary)'
                     }}>
@@ -282,6 +282,26 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                             </>
                         )}
                     </button>
+
+                    <div style={{
+                        fontSize: '0.75rem',
+                        color: '#666',
+                        marginTop: '8px',
+                        marginBottom: '16px',
+                        lineHeight: '1.4'
+                    }}>
+                        By purchasing this package you agree to our{' '}
+                        <a 
+                            href="/terms" 
+                            style={{ 
+                                color: 'var(--primary)', 
+                                textDecoration: 'underline',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Terms & Conditions
+                        </a>
+                    </div>
 
                     <button
                         onClick={onRestore}

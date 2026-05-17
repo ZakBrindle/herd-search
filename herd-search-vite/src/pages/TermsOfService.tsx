@@ -41,12 +41,17 @@ const TermsOfService = () => {
             </section>
 
             <section style={{ marginBottom: '2rem' }}>
-                <h2>6. Limitation of Liability</h2>
+                <h2>6. Personalisation Package (One-Time Purchase)</h2>
+                <p>We offer a one-time, permanent purchase to unlock additional premium avatar customisations (the "Personalise Package"). Unlike the time-limited Squad Packs, the Personalise Package is a permanent purchase associated with your user account and does <strong>NOT</strong> expire. We grant a non-transferable, non-exclusive license to use these decorative enhancements solely within the Service. This purchase is final and non-refundable, except as required by applicable law.</p>
+            </section>
+
+            <section style={{ marginBottom: '2rem' }}>
+                <h2>7. Limitation of Liability</h2>
                 <p>In no event shall Herd Search, its directors, employees, or agents be liable for any direct, indirect, incidental, special, or consequential damages arising from your use of the service.</p>
             </section>
 
             <section style={{ marginBottom: '2rem' }}>
-                <h2>7. Contact Information</h2>
+                <h2>8. Contact Information</h2>
                 <p>Questions about the Terms of Service should be sent to us at z4kbrindle@gmail.com.</p>
             </section>
 
