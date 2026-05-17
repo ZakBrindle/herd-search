@@ -885,6 +885,30 @@ export default function App() {
     if (!currentUser || !userData || (Date.now() - lastSubVerify < 300000)) return; // Only verify once every 5 mins
 
     const verifySubscription = async () => {
+      const handleAutoDisbandSquad = async () => {
+        if (userData.squadId && userData.squadOwnerId === userData.uid) {
+          console.log("Subscription Guard: User is squad leader. Disbanding squad due to subscription expiry...");
+          try {
+            const squadRef = doc(db, "squads", userData.squadId);
+            const snap = await getDoc(squadRef);
+            if (snap.exists()) {
+              const members = snap.data().members || [];
+              for (const memberUid of members) {
+                await updateDoc(getUserDocRef(memberUid), { squadId: null, squadOwnerId: null });
+              }
+              await deleteDoc(squadRef);
+            }
+            const invitesQ = query(collection(db, "squadInvites"), where("from", "==", currentUser.uid));
+            const invSnap = await getDocs(invitesQ);
+            for (const d of invSnap.docs) {
+              await deleteDoc(d.ref);
+            }
+          } catch (squadErr) {
+            console.error("Subscription Guard: Error disbanding squad on expiry:", squadErr);
+          }
+        }
+      };
+
       try {
         console.log("Subscription Guard: Verifying subscription status...");
         setLastSubVerify(Date.now());
@@ -934,18 +958,24 @@ export default function App() {
             // Latest purchase is older than 30 days
             if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev) {
               console.log("Subscription Guard: Subscription expired. Resetting to free.");
+              await handleAutoDisbandSquad();
               await updateDoc(getUserDocRef(currentUser.uid), {
                 tier: 'free',
-                subscriptionExpiry: null
+                subscriptionExpiry: null,
+                squadId: (userData.squadId && userData.squadOwnerId === userData.uid) ? null : userData.squadId,
+                squadOwnerId: (userData.squadId && userData.squadOwnerId === userData.uid) ? null : userData.squadOwnerId
               });
             }
           }
         } else if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev) {
           // No purchases found at all, and they are not free/dev
           console.log("Subscription Guard: No purchases found and not Dev. Resetting to free.");
+          await handleAutoDisbandSquad();
           await updateDoc(getUserDocRef(currentUser.uid), {
             tier: 'free',
-            subscriptionExpiry: null
+            subscriptionExpiry: null,
+            squadId: (userData.squadId && userData.squadOwnerId === userData.uid) ? null : userData.squadId,
+            squadOwnerId: (userData.squadId && userData.squadOwnerId === userData.uid) ? null : userData.squadOwnerId
           });
         }
       } catch (e) {
@@ -1187,10 +1217,19 @@ export default function App() {
 
   const handleToggleEffect = async (effectId: string) => {
     if (!userData) return;
-    if (!userData.unlockedPersonalisePackage) {
-      setShowPersonaliseModal(true);
-      return;
+
+    if (effectId === 'crown') {
+      if (!isEligibleForCrown(userData)) {
+        showAlert("The Crown is a special benefit for Squad Leaders with an active paid plan!");
+        return;
+      }
+    } else {
+      if (!userData.unlockedPersonalisePackage) {
+        setShowPersonaliseModal(true);
+        return;
+      }
     }
+
     const currentEffects = userData.avatarEffects || [];
     const newEffects = currentEffects.includes(effectId)
       ? currentEffects.filter(e => e !== effectId)
@@ -2265,6 +2304,13 @@ export default function App() {
   const hasActiveSubscription = (user: UserData | null): boolean => {
     if (!user || !user.subscriptionExpiry) return false;
     return user.subscriptionExpiry > Date.now();
+  };
+
+  const isEligibleForCrown = (user: any): boolean => {
+    if (!user) return false;
+    const hasSub = (user.subscriptionExpiry && user.subscriptionExpiry > Date.now()) || user.isDev;
+    const isLeader = user.squadId && user.squadOwnerId === user.uid;
+    return !!(hasSub && isLeader);
   };
 
   // Track previous invites count to notify on new ones
@@ -3395,7 +3441,7 @@ export default function App() {
                         } as any}
                       >
                         <img src={getAvatarUrl(u.photoURL, u.displayName)} className="marker-avatar" alt={u.displayName} style={{ border: 'none', margin: 0 }} />
-                        {u.avatarEffects?.includes('crown') && (
+                        {u.avatarEffects?.includes('crown') && isEligibleForCrown(u) && (
                           <span className="crown-icon-marker">👑</span>
                         )}
                       </div>
@@ -3754,7 +3800,7 @@ export default function App() {
                         >
                           <img src={getAvatarUrl(member.photoURL, member.displayName)} className="avatar" alt="Avatar" style={{ margin: 0, border: 'none' }} />
                         </div>
-                        {member.avatarEffects?.includes('crown') && (
+                        {member.avatarEffects?.includes('crown') && isEligibleForCrown(member) && (
                           <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>👑</span>
                         )}
                       </div>
@@ -4323,7 +4369,7 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
             {userData?.photoURL && (
               <div style={{ position: 'relative', marginBottom: '1rem' }}>
-                {userData.avatarEffects?.includes('crown') && (
+                {userData.avatarEffects?.includes('crown') && isEligibleForCrown(userData) && (
                   <span className="crown-icon">👑</span>
                 )}
                 <div 
@@ -4458,7 +4504,7 @@ export default function App() {
                         } as any}
                       >
                         <img src={getAvatarUrl(userData?.photoURL, userData?.displayName)} className="avatar" alt="Avatar" style={{ margin: 0, border: 'none', width: '50px', height: '50px' }} />
-                        {userData?.avatarEffects?.includes('crown') && (
+                        {userData?.avatarEffects?.includes('crown') && isEligibleForCrown(userData) && (
                           <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>👑</span>
                         )}
                       </div>
@@ -4499,18 +4545,23 @@ export default function App() {
                   <div>
                     <p style={{ fontSize: '0.75rem', color: '#888', marginBottom: '10px', fontWeight: 'bold' }}>EFFECTS</p>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      {AVATAR_EFFECTS.map(e => (
-                        <div
-                          key={e.id}
-                          className={`effect-box ${userData?.avatarEffects?.includes(e.id) ? 'selected' : ''} ${!userData?.unlockedPersonalisePackage ? 'locked' : ''}`}
-                          style={{ padding: '10px 5px', minWidth: '60px' }}
-                          onClick={() => handleToggleEffect(e.id)}
-                        >
-                          <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
-                          <span style={{ fontSize: '0.65rem', fontWeight: 'bold' }}>{e.name}</span>
-                          {!userData?.unlockedPersonalisePackage && <span style={{ fontSize: '0.55rem' }}>🔒</span>}
-                        </div>
-                      ))}
+                      {AVATAR_EFFECTS.map(e => {
+                        const isLocked = e.id === 'crown' 
+                          ? !isEligibleForCrown(userData) 
+                          : !userData?.unlockedPersonalisePackage;
+                        return (
+                          <div
+                            key={e.id}
+                            className={`effect-box ${userData?.avatarEffects?.includes(e.id) ? 'selected' : ''} ${isLocked ? 'locked' : ''}`}
+                            style={{ padding: '10px 5px', minWidth: '60px' }}
+                            onClick={() => handleToggleEffect(e.id)}
+                          >
+                            <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
+                            <span style={{ fontSize: '0.65rem', fontWeight: 'bold' }}>{e.name}</span>
+                            {isLocked && <span style={{ fontSize: '0.55rem' }}>🔒</span>}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

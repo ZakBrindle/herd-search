@@ -74,7 +74,7 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                     <div style={{ textAlign: 'left', marginBottom: '30px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                             <FaCheckCircle color="#03dac6" />
-                            <span style={{ fontSize: '0.9rem' }}>4 Exclusive Ring Colours</span>
+                            <span style={{ fontSize: '0.9rem' }}>8 Exclusive Ring Colours</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                             <FaCheckCircle color="#03dac6" />
@@ -82,7 +82,7 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                             <FaCheckCircle color="#03dac6" />
-                            <span style={{ fontSize: '0.9rem' }}>Special Effects: Glow, Spin & Crown</span>
+                            <span style={{ fontSize: '0.9rem' }}>Special Effects: Glow & Spin</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FaCheckCircle color="#03dac6" />

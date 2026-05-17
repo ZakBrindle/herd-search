@@ -9,7 +9,11 @@ export const PREMIUM_COLORS = [
     { id: 'gold', value: '#FFD700' },
     { id: 'cyan', value: '#00BCD4' },
     { id: 'white', value: '#FFFFFF' },
-    { id: 'black', value: '#000000' }
+    { id: 'black', value: '#000000' },
+    { id: 'orange', value: '#FF5722' },
+    { id: 'neongreen', value: '#00FF66' },
+    { id: 'hotpink', value: '#FF007F' },
+    { id: 'electricpurple', value: '#7F00FF' }
 ];
 
 export const AVATAR_EFFECTS = [

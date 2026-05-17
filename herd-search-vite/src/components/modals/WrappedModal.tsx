@@ -49,6 +49,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
     };
 
     const dayName = new Date(stats.date).toLocaleDateString(undefined, { weekday: 'long' });
+    const isToday = new Date(stats.date).toDateString() === new Date().toDateString();
 
     // Get friend details
     const topFriendId = stats.topFriends[0]?.uid;
@@ -370,7 +371,7 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                                 ) : (
                                     <>
                                         <FaUserFriends size={100} style={{ margin: '40px 0' }} />
-                                        <p>You were a lone wolf today!</p>
+                                        <p>{isToday ? "You were a lone wolf today!" : `You were a lone wolf on ${dayName}!`}</p>
                                     </>
                                 )}
                             </div>
@@ -396,7 +397,9 @@ export default function WrappedModal({ stats, friendsData, onClose, isFestival }
                                     <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{topFriendName}</div>
                                 </div>
 
-                                <p style={{ marginTop: '20px', fontSize: '0.9rem', fontStyle: 'italic' }}>See you tomorrow!</p>
+                                <p style={{ marginTop: '20px', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                                    {isToday ? "See you tomorrow!" : `Thanks for checking out ${dayName}!`}
+                                </p>
                             </div>
                         )}
                     </>
