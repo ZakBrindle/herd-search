@@ -755,6 +755,7 @@ export default function App() {
   const [tempDisableGhostBtn, setTempDisableGhostBtn] = useState(false);
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
   const [showPersonaliseModal, setShowPersonaliseModal] = useState(false);
+  const [showHaloSkinModal, setShowHaloSkinModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -1259,7 +1260,7 @@ export default function App() {
   };
 
   const handleToggleEffect = async (effectId: string, bypassLock = false) => {
-    if (!userData) return;
+    if (!userData || !currentUser) return;
 
     if (effectId === 'crown') {
       if (!bypassLock && !isEligibleForCrown(userData)) {
@@ -1271,6 +1272,11 @@ export default function App() {
         setShowPersonaliseModal(true);
         return;
       }
+    }
+
+    if (effectId === 'halo') {
+      setShowHaloSkinModal(true);
+      return;
     }
 
     const currentEffects = userData.avatarEffects || [];
@@ -1293,8 +1299,47 @@ export default function App() {
 
     try {
       await updateDoc(getUserDocRef(userData.uid), { avatarEffects: newEffects });
+      await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), { avatarEffects: newEffects });
     } catch (err) {
       console.error("Error updating avatar effects:", err);
+    }
+  };
+
+  const handleSelectHaloSkin = async (skin: string) => {
+    if (!userData || !currentUser) return;
+    const currentEffects = userData.avatarEffects || [];
+    const headwear = ['crown', 'trafficcone', 'halo', 'partyhat'];
+    // Add 'halo' and filter out other headwear
+    let newEffects = currentEffects.includes('halo') ? currentEffects : [...currentEffects, 'halo'];
+    newEffects = newEffects.filter(e => e === 'halo' || !headwear.includes(e));
+
+    try {
+      await updateDoc(getUserDocRef(userData.uid), {
+        avatarEffects: newEffects,
+        avatarHaloSkin: skin
+      });
+      await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), {
+        avatarEffects: newEffects,
+        avatarHaloSkin: skin
+      });
+      setShowHaloSkinModal(false);
+    } catch (err) {
+      console.error("Error setting halo skin:", err);
+    }
+  };
+
+  const handleRemoveHalo = async () => {
+    if (!userData || !currentUser) return;
+    const currentEffects = userData.avatarEffects || [];
+    const newEffects = currentEffects.filter(e => e !== 'halo');
+    try {
+      await updateDoc(getUserDocRef(userData.uid), { avatarEffects: newEffects });
+      await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), {
+        avatarEffects: newEffects
+      });
+      setShowHaloSkinModal(false);
+    } catch (err) {
+      console.error("Error removing halo:", err);
     }
   };
 
@@ -3531,10 +3576,10 @@ export default function App() {
                           <span className="crown-icon-marker">👑</span>
                         )}
                         {u.avatarEffects?.includes('halo') && (
-                          <span className="halo-icon-marker">😇</span>
+                          <img src={`/halo-${u.avatarHaloSkin || 'birthday'}.png`} className="halo-icon-marker" alt="Halo" />
                         )}
                         {u.avatarEffects?.includes('partyhat') && (
-                          <span className="partyhat-icon-marker">🥳</span>
+                          <img src="/party-hat.png" className="partyhat-icon-marker" alt="Party Hat" />
                         )}
                         {u.avatarEffects?.includes('trafficcone') && (
                           <img src="/traffic-cone.png" className="trafficcone-icon-marker" alt="Traffic Cone" />
@@ -3899,10 +3944,10 @@ export default function App() {
                           <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>👑</span>
                         )}
                         {member.avatarEffects?.includes('halo') && (
-                          <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>😇</span>
+                          <img src={`/halo-${member.avatarHaloSkin || 'birthday'}.png`} style={{ position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Halo" />
                         )}
                         {member.avatarEffects?.includes('partyhat') && (
-                          <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>🥳</span>
+                          <img src="/party-hat.png" style={{ position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Party Hat" />
                         )}
                         {member.avatarEffects?.includes('trafficcone') && (
                           <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-15px', left: '15%', width: '22px', height: '22px', zIndex: 5 }} alt="Traffic Cone" />
@@ -4477,10 +4522,10 @@ export default function App() {
                   <span className="crown-icon">👑</span>
                 )}
                 {userData.avatarEffects?.includes('halo') && (
-                  <span className="halo-icon">😇</span>
+                  <img src={`/halo-${userData.avatarHaloSkin || 'birthday'}.png`} className="halo-icon" alt="Halo" />
                 )}
                 {userData.avatarEffects?.includes('partyhat') && (
-                  <span className="partyhat-icon">🥳</span>
+                  <img src="/party-hat.png" className="partyhat-icon" alt="Party Hat" />
                 )}
                 {userData.avatarEffects?.includes('trafficcone') && (
                   <img src="/traffic-cone.png" className="trafficcone-icon" alt="Traffic Cone" />
@@ -4621,10 +4666,10 @@ export default function App() {
                           <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>👑</span>
                         )}
                         {userData?.avatarEffects?.includes('halo') && (
-                          <span style={{ position: 'absolute', top: '-14px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>😇</span>
+                          <img src={`/halo-${userData.avatarHaloSkin || 'birthday'}.png`} style={{ position: 'absolute', top: '-18px', left: '50%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Halo" />
                         )}
                         {userData?.avatarEffects?.includes('partyhat') && (
-                          <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>🥳</span>
+                          <img src="/party-hat.png" style={{ position: 'absolute', top: '-18px', left: '50%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Party Hat" />
                         )}
                         {userData?.avatarEffects?.includes('trafficcone') && (
                           <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-18px', left: '15%', width: '28px', height: '28px', zIndex: 5 }} alt="Traffic Cone" />
@@ -4713,6 +4758,10 @@ export default function App() {
                           >
                             {e.id === 'trafficcone' ? (
                               <img src="/traffic-cone.png" style={{ width: '24px', height: '24px', objectFit: 'contain' }} alt="Traffic Cone" />
+                            ) : e.id === 'partyhat' ? (
+                              <img src="/party-hat.png" style={{ width: '24px', height: '24px', objectFit: 'contain' }} alt="Party Hat" />
+                            ) : e.id === 'halo' ? (
+                              <img src={`/halo-${userData?.avatarHaloSkin || 'birthday'}.png`} style={{ width: '24px', height: '24px', objectFit: 'contain' }} alt="Halo" />
                             ) : (
                               <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
                             )}
@@ -5765,10 +5814,10 @@ export default function App() {
                   <span className="crown-icon">👑</span>
                 )}
                 {selectedMember.avatarEffects?.includes('halo') && (
-                  <span className="halo-icon">😇</span>
+                  <img src={`/halo-${selectedMember.avatarHaloSkin || 'birthday'}.png`} className="halo-icon" alt="Halo" />
                 )}
                 {selectedMember.avatarEffects?.includes('partyhat') && (
-                  <span className="partyhat-icon">🥳</span>
+                  <img src="/party-hat.png" className="partyhat-icon" alt="Party Hat" />
                 )}
                 {selectedMember.avatarEffects?.includes('trafficcone') && (
                   <img src="/traffic-cone.png" className="trafficcone-icon" alt="Traffic Cone" />
@@ -7315,6 +7364,167 @@ export default function App() {
           onRestore={handleRestorePersonalise}
           loading={loading}
         />
+      )}
+
+      {/* Halo Skin Selector Modal */}
+      {showHaloSkinModal && (
+        <div className="modal-overlay" onClick={() => setShowHaloSkinModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '520px', padding: '30px', borderRadius: '24px', position: 'relative', textAlign: 'center', overflow: 'hidden' }}>
+            
+            {/* Ambient Background Glow */}
+            <div style={{
+              position: 'absolute',
+              top: '-50px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '200px',
+              height: '200px',
+              background: 'radial-gradient(circle, rgba(187, 134, 252, 0.15) 0%, transparent 70%)',
+              zIndex: 0,
+              pointerEvents: 'none'
+            }} />
+
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '0.5px', marginBottom: '8px', zIndex: 1, position: 'relative' }}>
+              CHOOSE HALO SKIN
+            </h2>
+            <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '24px', fontWeight: 500, zIndex: 1, position: 'relative' }}>
+              Select a premium skin from the Personalisation Package
+            </p>
+
+            {/* Grid of Skins */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '16px',
+              marginBottom: '28px',
+              zIndex: 1,
+              position: 'relative'
+            }}>
+              {[
+                { id: 'birthday', name: 'Birthday', img: '/halo-birthday.png' },
+                { id: 'purple', name: 'Purple Glow', img: '/halo-purple.png' },
+                { id: 'swiss', name: 'Swiss', img: '/halo-swiss.png' },
+                { id: 'strawberry', name: 'Strawberry', img: '/halo-strawberry.png' }
+              ].map(skin => {
+                const isSelected = (userData?.avatarHaloSkin || 'birthday') === skin.id && userData?.avatarEffects?.includes('halo');
+                return (
+                  <div
+                    key={skin.id}
+                    onClick={() => handleSelectHaloSkin(skin.id)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: isSelected ? '2.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '18px',
+                      padding: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '12px',
+                      boxShadow: isSelected ? '0 8px 24px rgba(187, 134, 252, 0.15)' : 'none',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                      if (!isSelected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                      if (!isSelected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                    }}
+                  >
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      padding: '4px'
+                    }}>
+                      <img src={skin.img} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))' }} alt={skin.name} />
+                    </div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: isSelected ? 'var(--secondary)' : 'white' }}>
+                      {skin.name}
+                    </span>
+                    {isSelected && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        fontSize: '0.55rem',
+                        fontWeight: '800',
+                        textTransform: 'uppercase',
+                        background: 'var(--secondary)',
+                        color: 'black',
+                        padding: '2px 6px',
+                        borderRadius: '6px',
+                        letterSpacing: '0.5px'
+                      }}>
+                        Active
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bottom Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', zIndex: 1, position: 'relative' }}>
+              {userData?.avatarEffects?.includes('halo') && (
+                <button
+                  className="btn"
+                  onClick={handleRemoveHalo}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '14px',
+                    border: '1.5px dashed rgba(255, 75, 75, 0.4)',
+                    color: '#ff4b4b',
+                    background: 'rgba(255, 75, 75, 0.05)',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(255, 75, 75, 0.1)';
+                    e.currentTarget.style.borderColor = '#ff4b4b';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(255, 75, 75, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 75, 75, 0.4)';
+                  }}
+                >
+                  Remove Halo
+                </button>
+              )}
+              <button
+                className="btn w-full"
+                onClick={() => setShowHaloSkinModal(false)}
+                style={{
+                  padding: '12px',
+                  borderRadius: '14px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+              >
+                Cancel
+              </button>
+            </div>
+
+          </div>
+        </div>
       )}
 
       {/* Premium Banner Notification System */}

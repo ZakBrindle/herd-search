@@ -831,10 +831,11 @@ header {
 
 .halo-icon {
   position: absolute;
-  top: -18px;
+  top: -24px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 26px;
+  width: 36px;
+  height: 36px;
   z-index: 10;
   pointer-events: none;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
@@ -842,20 +843,22 @@ header {
 
 .halo-icon-marker {
   position: absolute;
-  top: -9px;
+  top: -11px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 15px;
+  width: 20px;
+  height: 20px;
   z-index: 5;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
 }
 
 .partyhat-icon {
   position: absolute;
-  top: -15px;
+  top: -24px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 24px;
+  width: 32px;
+  height: 32px;
   z-index: 10;
   pointer-events: none;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
@@ -863,10 +866,11 @@ header {
 
 .partyhat-icon-marker {
   position: absolute;
-  top: -7px;
+  top: -11px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 14px;
+  width: 18px;
+  height: 18px;
   z-index: 5;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
 }
