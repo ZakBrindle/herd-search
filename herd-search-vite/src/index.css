@@ -779,7 +779,7 @@ header {
 }
 
 .rainbow-animate {
-  animation: rainbow-border 5s linear infinite !important;
+  animation: rainbow-border 5s linear infinite;
 }
 
 @keyframes glow-pulse {
@@ -812,6 +812,23 @@ header {
 
 .spin-animate {
   animation: spin-slow-custom 8s linear infinite;
+}
+
+/* Composed Combinations for Simultaneous Animations */
+.spin-animate.glow-animate {
+  animation: spin-slow-custom 8s linear infinite, glow-pulse 2s ease-in-out infinite;
+}
+
+.spin-animate.rainbow-animate {
+  animation: spin-slow-custom 8s linear infinite, rainbow-border 5s linear infinite;
+}
+
+.glow-animate.rainbow-animate {
+  animation: glow-pulse 2s ease-in-out infinite, rainbow-border 5s linear infinite;
+}
+
+.spin-animate.glow-animate.rainbow-animate {
+  animation: spin-slow-custom 8s linear infinite, glow-pulse 2s ease-in-out infinite, rainbow-border 5s linear infinite;
 }
 
 .crown-icon {
