@@ -1274,9 +1274,15 @@ export default function App() {
     }
 
     const currentEffects = userData.avatarEffects || [];
-    const newEffects = currentEffects.includes(effectId)
+    let newEffects = currentEffects.includes(effectId)
       ? currentEffects.filter(e => e !== effectId)
       : [...currentEffects, effectId];
+
+    // Mutual exclusion for headwear items (Crown, Traffic Cone, Halo, Party Hat)
+    const headwear = ['crown', 'trafficcone', 'halo', 'partyhat'];
+    if (headwear.includes(effectId) && newEffects.includes(effectId)) {
+      newEffects = newEffects.filter(e => e === effectId || !headwear.includes(e));
+    }
 
     try {
       await updateDoc(getUserDocRef(userData.uid), { avatarEffects: newEffects });
@@ -3892,7 +3898,7 @@ export default function App() {
                           <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>🥳</span>
                         )}
                         {member.avatarEffects?.includes('trafficcone') && (
-                          <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Traffic Cone" />
+                          <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-15px', left: '15%', width: '22px', height: '22px', zIndex: 5 }} alt="Traffic Cone" />
                         )}
                       </div>
                       <div>
@@ -4614,7 +4620,7 @@ export default function App() {
                           <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>🥳</span>
                         )}
                         {userData?.avatarEffects?.includes('trafficcone') && (
-                          <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-18px', left: '50%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Traffic Cone" />
+                          <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-18px', left: '15%', width: '28px', height: '28px', zIndex: 5 }} alt="Traffic Cone" />
                         )}
                       </div>
                       <span style={{ fontSize: '0.65rem', color: '#666', fontWeight: 'bold', textTransform: 'uppercase' }}>Preview</span>

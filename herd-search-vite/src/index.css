@@ -251,7 +251,7 @@ header {
   padding: 1rem 0 calc(1rem + env(safe-area-inset-bottom, 20px));
   border-top: 1px solid var(--border);
   z-index: 100;
-  box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .nav-item {
@@ -334,7 +334,8 @@ header {
   border-radius: 8px;
   margin-bottom: 1rem;
   box-sizing: border-box;
-  font-size: 16px; /* Prevent iOS Zoom */
+  font-size: 16px;
+  /* Prevent iOS Zoom */
 }
 
 .input-field:focus {
@@ -456,9 +457,20 @@ header {
 
 /* GPS Pulsate Animation */
 @keyframes pulsate {
-  0% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(0.98); }
-  100% { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .pulsate {
@@ -469,14 +481,27 @@ header {
 }
 
 @keyframes pulse {
-  0% { transform: translateX(-50%) scale(1); }
-  50% { transform: translateX(-50%) scale(1.05); }
-  100% { transform: translateX(-50%) scale(1); }
+  0% {
+    transform: translateX(-50%) scale(1);
+  }
+
+  50% {
+    transform: translateX(-50%) scale(1.05);
+  }
+
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 @keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spin-slow {
@@ -521,18 +546,77 @@ header {
 }
 
 @keyframes floatUp {
-  0% { transform: translateY(0) scale(0); opacity: 0; }
-  20% { opacity: 0.8; transform: translateY(-10px) scale(1.2); box-shadow: 0 0 5px var(--primary); background: var(--secondary); }
-  80% { opacity: 0.5; transform: translateY(-30px) scale(0.8); background: var(--primary); }
-  100% { transform: translateY(-40px) scale(0); opacity: 0; }
+  0% {
+    transform: translateY(0) scale(0);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 0.8;
+    transform: translateY(-10px) scale(1.2);
+    box-shadow: 0 0 5px var(--primary);
+    background: var(--secondary);
+  }
+
+  80% {
+    opacity: 0.5;
+    transform: translateY(-30px) scale(0.8);
+    background: var(--primary);
+  }
+
+  100% {
+    transform: translateY(-40px) scale(0);
+    opacity: 0;
+  }
 }
 
-.sparkle:nth-child(1) { left: 10%; top: 50%; animation-delay: 0.1s; width: 4px; height: 4px; }
-.sparkle:nth-child(2) { right: 10%; top: 30%; animation-delay: 0.7s; width: 5px; height: 5px; }
-.sparkle:nth-child(3) { left: 30%; bottom: 10%; animation-delay: 1.2s; width: 3px; height: 3px; }
-.sparkle:nth-child(4) { right: 30%; bottom: 20%; animation-delay: 1.8s; width: 6px; height: 6px; }
-.sparkle:nth-child(5) { left: 50%; top: -5%; animation-delay: 0.4s; width: 4px; height: 4px; }
-.sparkle:nth-child(6) { right: 40%; top: 90%; animation-delay: 2.1s; width: 5px; height: 5px; }
+.sparkle:nth-child(1) {
+  left: 10%;
+  top: 50%;
+  animation-delay: 0.1s;
+  width: 4px;
+  height: 4px;
+}
+
+.sparkle:nth-child(2) {
+  right: 10%;
+  top: 30%;
+  animation-delay: 0.7s;
+  width: 5px;
+  height: 5px;
+}
+
+.sparkle:nth-child(3) {
+  left: 30%;
+  bottom: 10%;
+  animation-delay: 1.2s;
+  width: 3px;
+  height: 3px;
+}
+
+.sparkle:nth-child(4) {
+  right: 30%;
+  bottom: 20%;
+  animation-delay: 1.8s;
+  width: 6px;
+  height: 6px;
+}
+
+.sparkle:nth-child(5) {
+  left: 50%;
+  top: -5%;
+  animation-delay: 0.4s;
+  width: 4px;
+  height: 4px;
+}
+
+.sparkle:nth-child(6) {
+  right: 40%;
+  top: 90%;
+  animation-delay: 2.1s;
+  width: 5px;
+  height: 5px;
+}
 
 /* QR Scanner Styling */
 #qr-reader {
@@ -591,7 +675,7 @@ header {
   transform: translate(-50%, -50%);
   color: white;
   font-size: 14px;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .color-circle.locked::before {
@@ -634,14 +718,37 @@ header {
 
 /* Avatar Effects Animations */
 @keyframes rainbow-border {
-  0% { border-color: red; }
-  14% { border-color: orange; }
-  28% { border-color: yellow; }
-  42% { border-color: green; }
-  56% { border-color: blue; }
-  70% { border-color: indigo; }
-  84% { border-color: violet; }
-  100% { border-color: red; }
+  0% {
+    border-color: red;
+  }
+
+  14% {
+    border-color: orange;
+  }
+
+  28% {
+    border-color: yellow;
+  }
+
+  42% {
+    border-color: green;
+  }
+
+  56% {
+    border-color: blue;
+  }
+
+  70% {
+    border-color: indigo;
+  }
+
+  84% {
+    border-color: violet;
+  }
+
+  100% {
+    border-color: red;
+  }
 }
 
 .rainbow-animate {
@@ -649,9 +756,17 @@ header {
 }
 
 @keyframes glow-pulse {
-  0% { box-shadow: 0 0 5px var(--glow-color, var(--primary)); }
-  50% { box-shadow: 0 0 20px var(--glow-color, var(--primary)); }
-  100% { box-shadow: 0 0 5px var(--glow-color, var(--primary)); }
+  0% {
+    box-shadow: 0 0 5px var(--glow-color, var(--primary));
+  }
+
+  50% {
+    box-shadow: 0 0 20px var(--glow-color, var(--primary));
+  }
+
+  100% {
+    box-shadow: 0 0 5px var(--glow-color, var(--primary));
+  }
 }
 
 .glow-animate {
@@ -659,8 +774,13 @@ header {
 }
 
 @keyframes spin-slow-custom {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spin-animate {
@@ -675,7 +795,7 @@ header {
   font-size: 24px;
   z-index: 10;
   pointer-events: none;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 .crown-icon-marker {
@@ -685,7 +805,7 @@ header {
   transform: translateX(-50%);
   font-size: 14px;
   z-index: 5;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
 }
 
 @keyframes slide-down-banner {
@@ -693,6 +813,7 @@ header {
     transform: translate(-50%, -40px);
     opacity: 0;
   }
+
   100% {
     transform: translate(-50%, 0);
     opacity: 1;
@@ -716,7 +837,7 @@ header {
   font-size: 26px;
   z-index: 10;
   pointer-events: none;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 .halo-icon-marker {
@@ -726,7 +847,7 @@ header {
   transform: translateX(-50%);
   font-size: 15px;
   z-index: 5;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
 }
 
 .partyhat-icon {
@@ -737,7 +858,7 @@ header {
   font-size: 24px;
   z-index: 10;
   pointer-events: none;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 .partyhat-icon-marker {
@@ -747,28 +868,26 @@ header {
   transform: translateX(-50%);
   font-size: 14px;
   z-index: 5;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
 }
 
 .trafficcone-icon {
   position: absolute;
   top: -24px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 15%;
   width: 32px;
   height: 32px;
   z-index: 10;
   pointer-events: none;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 .trafficcone-icon-marker {
   position: absolute;
   top: -11px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 15%;
   width: 18px;
   height: 18px;
   z-index: 5;
-  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
 }
