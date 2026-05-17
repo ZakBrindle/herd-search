@@ -40,7 +40,9 @@ export default async (req, res) => {
                         currency: 'gbp',
                         product_data: {
                             name: priceInfo.name,
-                            description: '30-day access to higher squad limits',
+                            description: tierId === 'personalise_package' 
+                                ? 'Permanent access to premium avatar customization features' 
+                                : '30-day access to higher squad limits',
                         },
                         unit_amount: priceInfo.amount,
                     },

@@ -5,6 +5,7 @@ const PRICES = {
     'standard': { amount: 499, name: 'Squad of 4 (Tier 2)' },
     'premium': { amount: 999, name: 'Full Squad (Tier 3)' },
     'festival': { amount: 1599, name: 'Festival Group (Tier 4)' },
+    'personalise_package': { amount: 399, name: 'Personalise Package' },
     'dev_tier_test': { amount: 50, name: 'Dev Test Tier (50p)' }, // 50 pence
 };
 
@@ -40,7 +41,9 @@ export default async (req, res) => {
                         currency: 'gbp',
                         product_data: {
                             name: priceInfo.name,
-                            description: '30-day access to higher squad limits',
+                            description: tierId === 'personalise_package' 
+                                ? 'Permanent access to premium avatar customization features' 
+                                : '30-day access to higher squad limits',
                         },
                         unit_amount: priceInfo.amount,
                     },
