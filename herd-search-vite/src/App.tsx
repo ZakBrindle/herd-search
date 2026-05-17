@@ -88,6 +88,13 @@ const getPartyhatImg = (skin?: string): string => {
   return '/party-hat.png';
 };
 
+const getTrafficconeImg = (skin?: string): string => {
+  if (skin === 'green') return '/traffic-cone-green.png';
+  if (skin === 'purple') return '/traffic-cone-purple.png';
+  if (skin === 'rainbow') return '/traffic-cone-rainbow.png';
+  return '/traffic-cone.png';
+};
+
 import { PLANS, TIER_LIMITS } from './constants/plans';
 
 // --- Helper Components ---
@@ -764,6 +771,16 @@ export default function App() {
   const [showPersonaliseModal, setShowPersonaliseModal] = useState(false);
   const [showHaloSkinModal, setShowHaloSkinModal] = useState(false);
   const [showPartyhatSkinModal, setShowPartyhatSkinModal] = useState(false);
+  const [showTrafficconeSkinModal, setShowTrafficconeSkinModal] = useState(false);
+  const [personaliseCycleIndex, setPersonaliseCycleIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPersonaliseCycleIndex(prev => (prev + 1) % 4);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -1282,6 +1299,11 @@ export default function App() {
       }
     }
 
+    if (effectId === 'trafficcone') {
+      setShowTrafficconeSkinModal(true);
+      return;
+    }
+
     if (effectId === 'halo') {
       setShowHaloSkinModal(true);
       return;
@@ -1391,6 +1413,43 @@ export default function App() {
       setShowPartyhatSkinModal(false);
     } catch (err) {
       console.error("Error removing party hat:", err);
+    }
+  };
+
+  const handleSelectTrafficconeSkin = async (skin: string) => {
+    if (!userData || !currentUser) return;
+    const currentEffects = userData.avatarEffects || [];
+    const headwear = ['crown', 'trafficcone', 'halo', 'partyhat'];
+    let newEffects = currentEffects.includes('trafficcone') ? currentEffects : [...currentEffects, 'trafficcone'];
+    newEffects = newEffects.filter(e => e === 'trafficcone' || !headwear.includes(e));
+
+    try {
+      await updateDoc(getUserDocRef(userData.uid), {
+        avatarEffects: newEffects,
+        avatarTrafficconeSkin: skin
+      });
+      await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), {
+        avatarEffects: newEffects,
+        avatarTrafficconeSkin: skin
+      });
+      setShowTrafficconeSkinModal(false);
+    } catch (err) {
+      console.error("Error setting traffic cone skin:", err);
+    }
+  };
+
+  const handleRemoveTrafficcone = async () => {
+    if (!userData || !currentUser) return;
+    const currentEffects = userData.avatarEffects || [];
+    const newEffects = currentEffects.filter(e => e !== 'trafficcone');
+    try {
+      await updateDoc(getUserDocRef(userData.uid), { avatarEffects: newEffects });
+      await updateDoc(doc(db, 'public/user_profiles/users', currentUser.uid), {
+        avatarEffects: newEffects
+      });
+      setShowTrafficconeSkinModal(false);
+    } catch (err) {
+      console.error("Error removing traffic cone:", err);
     }
   };
 
@@ -2009,6 +2068,16 @@ export default function App() {
     } catch (err) {
       console.error(err);
       showAlert("Error starting search.");
+    }
+  };
+
+  const handleSelectMemberByUid = (uid: string) => {
+    const squadMembers = [userData, ...friendsData].filter((u: any) => !!u && u.squadId === userData?.squadId);
+    const found = squadMembers.find((m: any) => m && m.uid === uid);
+    if (found) {
+      setSelectedMember(found);
+      setSelectedMemberContext('squad');
+      setActiveModal('member');
     }
   };
 
@@ -3633,7 +3702,7 @@ export default function App() {
                           <img src={getPartyhatImg(u.avatarPartyhatSkin)} className="partyhat-icon-marker" alt="Party Hat" />
                         )}
                         {u.avatarEffects?.includes('trafficcone') && (
-                          <img src="/traffic-cone.png" className="trafficcone-icon-marker" alt="Traffic Cone" />
+                          <img src={getTrafficconeImg(u.avatarTrafficconeSkin)} className="trafficcone-icon-marker" alt="Traffic Cone" />
                         )}
                       </div>
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
@@ -4001,7 +4070,7 @@ export default function App() {
                           <img src={getPartyhatImg(member.avatarPartyhatSkin)} style={{ position: 'absolute', top: '-10px', left: '40%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Party Hat" />
                         )}
                         {member.avatarEffects?.includes('trafficcone') && (
-                          <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-15px', left: '15%', width: '22px', height: '22px', zIndex: 5 }} alt="Traffic Cone" />
+                          <img src={getTrafficconeImg(member.avatarTrafficconeSkin)} style={{ position: 'absolute', top: '-15px', left: '15%', width: '22px', height: '22px', zIndex: 5 }} alt="Traffic Cone" />
                         )}
                       </div>
                       <div>
@@ -4579,7 +4648,7 @@ export default function App() {
                   <img src={getPartyhatImg(userData.avatarPartyhatSkin)} className="partyhat-icon" alt="Party Hat" />
                 )}
                 {userData.avatarEffects?.includes('trafficcone') && (
-                  <img src="/traffic-cone.png" className="trafficcone-icon" alt="Traffic Cone" />
+                  <img src={getTrafficconeImg(userData.avatarTrafficconeSkin)} className="trafficcone-icon" alt="Traffic Cone" />
                 )}
                 <div
                   className={`
@@ -4723,7 +4792,7 @@ export default function App() {
                           <img src={getPartyhatImg(userData.avatarPartyhatSkin)} style={{ position: 'absolute', top: '-12px', left: '40%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Party Hat" />
                         )}
                         {userData?.avatarEffects?.includes('trafficcone') && (
-                          <img src="/traffic-cone.png" style={{ position: 'absolute', top: '-18px', left: '15%', width: '28px', height: '28px', zIndex: 5 }} alt="Traffic Cone" />
+                          <img src={getTrafficconeImg(userData.avatarTrafficconeSkin)} style={{ position: 'absolute', top: '-18px', left: '15%', width: '28px', height: '28px', zIndex: 5 }} alt="Traffic Cone" />
                         )}
                       </div>
                       <span style={{ fontSize: '0.65rem', color: '#666', fontWeight: 'bold', textTransform: 'uppercase' }}>Preview</span>
@@ -4808,11 +4877,32 @@ export default function App() {
                             onTouchEnd={endHold}
                           >
                             {e.id === 'trafficcone' ? (
-                              <img src="/traffic-cone.png" style={{ width: '24px', height: '24px', objectFit: 'contain' }} alt="Traffic Cone" />
+                              <img 
+                                src={userData?.avatarEffects?.includes('trafficcone')
+                                  ? getTrafficconeImg(userData?.avatarTrafficconeSkin)
+                                  : ['/traffic-cone.png', '/traffic-cone-green.png', '/traffic-cone-purple.png', '/traffic-cone-rainbow.png'][personaliseCycleIndex]
+                                } 
+                                style={{ width: '24px', height: '24px', objectFit: 'contain' }} 
+                                alt="Traffic Cone" 
+                              />
                             ) : e.id === 'partyhat' ? (
-                              <img src={getPartyhatImg(userData?.avatarPartyhatSkin)} style={{ width: '24px', height: '24px', objectFit: 'contain' }} alt="Party Hat" />
+                              <img 
+                                src={userData?.avatarEffects?.includes('partyhat')
+                                  ? getPartyhatImg(userData?.avatarPartyhatSkin)
+                                  : ['/party-hat.png', '/dino-hat.png', '/princess-hat.png', '/wizard-hat.png'][personaliseCycleIndex]
+                                } 
+                                style={{ width: '24px', height: '24px', objectFit: 'contain' }} 
+                                alt="Party Hat" 
+                              />
                             ) : e.id === 'halo' ? (
-                              <img src={`/halo-${userData?.avatarHaloSkin || 'birthday'}.png`} style={{ width: '24px', height: '24px', objectFit: 'contain' }} alt="Halo" />
+                              <img 
+                                src={userData?.avatarEffects?.includes('halo')
+                                  ? `/halo-${userData?.avatarHaloSkin || 'birthday'}.png`
+                                  : ['/halo-birthday.png', '/halo-purple.png', '/halo-swiss.png', '/halo-lightning.png'][personaliseCycleIndex]
+                                } 
+                                style={{ width: '24px', height: '24px', objectFit: 'contain' }} 
+                                alt="Halo" 
+                              />
                             ) : (
                               <span style={{ fontSize: '1.2rem' }}>{e.icon}</span>
                             )}
@@ -5563,6 +5653,7 @@ export default function App() {
           squadId={userData.squadId}
           activeVote={activeVote}
           onVote={castVote}
+          onSelectMemberByUid={handleSelectMemberByUid}
         />
       );
     }
@@ -5871,7 +5962,7 @@ export default function App() {
                   <img src={getPartyhatImg(selectedMember.avatarPartyhatSkin)} className="partyhat-icon" alt="Party Hat" />
                 )}
                 {selectedMember.avatarEffects?.includes('trafficcone') && (
-                  <img src="/traffic-cone.png" className="trafficcone-icon" alt="Traffic Cone" />
+                  <img src={getTrafficconeImg(selectedMember.avatarTrafficconeSkin)} className="trafficcone-icon" alt="Traffic Cone" />
                 )}
                 <div
                   className={`
@@ -7455,7 +7546,7 @@ export default function App() {
                 { id: 'birthday', name: 'Birthday', img: '/halo-birthday.png' },
                 { id: 'purple', name: 'Purple Glow', img: '/halo-purple.png' },
                 { id: 'swiss', name: 'Swiss', img: '/halo-swiss.png' },
-                { id: 'strawberry', name: 'Strawberry', img: '/halo-strawberry.png' }
+                { id: 'lightning', name: 'Lightning', img: '/halo-lightning.png' }
               ].map(skin => {
                 const isSelected = (userData?.avatarHaloSkin || 'birthday') === skin.id && userData?.avatarEffects?.includes('halo');
                 return (
@@ -7718,6 +7809,167 @@ export default function App() {
               <button
                 className="btn w-full"
                 onClick={() => setShowPartyhatSkinModal(false)}
+                style={{
+                  padding: '12px',
+                  borderRadius: '14px',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+              >
+                Cancel
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Traffic Cone Skin Selector Modal */}
+      {showTrafficconeSkinModal && (
+        <div className="modal-overlay" onClick={() => setShowTrafficconeSkinModal(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '520px', padding: '30px', borderRadius: '24px', position: 'relative', textAlign: 'center', overflow: 'hidden' }}>
+            
+            {/* Ambient Background Glow */}
+            <div style={{
+              position: 'absolute',
+              top: '-50px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '200px',
+              height: '200px',
+              background: 'radial-gradient(circle, rgba(187, 134, 252, 0.15) 0%, transparent 70%)',
+              zIndex: 0,
+              pointerEvents: 'none'
+            }} />
+
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '0.5px', marginBottom: '8px', zIndex: 1, position: 'relative' }}>
+              CHOOSE TRAFFIC CONE SKIN
+            </h2>
+            <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '24px', fontWeight: 500, zIndex: 1, position: 'relative' }}>
+              Select a premium skin from the Personalisation Package
+            </p>
+
+            {/* Grid of Skins */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '16px',
+              marginBottom: '28px',
+              zIndex: 1,
+              position: 'relative'
+            }}>
+              {[
+                { id: 'orange', name: 'Classic Orange', img: '/traffic-cone.png' },
+                { id: 'green', name: 'Lime Green', img: '/traffic-cone-green.png' },
+                { id: 'purple', name: 'Royal Purple', img: '/traffic-cone-purple.png' },
+                { id: 'rainbow', name: 'Neon Rainbow', img: '/traffic-cone-rainbow.png' }
+              ].map(skin => {
+                const isSelected = (userData?.avatarTrafficconeSkin || 'orange') === skin.id && userData?.avatarEffects?.includes('trafficcone');
+                return (
+                  <div
+                    key={skin.id}
+                    onClick={() => handleSelectTrafficconeSkin(skin.id)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: isSelected ? '2.5px solid var(--secondary)' : '1px solid rgba(255, 255, 255, 0.08)',
+                      borderRadius: '18px',
+                      padding: '16px',
+                      cursor: 'pointer',
+                      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '12px',
+                      boxShadow: isSelected ? '0 8px 24px rgba(187, 134, 252, 0.15)' : 'none',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                      if (!isSelected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                      if (!isSelected) e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                    }}
+                  >
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '12px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden',
+                      padding: '4px'
+                    }}>
+                      <img src={skin.img} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))' }} alt={skin.name} />
+                    </div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: isSelected ? 'var(--secondary)' : 'white' }}>
+                      {skin.name}
+                    </span>
+                    {isSelected && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        fontSize: '0.55rem',
+                        fontWeight: '800',
+                        textTransform: 'uppercase',
+                        background: 'var(--secondary)',
+                        color: 'black',
+                        padding: '2px 6px',
+                        borderRadius: '6px',
+                        letterSpacing: '0.5px'
+                      }}>
+                        Active
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bottom Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', zIndex: 1, position: 'relative' }}>
+              {userData?.avatarEffects?.includes('trafficcone') && (
+                <button
+                  className="btn"
+                  onClick={handleRemoveTrafficcone}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '14px',
+                    border: '1.5px dashed rgba(255, 75, 75, 0.4)',
+                    color: '#ff4b4b',
+                    background: 'rgba(255, 75, 75, 0.05)',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(255, 75, 75, 0.1)';
+                    e.currentTarget.style.borderColor = '#ff4b4b';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(255, 75, 75, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 75, 75, 0.4)';
+                  }}
+                >
+                  Remove Traffic Cone
+                </button>
+              )}
+              <button
+                className="btn w-full"
+                onClick={() => setShowTrafficconeSkinModal(false)}
                 style={{
                   padding: '12px',
                   borderRadius: '14px',

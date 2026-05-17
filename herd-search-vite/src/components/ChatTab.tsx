@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { UserData } from '../contexts/AuthContext';
-import { FaComments } from 'react-icons/fa';
+import { FaComments, FaReply } from 'react-icons/fa';
 
 interface ChatMessage {
     id: string;
@@ -20,6 +20,9 @@ interface ChatMessage {
     content: string;
     createdAt: number;
     type?: 'chat' | 'status_update' | 'vote_ended' | 'search_notification';
+    replyToId?: string;
+    replyToName?: string;
+    replyToContent?: string;
 }
 
 interface Vote {
@@ -38,16 +41,44 @@ interface ChatTabProps {
     squadId: string | null;
     activeVote?: Vote | null;
     onVote?: (voteVal: 'yes' | 'no') => Promise<void>;
+    onSelectMemberByUid?: (uid: string) => void;
 }
 
-export default function ChatTab({ userData, squadId, activeVote, onVote }: ChatTabProps) {
+export default function ChatTab({ userData, squadId, activeVote, onVote, onSelectMemberByUid }: ChatTabProps) {
     const [allMessages, setAllMessages] = useState<ChatMessage[]>([]);
     const [displayedMessages, setDisplayedMessages] = useState<ChatMessage[]>([]);
     const [messagesToShow, setMessagesToShow] = useState(20);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
+    const [activeMessageForAction, setActiveMessageForAction] = useState<ChatMessage | null>(null);
+    const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesListRef = useRef<HTMLDivElement>(null);
+
+    const scrollToMessage = (targetId: string) => {
+        const element = document.getElementById(`msg-${targetId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const bubble = element.querySelector('.chat-bubble-inner') as HTMLElement;
+            if (bubble) {
+                const originalBg = bubble.style.backgroundColor;
+                const originalTransition = bubble.style.transition;
+                
+                bubble.style.transition = 'background-color 0.3s ease';
+                bubble.style.backgroundColor = 'rgba(255, 215, 0, 0.4)'; // Golden highlight flash
+                
+                setTimeout(() => {
+                    bubble.style.transition = 'background-color 0.8s ease';
+                    bubble.style.backgroundColor = originalBg;
+                    setTimeout(() => {
+                        bubble.style.transition = originalTransition;
+                    }, 800);
+                }, 1200);
+            }
+        } else {
+            alert("Original message is further up. Scroll up and click 'Load more' to view older messages.");
+        }
+    };
     const DAY_IN_MS = 24 * 60 * 60 * 1000;
     const SEVEN_DAYS_MS = 7 * DAY_IN_MS;
 
@@ -122,14 +153,25 @@ export default function ChatTab({ userData, squadId, activeVote, onVote }: ChatT
         const msgContent = newMessage.trim();
         setNewMessage(''); // Optimistic clear
 
+        const currentReplyTo = replyToMessage;
+        setReplyToMessage(null);
+
         try {
-            await addDoc(collection(db, 'squads', squadId, 'messages'), {
+            const messageData: any = {
                 senderId: userData.uid,
                 senderName: userData.displayName || 'Unknown',
                 senderPhotoURL: userData.photoURL || '',
                 content: msgContent,
                 createdAt: Date.now()
-            });
+            };
+
+            if (currentReplyTo) {
+                messageData.replyToId = currentReplyTo.id;
+                messageData.replyToName = currentReplyTo.senderName;
+                messageData.replyToContent = currentReplyTo.content;
+            }
+
+            await addDoc(collection(db, 'squads', squadId, 'messages'), messageData);
 
             // --- Send Push Notifications ---
             try {
@@ -326,7 +368,7 @@ export default function ChatTab({ userData, squadId, activeVote, onVote }: ChatT
                     }
 
                     return (
-                        <div key={msg.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div key={msg.id} id={`msg-${msg.id}`} style={{ display: 'flex', flexDirection: 'column' }}>
                             {showDateHeader && (
                                 <div style={{ textAlign: 'center', margin: '12px 0', fontSize: '0.75rem', color: '#666' }}>
                                     <span style={{ background: '#222', padding: '4px 8px', borderRadius: '12px' }}>
@@ -352,39 +394,95 @@ export default function ChatTab({ userData, squadId, activeVote, onVote }: ChatT
                                         flexDirection: isMe ? 'row-reverse' : 'row'
                                     }}>
                                         {msg.senderPhotoURL ? (
-                                            <img src={msg.senderPhotoURL} style={{ width: '24px', height: '24px', borderRadius: '50%' }} alt="ava" />
+                                            <img
+                                                src={msg.senderPhotoURL}
+                                                onClick={() => onSelectMemberByUid?.(msg.senderId)}
+                                                style={{ width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer' }}
+                                                alt="ava"
+                                            />
                                         ) : (
-                                            <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#555' }} />
+                                            <div
+                                                onClick={() => onSelectMemberByUid?.(msg.senderId)}
+                                                style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#555', cursor: 'pointer' }}
+                                            />
                                         )}
-                                        <span style={{ fontSize: '0.75rem', color: '#aaa' }}>{msg.senderName}</span>
+                                        <span
+                                            onClick={() => onSelectMemberByUid?.(msg.senderId)}
+                                            style={{ fontSize: '0.75rem', color: '#aaa', cursor: 'pointer' }}
+                                            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.color = '#aaa'}
+                                        >
+                                            {msg.senderName}
+                                        </span>
                                         <span style={{ fontSize: '0.65rem', color: '#555' }}>{formatTime(msg.createdAt)}</span>
                                     </div>
                                 )}
 
+                                {/* Small yellow reply context text attached above bubble */}
+                                {msg.replyToId && (
+                                    <div
+                                        onClick={() => scrollToMessage(msg.replyToId!)}
+                                        style={{
+                                            fontSize: '0.75rem',
+                                            color: '#FFD700',
+                                            cursor: 'pointer',
+                                            marginBottom: '2px',
+                                            marginLeft: isMe ? '0' : '32px',
+                                            marginRight: isMe ? '32px' : '0',
+                                            alignSelf: isMe ? 'flex-end' : 'flex-start',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            background: 'rgba(255, 215, 0, 0.08)',
+                                            padding: '4px 8px',
+                                            borderRadius: '6px',
+                                            border: '1px solid rgba(255, 215, 0, 0.2)',
+                                            maxWidth: '75%',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            transition: 'background 0.2s ease',
+                                            userSelect: 'none'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 215, 0, 0.18)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 215, 0, 0.08)'}
+                                    >
+                                        <span>↩ Reply to {msg.replyToName?.split(' ')[0]}'s message: {msg.replyToContent?.substring(0, 20)}{msg.replyToContent && msg.replyToContent.length > 20 ? '...' : ''}</span>
+                                    </div>
+                                )}
+
                                 {/* Chat Bubble */}
-                                <div style={{
-                                    maxWidth: '75%',
-                                    padding: '8px 12px',
-                                    borderRadius: '12px',
-                                    borderTopRightRadius: isMe && !showHeader ? '4px' : '12px',
-                                    borderTopLeftRadius: !isMe && !showHeader ? '4px' : '12px',
-                                    backgroundColor: isMe ? 'var(--primary)' : '#333', // User primary color for me
-                                    color: isMe ? '#000' : '#fff',
-                                    position: 'relative',
-                                    wordWrap: 'break-word',
-                                    marginLeft: isMe ? '0' : (showHeader ? '32px' : '32px'), // Indent to align with text if no header?
-                                    marginRight: isMe ? (showHeader ? '32px' : '32px') : '0',  // Actually let's keep bubbles aligned
-                                }}>
-                                    {/*
-                     Design Tweaks:
-                     If showHeader is true aka "New Group", we have the avatar row.
-                     The bubble should be below it.
-                     But if we are continuing a group, we don't have avatar.
-                     The bubbles should align vertically.
-                     Since we put avatar in a separate flex row above, the bubbles are naturally below.
-                     However, for 'me' messages, we might want them right aligned.
-                     For 'other' messages, left aligned.
-                 */}
+                                <div
+                                    className="chat-bubble-inner"
+                                    onClick={() => {
+                                        if (msg.type !== 'status_update' && msg.type !== 'vote_ended' && msg.type !== 'search_notification') {
+                                            setActiveMessageForAction(msg);
+                                        }
+                                    }}
+                                    style={{
+                                        maxWidth: '75%',
+                                        padding: '8px 12px',
+                                        borderRadius: '12px',
+                                        borderTopRightRadius: isMe && !showHeader ? '4px' : '12px',
+                                        borderTopLeftRadius: !isMe && !showHeader ? '4px' : '12px',
+                                        backgroundColor: isMe ? 'var(--primary)' : '#333', // User primary color for me
+                                        color: isMe ? '#000' : '#fff',
+                                        position: 'relative',
+                                        wordWrap: 'break-word',
+                                        marginLeft: isMe ? '0' : '32px',
+                                        marginRight: isMe ? '32px' : '0',
+                                        cursor: 'pointer',
+                                        transition: 'transform 0.15s ease, filter 0.15s ease',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.02)';
+                                        e.currentTarget.style.filter = 'brightness(1.1)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.filter = 'brightness(1)';
+                                    }}
+                                >
                                     {msg.content}
                                 </div>
                             </div>
@@ -469,50 +567,175 @@ export default function ChatTab({ userData, squadId, activeVote, onVote }: ChatT
                 bottom: '74px', // Standard height of bottom nav
                 left: 0,
                 right: 0,
-                padding: '12px',
                 background: '#1e1e1e',
                 display: 'flex',
-                gap: '8px',
+                flexDirection: 'column',
                 borderTop: '1px solid #333',
                 zIndex: 100,
                 boxShadow: '0 -4px 10px rgba(0,0,0,0.5)'
             }}>
-                <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Message squad..."
-                    className="input-field"
-                    style={{
-                        flex: 1,
-                        borderRadius: '24px',
-                        padding: '10px 16px',
-                        border: 'none',
-                        background: '#333',
-                        color: 'white',
-                        marginBottom: 0, // Override input-field margin
-                        fontSize: '16px' // Prevent iOS Zoom
-                    }}
-                />
-                <button
-                    onClick={() => handleSendMessage()}
-                    className="btn"
-                    style={{
-                        borderRadius: '50%',
-                        width: '42px',
-                        height: '42px',
+                {replyToMessage && (
+                    <div style={{
+                        background: '#FFF9C4', // Pastel Yellow background
+                        padding: '8px 16px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'var(--primary)',
-                        border: 'none',
-                        color: 'black'
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        borderBottom: '1px solid #F0E68C',
+                    }}>
+                        <span style={{ fontSize: '0.8rem', color: '#444', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            Replying to {replyToMessage.senderName.split(' ')[0]}'s message: {replyToMessage.content.substring(0, 30)}{replyToMessage.content.length > 30 ? '...' : ''}
+                        </span>
+                        <button
+                            onClick={() => setReplyToMessage(null)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#e53935',
+                                cursor: 'pointer',
+                                fontSize: '1.1rem',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            ✖
+                        </button>
+                    </div>
+                )}
+                <div style={{ display: 'flex', gap: '8px', padding: '12px' }}>
+                    <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                        placeholder="Message squad..."
+                        className="input-field"
+                        style={{
+                            flex: 1,
+                            borderRadius: '24px',
+                            padding: '10px 16px',
+                            border: 'none',
+                            background: '#333',
+                            color: 'white',
+                            marginBottom: 0, // Override input-field margin
+                            fontSize: '16px' // Prevent iOS Zoom
+                        }}
+                    />
+                    <button
+                        onClick={() => handleSendMessage()}
+                        className="btn"
+                        style={{
+                            borderRadius: '50%',
+                            width: '42px',
+                            height: '42px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'var(--primary)',
+                            border: 'none',
+                            color: 'black'
+                        }}
+                    >
+                        <span style={{ fontSize: '1.2rem', marginTop: '-2px' }}>➤</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Custom Premium Message Options Popup */}
+            {activeMessageForAction && (
+                <div 
+                    className="modal-overlay" 
+                    onClick={() => setActiveMessageForAction(null)} 
+                    style={{ 
+                        position: 'fixed', 
+                        top: 0, 
+                        left: 0, 
+                        right: 0, 
+                        bottom: 0, 
+                        background: 'rgba(0,0,0,0.6)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        zIndex: 1100,
+                        backdropFilter: 'blur(4px)'
                     }}
                 >
-                    <span style={{ fontSize: '1.2rem', marginTop: '-2px' }}>➤</span>
-                </button>
-            </div>
+                    <div 
+                        onClick={e => e.stopPropagation()} 
+                        style={{
+                            background: '#1e1e1e',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '16px',
+                            padding: '24px',
+                            maxWidth: '320px',
+                            width: '90%',
+                            textAlign: 'center',
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                            animation: 'scaleUp 0.2s ease-out'
+                        }}
+                    >
+                        <h4 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', color: '#fff', fontWeight: 'bold' }}>Message Options</h4>
+                        <p style={{ 
+                            fontSize: '0.85rem', 
+                            color: '#aaa', 
+                            marginBottom: '20px',
+                            fontStyle: 'italic',
+                            wordBreak: 'break-word',
+                            maxHeight: '80px',
+                            overflowY: 'auto',
+                            background: 'rgba(255,255,255,0.03)',
+                            padding: '8px',
+                            borderRadius: '6px'
+                        }}>
+                            "{activeMessageForAction.content}"
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <button
+                                onClick={() => {
+                                    setReplyToMessage(activeMessageForAction);
+                                    setActiveMessageForAction(null);
+                                }}
+                                className="btn"
+                                style={{
+                                    background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                                    color: 'black',
+                                    padding: '12px',
+                                    fontWeight: 'bold',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    cursor: 'pointer',
+                                    width: '100%'
+                                }}
+                            >
+                                <FaReply /> Reply
+                            </button>
+                            <button
+                                onClick={() => setActiveMessageForAction(null)}
+                                className="btn"
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    color: 'white',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #444',
+                                    cursor: 'pointer',
+                                    width: '100%',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }
