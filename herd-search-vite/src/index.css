@@ -831,11 +831,11 @@ header {
 
 .halo-icon {
   position: absolute;
-  top: -24px;
-  left: 50%;
+  top: -14px;
+  left: 40%;
   transform: translateX(-50%);
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   z-index: 10;
   pointer-events: none;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
@@ -843,11 +843,11 @@ header {
 
 .halo-icon-marker {
   position: absolute;
-  top: -11px;
-  left: 50%;
+  top: -7px;
+  left: 40%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   z-index: 5;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
 }

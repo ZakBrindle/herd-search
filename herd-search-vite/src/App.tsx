@@ -3944,7 +3944,7 @@ export default function App() {
                           <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>👑</span>
                         )}
                         {member.avatarEffects?.includes('halo') && (
-                          <img src={`/halo-${member.avatarHaloSkin || 'birthday'}.png`} style={{ position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Halo" />
+                          <img src={`/halo-${member.avatarHaloSkin || 'birthday'}.png`} style={{ position: 'absolute', top: '-9px', left: '40%', transform: 'translateX(-50%)', width: '18px', height: '18px', zIndex: 5 }} alt="Halo" />
                         )}
                         {member.avatarEffects?.includes('partyhat') && (
                           <img src="/party-hat.png" style={{ position: 'absolute', top: '-10px', left: '40%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Party Hat" />
@@ -4666,7 +4666,7 @@ export default function App() {
                           <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>👑</span>
                         )}
                         {userData?.avatarEffects?.includes('halo') && (
-                          <img src={`/halo-${userData.avatarHaloSkin || 'birthday'}.png`} style={{ position: 'absolute', top: '-18px', left: '50%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Halo" />
+                          <img src={`/halo-${userData.avatarHaloSkin || 'birthday'}.png`} style={{ position: 'absolute', top: '-10px', left: '40%', transform: 'translateX(-50%)', width: '22px', height: '22px', zIndex: 5 }} alt="Halo" />
                         )}
                         {userData?.avatarEffects?.includes('partyhat') && (
                           <img src="/party-hat.png" style={{ position: 'absolute', top: '-12px', left: '40%', transform: 'translateX(-50%)', width: '28px', height: '28px', zIndex: 5 }} alt="Party Hat" />
