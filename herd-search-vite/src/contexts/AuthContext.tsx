@@ -37,6 +37,8 @@ export type UserData = DocumentData & {
     unlockedPersonalisePackage?: boolean;
     avatarColor?: string;
     avatarEffects?: string[];
+    avatarHaloSkin?: string;
+    avatarPartyhatSkin?: string;
     useHighQualityImages?: boolean;
 };
 
