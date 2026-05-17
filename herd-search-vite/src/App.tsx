@@ -772,13 +772,42 @@ export default function App() {
   const [showHaloSkinModal, setShowHaloSkinModal] = useState(false);
   const [showPartyhatSkinModal, setShowPartyhatSkinModal] = useState(false);
   const [showTrafficconeSkinModal, setShowTrafficconeSkinModal] = useState(false);
-  const [personaliseCycleIndex, setPersonaliseCycleIndex] = useState(0);
+  const [haloCycleIndex, setHaloCycleIndex] = useState(0);
+  const [partyhatCycleIndex, setPartyhatCycleIndex] = useState(0);
+  const [trafficconeCycleIndex, setTrafficconeCycleIndex] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setPersonaliseCycleIndex(prev => (prev + 1) % 4);
-    }, 4000);
-    return () => clearInterval(interval);
+    let haloTimeoutId: any;
+    let partyhatTimeoutId: any;
+    let trafficconeTimeoutId: any;
+
+    const runHaloCycle = () => {
+      setHaloCycleIndex(prev => (prev + 1) % 4);
+      const delay = Math.random() * 2000 + 1000;
+      haloTimeoutId = setTimeout(runHaloCycle, delay);
+    };
+
+    const runPartyhatCycle = () => {
+      setPartyhatCycleIndex(prev => (prev + 1) % 4);
+      const delay = Math.random() * 2000 + 1000;
+      partyhatTimeoutId = setTimeout(runPartyhatCycle, delay);
+    };
+
+    const runTrafficconeCycle = () => {
+      setTrafficconeCycleIndex(prev => (prev + 1) % 4);
+      const delay = Math.random() * 2000 + 1000;
+      trafficconeTimeoutId = setTimeout(runTrafficconeCycle, delay);
+    };
+
+    haloTimeoutId = setTimeout(runHaloCycle, Math.random() * 2000 + 1000);
+    partyhatTimeoutId = setTimeout(runPartyhatCycle, Math.random() * 2000 + 1000);
+    trafficconeTimeoutId = setTimeout(runTrafficconeCycle, Math.random() * 2000 + 1000);
+
+    return () => {
+      clearTimeout(haloTimeoutId);
+      clearTimeout(partyhatTimeoutId);
+      clearTimeout(trafficconeTimeoutId);
+    };
   }, []);
 
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed' | null>(null);
@@ -4880,7 +4909,7 @@ export default function App() {
                               <img 
                                 src={userData?.avatarEffects?.includes('trafficcone')
                                   ? getTrafficconeImg(userData?.avatarTrafficconeSkin)
-                                  : ['/traffic-cone.png', '/traffic-cone-green.png', '/traffic-cone-purple.png', '/traffic-cone-rainbow.png'][personaliseCycleIndex]
+                                  : ['/traffic-cone.png', '/traffic-cone-green.png', '/traffic-cone-purple.png', '/traffic-cone-rainbow.png'][trafficconeCycleIndex]
                                 } 
                                 style={{ width: '24px', height: '24px', objectFit: 'contain' }} 
                                 alt="Traffic Cone" 
@@ -4889,7 +4918,7 @@ export default function App() {
                               <img 
                                 src={userData?.avatarEffects?.includes('partyhat')
                                   ? getPartyhatImg(userData?.avatarPartyhatSkin)
-                                  : ['/party-hat.png', '/dino-hat.png', '/princess-hat.png', '/wizard-hat.png'][personaliseCycleIndex]
+                                  : ['/party-hat.png', '/dino-hat.png', '/princess-hat.png', '/wizard-hat.png'][partyhatCycleIndex]
                                 } 
                                 style={{ width: '24px', height: '24px', objectFit: 'contain' }} 
                                 alt="Party Hat" 
@@ -4898,7 +4927,7 @@ export default function App() {
                               <img 
                                 src={userData?.avatarEffects?.includes('halo')
                                   ? `/halo-${userData?.avatarHaloSkin || 'birthday'}.png`
-                                  : ['/halo-birthday.png', '/halo-purple.png', '/halo-swiss.png', '/halo-lightning.png'][personaliseCycleIndex]
+                                  : ['/halo-birthday.png', '/halo-purple.png', '/halo-swiss.png', '/halo-lightning.png'][haloCycleIndex]
                                 } 
                                 style={{ width: '24px', height: '24px', objectFit: 'contain' }} 
                                 alt="Halo" 
