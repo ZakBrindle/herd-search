@@ -82,7 +82,7 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                             <FaCheckCircle color="#03dac6" />
-                            <span style={{ fontSize: '0.9rem' }}>Special Effects: Glow & Spin</span>
+                            <span style={{ fontSize: '0.9rem' }}>Special Effects: Glow, Spin, Halo & Party Hat</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FaCheckCircle color="#03dac6" />

@@ -19,5 +19,7 @@ export const PREMIUM_COLORS = [
 export const AVATAR_EFFECTS = [
     { id: 'glow', name: 'Glow', icon: '✨' },
     { id: 'spin', name: 'Spin', icon: '🌀' },
-    { id: 'crown', name: 'Crown', icon: '👑' }
+    { id: 'crown', name: 'Crown', icon: '👑' },
+    { id: 'halo', name: 'Halo', icon: '😇' },
+    { id: 'partyhat', name: 'Party Hat', icon: '🥳' }
 ];

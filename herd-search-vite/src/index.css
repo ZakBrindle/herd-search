@@ -698,3 +698,54 @@ header {
     opacity: 1;
   }
 }
+
+.avatar-clickable-hover {
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.avatar-clickable-hover:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.halo-icon {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 26px;
+  z-index: 10;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.halo-icon-marker {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  z-index: 5;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+}
+
+.partyhat-icon {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 24px;
+  z-index: 10;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.partyhat-icon-marker {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 14px;
+  z-index: 5;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+}

@@ -3497,6 +3497,12 @@ export default function App() {
                         {u.avatarEffects?.includes('crown') && isEligibleForCrown(u) && (
                           <span className="crown-icon-marker">👑</span>
                         )}
+                        {u.avatarEffects?.includes('halo') && (
+                          <span className="halo-icon-marker">😇</span>
+                        )}
+                        {u.avatarEffects?.includes('partyhat') && (
+                          <span className="partyhat-icon-marker">🥳</span>
+                        )}
                       </div>
                       {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
                         <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
@@ -3855,6 +3861,12 @@ export default function App() {
                         </div>
                         {member.avatarEffects?.includes('crown') && isEligibleForCrown(member) && (
                           <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>👑</span>
+                        )}
+                        {member.avatarEffects?.includes('halo') && (
+                          <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>😇</span>
+                        )}
+                        {member.avatarEffects?.includes('partyhat') && (
+                          <span style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', fontSize: '14px', zIndex: 5 }}>🥳</span>
                         )}
                       </div>
                       <div>
@@ -4425,6 +4437,12 @@ export default function App() {
                 {userData.avatarEffects?.includes('crown') && isEligibleForCrown(userData) && (
                   <span className="crown-icon">👑</span>
                 )}
+                {userData.avatarEffects?.includes('halo') && (
+                  <span className="halo-icon">😇</span>
+                )}
+                {userData.avatarEffects?.includes('partyhat') && (
+                  <span className="partyhat-icon">🥳</span>
+                )}
                 <div
                   className={`
                     ${userData.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
@@ -4559,6 +4577,12 @@ export default function App() {
                         <img src={getAvatarUrl(userData?.photoURL, userData?.displayName)} className="avatar" alt="Avatar" style={{ margin: 0, border: 'none', width: '50px', height: '50px' }} />
                         {userData?.avatarEffects?.includes('crown') && isEligibleForCrown(userData) && (
                           <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>👑</span>
+                        )}
+                        {userData?.avatarEffects?.includes('halo') && (
+                          <span style={{ position: 'absolute', top: '-14px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>😇</span>
+                        )}
+                        {userData?.avatarEffects?.includes('partyhat') && (
+                          <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', fontSize: '16px', zIndex: 5 }}>🥳</span>
                         )}
                       </div>
                       <span style={{ fontSize: '0.65rem', color: '#666', fontWeight: 'bold', textTransform: 'uppercase' }}>Preview</span>
@@ -5640,13 +5664,70 @@ export default function App() {
               <FaTimes />
             </button>
 
-            <div style={{ textAlign: 'center' }}>
-              <img
-                src={getAvatarUrl(selectedMember.photoURL, selectedMember.displayName)}
-                alt="Avatar"
-                className="avatar"
-                style={{ width: 80, height: 80, marginBottom: '0.75rem', border: `3px solid ${selectedMember.avatarColor || 'var(--primary)'}`, padding: '2px' }}
-              />
+            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div
+                onClick={() => {
+                  if (selectedMember.uid === userData?.uid) {
+                    setActiveTab('profile');
+                    setSelectedMember(null);
+                  }
+                }}
+                style={{
+                  position: 'relative',
+                  marginBottom: '1rem',
+                  cursor: selectedMember.uid === userData?.uid ? 'pointer' : 'default',
+                }}
+                className={selectedMember.uid === userData?.uid ? 'avatar-clickable-hover' : ''}
+              >
+                {selectedMember.avatarEffects?.includes('crown') && isEligibleForCrown(selectedMember) && (
+                  <span className="crown-icon">👑</span>
+                )}
+                {selectedMember.avatarEffects?.includes('halo') && (
+                  <span className="halo-icon">😇</span>
+                )}
+                {selectedMember.avatarEffects?.includes('partyhat') && (
+                  <span className="partyhat-icon">🥳</span>
+                )}
+                <div
+                  className={`
+                    ${selectedMember.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
+                    ${selectedMember.avatarEffects?.includes('glow') ? 'glow-animate' : ''}
+                    ${selectedMember.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}
+                    ${selectedMember.tier !== 'free' && !selectedMember.avatarColor && !selectedMember.avatarEffects?.length ? 'premium-avatar-container' : ''}
+                  `}
+                  style={{
+                    borderRadius: '50%',
+                    padding: '0',
+                    border: '3px solid',
+                    borderColor: selectedMember.avatarColor === 'rainbow' ? 'transparent' : (selectedMember.avatarColor || (selectedMember.tier !== 'free' ? 'transparent' : 'var(--primary)')),
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 80,
+                    height: 80,
+                    background: (selectedMember.tier !== 'free' && (!selectedMember.avatarColor || selectedMember.avatarColor === 'transparent')) ? 'linear-gradient(45deg, var(--primary), var(--secondary))' : 'transparent',
+                    ...(selectedMember.avatarEffects?.includes('glow') ? { '--glow-color': selectedMember.avatarColor === 'rainbow' ? 'var(--primary)' : (selectedMember.avatarColor || 'var(--primary)') } : {})
+                  } as any}
+                >
+                  <img
+                    className="avatar-large"
+                    src={getAvatarUrl(selectedMember.photoURL, selectedMember.displayName)}
+                    alt="Avatar"
+                    style={{ margin: 0, border: 'none', width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  {selectedMember.tier !== 'free' && (
+                    <div className="sparkles-overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                      <div className="sparkle"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <h2 style={{ marginBottom: '0.25rem', fontSize: '1.4rem' }}>{selectedMember.displayName}</h2>
 
               <div
