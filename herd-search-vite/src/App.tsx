@@ -1257,7 +1257,7 @@ export default function App() {
     const newEffects = currentEffects.includes(effectId)
       ? currentEffects.filter(e => e !== effectId)
       : [...currentEffects, effectId];
-    
+
     try {
       await updateDoc(getUserDocRef(userData.uid), { avatarEffects: newEffects });
     } catch (err) {
@@ -3452,7 +3452,7 @@ export default function App() {
                   const u = cluster.users[0];
                   const isMe = u.uid === userData?.uid;
                   return (
-                    <div key={u.uid} 
+                    <div key={u.uid}
                       className="user-marker"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -3478,7 +3478,7 @@ export default function App() {
                           : undefined,
                         transition: 'all 0.3s ease'
                       } as any}>
-                      <div 
+                      <div
                         className={`${u.avatarEffects?.includes('spin') ? 'spin-animate' : ''} ${u.avatarEffects?.includes('glow') ? 'glow-animate' : ''} ${u.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}`}
                         style={{
                           border: '2px solid',
@@ -3832,7 +3832,7 @@ export default function App() {
                     })()}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <div style={{ position: 'relative' }}>
-                        <div 
+                        <div
                           className={`
                             ${member.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
                             ${member.avatarEffects?.includes('glow') ? 'glow-animate' : ''}
@@ -4425,7 +4425,7 @@ export default function App() {
                 {userData.avatarEffects?.includes('crown') && isEligibleForCrown(userData) && (
                   <span className="crown-icon">👑</span>
                 )}
-                <div 
+                <div
                   className={`
                     ${userData.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
                     ${userData.avatarEffects?.includes('glow') ? 'glow-animate' : ''}
@@ -4525,19 +4525,19 @@ export default function App() {
                   <FaGem color="var(--primary)" /> Customise Profile
                 </h3>
 
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '20px', 
-                  background: 'rgba(255,255,255,0.02)', 
-                  padding: '20px', 
-                  borderRadius: '16px', 
-                  border: '1px solid rgba(255,255,255,0.05)' 
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '20px',
+                  background: 'rgba(255,255,255,0.02)',
+                  padding: '20px',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(255,255,255,0.05)'
                 }}>
                   {/* Preview and Ring Colors Row */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                      <div 
+                      <div
                         className={`
                           ${userData?.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
                           ${userData?.avatarEffects?.includes('glow') ? 'glow-animate' : ''}
@@ -4599,8 +4599,8 @@ export default function App() {
                     <p style={{ fontSize: '0.75rem', color: '#888', marginBottom: '10px', fontWeight: 'bold' }}>EFFECTS</p>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {AVATAR_EFFECTS.map(e => {
-                        const isLocked = e.id === 'crown' 
-                          ? !isEligibleForCrown(userData) 
+                        const isLocked = e.id === 'crown'
+                          ? !isEligibleForCrown(userData)
                           : !userData?.unlockedPersonalisePackage;
                         return (
                           <div
@@ -4904,10 +4904,10 @@ export default function App() {
                 >
                   <div style={{ flex: 1 }}>
                     <h4 style={{ margin: 0, color: userData?.useHighQualityImages ? '#03dac6' : 'white' }}>
-                      Use High Quality Images
+                      Use High Quality Images (Not Recommended)
                     </h4>
                     <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                      Uses original full-size maps (uses more data)
+                      Use original uncompressed map images (uses more data)
                     </p>
                   </div>
                   <div style={{
@@ -4951,11 +4951,11 @@ export default function App() {
                         setWaterMapExpiry(Date.now() + 90000); // 90 seconds
                         setMedTentMapExpiry(null); // Hide med tent
                         setActiveTab('map');
-                        
+
                         const lastShown = localStorage.getItem('lastHydrationAlert');
                         const now = Date.now();
                         const SIX_HOURS = 6 * 60 * 60 * 1000;
-                        
+
                         if (!lastShown || (now - parseInt(lastShown)) > SIX_HOURS) {
                           showAlert("Water taps are now highlighted on the map for 90 seconds!");
                           localStorage.setItem('lastHydrationAlert', now.toString());
@@ -4964,8 +4964,8 @@ export default function App() {
                     }}
                     className="btn btn-primary w-full"
                     style={{
-                      background: (waterMapExpiry && waterMapExpiry > Date.now()) 
-                        ? 'linear-gradient(45deg, #757f9a 0%, #d7dde8 100%)' 
+                      background: (waterMapExpiry && waterMapExpiry > Date.now())
+                        ? 'linear-gradient(45deg, #757f9a 0%, #d7dde8 100%)'
                         : 'linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)',
                       border: 'none',
                       color: 'white',
@@ -5007,11 +5007,11 @@ export default function App() {
                         setMedTentMapExpiry(Date.now() + 90000); // 90 seconds
                         setWaterMapExpiry(null); // Hide water taps
                         setActiveTab('map');
-                        
+
                         const lastShown = localStorage.getItem('lastMedicalAlert');
                         const now = Date.now();
                         const SIX_HOURS = 6 * 60 * 60 * 1000;
-                        
+
                         if (!lastShown || (now - parseInt(lastShown)) > SIX_HOURS) {
                           showAlert("Medical tents are now highlighted on the map for 90 seconds!");
                           localStorage.setItem('lastMedicalAlert', now.toString());
@@ -5020,8 +5020,8 @@ export default function App() {
                     }}
                     className="btn btn-primary w-full"
                     style={{
-                      background: (medTentMapExpiry && medTentMapExpiry > Date.now()) 
-                        ? 'linear-gradient(45deg, #757f9a 0%, #d7dde8 100%)' 
+                      background: (medTentMapExpiry && medTentMapExpiry > Date.now())
+                        ? 'linear-gradient(45deg, #757f9a 0%, #d7dde8 100%)'
                         : 'linear-gradient(45deg, #ff416c 0%, #ff4b2b 100%)',
                       border: 'none',
                       color: 'white',
@@ -5649,7 +5649,7 @@ export default function App() {
               />
               <h2 style={{ marginBottom: '0.25rem', fontSize: '1.4rem' }}>{selectedMember.displayName}</h2>
 
-              <div 
+              <div
                 onClick={() => {
                   if (selectedMember.uid === userData?.uid && selectedMember.tier !== 'festival') {
                     setSelectedMember(null);
@@ -5666,9 +5666,9 @@ export default function App() {
                   letterSpacing: '0.5px',
                   background: selectedMember.tier === 'festival' ? 'linear-gradient(45deg, #FFD700, #FFA500)' : // Gold for Festival
                     selectedMember.tier === 'premium' ? 'linear-gradient(45deg, #A020F0, #E0B0FF)' : // Purple for Premium
-                    selectedMember.tier === 'standard' ? 'linear-gradient(45deg, #00C9FF, #92FE9D)' : // Green for Standard
-                    selectedMember.tier === 'basic' ? 'linear-gradient(45deg, #FF7E5F, #FEB47B)' : // Orange for Basic
-                    'rgba(255,255,255,0.1)',
+                      selectedMember.tier === 'standard' ? 'linear-gradient(45deg, #00C9FF, #92FE9D)' : // Green for Standard
+                        selectedMember.tier === 'basic' ? 'linear-gradient(45deg, #FF7E5F, #FEB47B)' : // Orange for Basic
+                          'rgba(255,255,255,0.1)',
                   color: (selectedMember.tier && selectedMember.tier !== 'free') ? 'black' : '#aaa',
                   marginBottom: '1rem',
                   cursor: (selectedMember.uid === userData?.uid && selectedMember.tier !== 'festival') ? 'pointer' : 'default'
@@ -7153,7 +7153,7 @@ export default function App() {
 
       {/* Premium Banner Notification System */}
       {bannerMessage && (
-        <div 
+        <div
           onClick={() => setBannerMessage(null)}
           style={{
             position: 'fixed',
