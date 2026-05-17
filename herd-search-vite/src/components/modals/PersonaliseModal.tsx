@@ -70,6 +70,163 @@ const PersonaliseModal: React.FC<PersonaliseModalProps> = ({ onClose, onPurchase
                         Buy the Dev a coffee and unlock some premium avatar customisations!
                     </p>
 
+                    {/* Cycling Preview Row */}
+                    {(() => {
+                        const [cycleIndex, setCycleIndex] = React.useState(0);
+
+                        React.useEffect(() => {
+                            const interval = setInterval(() => {
+                                setCycleIndex(prev => prev + 1);
+                            }, 1500);
+                            return () => clearInterval(interval);
+                        }, []);
+
+                        const haloSkins = ['/halo-birthday.png', '/halo-purple.png', '/halo-lightning.png'];
+                        const partyhatSkins = ['/party-hat.png', '/dino-hat.png', '/princess-hat.png', '/wizard-hat.png'];
+                        const coneSkins = ['/traffic-cone.png', '/traffic-cone-green.png', '/traffic-cone-purple.png', '/traffic-cone-rainbow.png'];
+                        const colors = [
+                            '#00d2ff', // Cyan
+                            '#00f5d4', // Teal
+                            '#9b5de5', // Purple
+                            '#f15bb5', // Pink
+                            '#fee440', // Yellow
+                            'linear-gradient(45deg, #f06, #9f6)' // Rainbow representation
+                        ];
+
+                        return (
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                gap: '16px',
+                                marginBottom: '24px',
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                padding: '12px',
+                                borderRadius: '16px',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                alignItems: 'center'
+                            }}>
+                                {/* Halo Preview */}
+                                <div style={{ position: 'relative', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img 
+                                        src={haloSkins[cycleIndex % haloSkins.length]} 
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-10px',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            width: '20px',
+                                            height: '20px',
+                                            zIndex: 2,
+                                            transition: 'all 0.3s ease-in-out'
+                                        }}
+                                        alt="Halo Preview"
+                                    />
+                                    <div style={{
+                                        width: '36px',
+                                        height: '36px',
+                                        borderRadius: '50%',
+                                        background: '#2a2a2a',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '1rem',
+                                        color: '#666'
+                                    }}>
+                                        👤
+                                    </div>
+                                </div>
+
+                                {/* Party Hat Preview */}
+                                <div style={{ position: 'relative', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img 
+                                        src={partyhatSkins[cycleIndex % partyhatSkins.length]} 
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-12px',
+                                            left: '42%',
+                                            transform: 'translateX(-50%)',
+                                            width: '22px',
+                                            height: '22px',
+                                            zIndex: 2,
+                                            transition: 'all 0.3s ease-in-out'
+                                        }}
+                                        alt="Party Hat Preview"
+                                    />
+                                    <div style={{
+                                        width: '36px',
+                                        height: '36px',
+                                        borderRadius: '50%',
+                                        background: '#2a2a2a',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '1rem',
+                                        color: '#666'
+                                    }}>
+                                        👤
+                                    </div>
+                                </div>
+
+                                {/* Traffic Cone Preview */}
+                                <div style={{ position: 'relative', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img 
+                                        src={coneSkins[cycleIndex % coneSkins.length]} 
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-12px',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            width: '22px',
+                                            height: '22px',
+                                            zIndex: 2,
+                                            transition: 'all 0.3s ease-in-out'
+                                        }}
+                                        alt="Traffic Cone Preview"
+                                    />
+                                    <div style={{
+                                        width: '36px',
+                                        height: '36px',
+                                        borderRadius: '50%',
+                                        background: '#2a2a2a',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '1rem',
+                                        color: '#666'
+                                    }}>
+                                        👤
+                                    </div>
+                                </div>
+
+                                {/* Color Ring Preview */}
+                                <div style={{ position: 'relative', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div 
+                                        className={cycleIndex % colors.length === colors.length - 1 ? 'rainbow-animate' : ''}
+                                        style={{
+                                            width: '36px',
+                                            height: '36px',
+                                            borderRadius: '50%',
+                                            background: '#2a2a2a',
+                                            border: '2px solid',
+                                            borderColor: cycleIndex % colors.length === colors.length - 1 ? 'transparent' : colors[cycleIndex % colors.length] as any,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '1rem',
+                                            color: '#666',
+                                            transition: 'border-color 0.4s ease'
+                                        }}
+                                    >
+                                        👤
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
                     {/* Features List */}
                     <div style={{ textAlign: 'left', marginBottom: '30px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
