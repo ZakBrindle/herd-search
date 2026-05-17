@@ -28,7 +28,7 @@ service cloud.firestore {
     }
 
     // --- Users Collection Rules ---
-    match /users/{userId} {
+    match /users/{userId} { 
       allow read: if request.auth != null && (
         request.auth.uid == userId ||
         // Allow reading a user's data if they are in the requester's friends list.

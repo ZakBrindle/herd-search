@@ -5683,6 +5683,7 @@ export default function App() {
           activeVote={activeVote}
           onVote={castVote}
           onSelectMemberByUid={handleSelectMemberByUid}
+          squadMembers={squadMembers}
         />
       );
     }

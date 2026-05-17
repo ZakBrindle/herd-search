@@ -13,6 +13,19 @@ import {
 import { db } from '../firebase';
 import type { UserData } from '../contexts/AuthContext';
 import { FaComments, FaReply } from 'react-icons/fa';
+const getPartyhatImg = (skin?: string): string => {
+    if (skin === 'dino') return '/dino-hat.png';
+    if (skin === 'princess') return '/princess-hat.png';
+    if (skin === 'wizard') return '/wizard-hat.png';
+    return '/party-hat.png';
+};
+
+const getTrafficconeImg = (skin?: string): string => {
+    if (skin === 'green') return '/traffic-cone-green.png';
+    if (skin === 'purple') return '/traffic-cone-purple.png';
+    if (skin === 'rainbow') return '/traffic-cone-rainbow.png';
+    return '/traffic-cone.png';
+};
 
 interface ChatMessage {
     id: string;
@@ -50,9 +63,181 @@ interface ChatTabProps {
     activeVote?: Vote | null;
     onVote?: (voteVal: 'yes' | 'no') => Promise<void>;
     onSelectMemberByUid?: (uid: string) => void;
+    squadMembers?: UserData[];
 }
 
-export default function ChatTab({ userData, squadId, activeVote, onVote, onSelectMemberByUid }: ChatTabProps) {
+export default function ChatTab({ userData, squadId, activeVote, onVote, onSelectMemberByUid, squadMembers = [] }: ChatTabProps) {
+    const getSenderData = (senderId: string, msg: ChatMessage): UserData => {
+        if (userData && userData.uid === senderId) {
+            return userData;
+        }
+        const member = squadMembers.find(m => m.uid === senderId);
+        if (member) return member;
+        return {
+            uid: senderId,
+            displayName: msg.senderName,
+            photoURL: msg.senderPhotoURL,
+            avatarEffects: []
+        };
+    };
+
+    const renderSenderAvatar = (msg: ChatMessage) => {
+        const sender = getSenderData(msg.senderId, msg);
+        if (!sender.photoURL) {
+            return (
+                <div
+                    onClick={() => onSelectMemberByUid?.(msg.senderId)}
+                    style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: '#555',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.65rem',
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                    }}
+                >
+                    {msg.senderName.substring(0, 2).toUpperCase()}
+                </div>
+            );
+        }
+
+        const isLeader = sender.squadId && sender.squadOwnerId === sender.uid;
+        const hasSub = (sender.subscriptionExpiry && sender.subscriptionExpiry > Date.now()) || sender.isDev;
+        const isEligibleForCrown = !!(hasSub && isLeader);
+        const hasCrown = sender.avatarEffects?.includes('crown') && isEligibleForCrown;
+        const hasHalo = sender.avatarEffects?.includes('halo');
+        const hasPartyhat = sender.avatarEffects?.includes('partyhat');
+        const hasTrafficcone = sender.avatarEffects?.includes('trafficcone');
+
+        const spinClass = sender.avatarEffects?.includes('spin') ? 'spin-animate' : '';
+        const glowClass = sender.avatarEffects?.includes('glow') ? 'glow-animate' : '';
+        const rainbowClass = sender.avatarColor === 'rainbow' ? 'rainbow-animate' : '';
+
+        return (
+            <div 
+                style={{ 
+                    position: 'relative', 
+                    width: '24px', 
+                    height: '24px',
+                    marginRight: '8px'
+                }}
+            >
+                {/* Crown decoration */}
+                {hasCrown && (
+                    <span 
+                        style={{
+                            position: 'absolute',
+                            top: '-9px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            fontSize: '9px',
+                            zIndex: 6,
+                            pointerEvents: 'none',
+                            filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))'
+                        }}
+                    >
+                        👑
+                    </span>
+                )}
+
+                {/* Halo decoration */}
+                {hasHalo && (
+                    <img 
+                        src={`/halo-${sender.avatarHaloSkin || 'birthday'}.png`} 
+                        style={{
+                            position: 'absolute',
+                            top: '-7px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: '12px',
+                            height: '12px',
+                            zIndex: 5,
+                            pointerEvents: 'none',
+                            filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))'
+                        }}
+                        alt="Halo"
+                    />
+                )}
+
+                {/* Partyhat decoration */}
+                {hasPartyhat && (
+                    <img 
+                        src={getPartyhatImg(sender.avatarPartyhatSkin)} 
+                        style={{
+                            position: 'absolute',
+                            top: '-8px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: '12px',
+                            height: '12px',
+                            zIndex: 5,
+                            pointerEvents: 'none',
+                            filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))'
+                        }}
+                        alt="Party Hat"
+                    />
+                )}
+
+                {/* Traffic Cone decoration */}
+                {hasTrafficcone && (
+                    <img 
+                        src={getTrafficconeImg(sender.avatarTrafficconeSkin)} 
+                        style={{
+                            position: 'absolute',
+                            top: '-8px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: '12px',
+                            height: '12px',
+                            zIndex: 5,
+                            pointerEvents: 'none',
+                            filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))'
+                        }}
+                        alt="Traffic Cone"
+                    />
+                )}
+
+                {/* Custom Animated Avatar Wrapper */}
+                <div
+                    className={`${spinClass} ${glowClass} ${rainbowClass}`}
+                    onClick={() => onSelectMemberByUid?.(msg.senderId)}
+                    style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        border: '2px solid',
+                        borderColor: sender.avatarColor === 'rainbow' ? 'transparent' : (sender.avatarColor || '#555'),
+                        background: '#333',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        boxSizing: 'border-box'
+                    }}
+                >
+                    <img
+                        src={sender.photoURL}
+                        alt={msg.senderName}
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            borderRadius: '50%',
+                            border: 'none',
+                            margin: 0
+                        }}
+                    />
+                </div>
+            </div>
+        );
+    };
+
     const handleToggleReaction = async (msg: ChatMessage, emoji: string) => {
         if (!userData || !squadId) return;
         const msgRef = doc(db, 'squads', squadId, 'messages', msg.id);
@@ -432,19 +617,7 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                                         marginBottom: '4px',
                                         flexDirection: isMe ? 'row-reverse' : 'row'
                                     }}>
-                                        {msg.senderPhotoURL ? (
-                                            <img
-                                                src={msg.senderPhotoURL}
-                                                onClick={() => onSelectMemberByUid?.(msg.senderId)}
-                                                style={{ width: '24px', height: '24px', borderRadius: '50%', cursor: 'pointer' }}
-                                                alt="ava"
-                                            />
-                                        ) : (
-                                            <div
-                                                onClick={() => onSelectMemberByUid?.(msg.senderId)}
-                                                style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#555', cursor: 'pointer' }}
-                                            />
-                                        )}
+                                        {renderSenderAvatar(msg)}
                                         <span
                                             onClick={() => onSelectMemberByUid?.(msg.senderId)}
                                             style={{ fontSize: '0.75rem', color: '#aaa', cursor: 'pointer' }}
@@ -880,7 +1053,7 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                             marginBottom: '16px',
                             border: '1px solid rgba(255, 255, 255, 0.08)'
                         }}>
-                            {['👍', '❤️', '😂', '😮', '😢', '🙏'].map(emoji => {
+                            {['👍', '❤️', '😂', '😮', '😢', '👎'].map(emoji => {
                                 const hasReacted = activeMessageForAction.reactions?.[userData?.uid || '']?.emoji === emoji;
                                 return (
                                     <button
