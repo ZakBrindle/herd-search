@@ -200,6 +200,8 @@ export default function App() {
   const [friendEmail, setFriendEmail] = useState('');
   const [areaName, setAreaName] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
+  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
+  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [showZones, setShowZones] = useState(false);
   const [renamingArea, setRenamingArea] = useState<Area | null>(null);
@@ -1207,9 +1209,19 @@ export default function App() {
 
   // --- Utility & Helper Functions ---
   const showAlert = (message: string, showShareButton = false) => {
-    setAlertMessage(message);
-    setShowShareLink(showShareButton);
-    setActiveModal('alert');
+    if (showShareButton) {
+      setAlertMessage(message);
+      setShowShareLink(showShareButton);
+      setActiveModal('alert');
+    } else {
+      setBannerMessage(message);
+      if (bannerTimerRef.current) {
+        clearTimeout(bannerTimerRef.current);
+      }
+      bannerTimerRef.current = setTimeout(() => {
+        setBannerMessage(null);
+      }, 4500); // 4.5 seconds
+    }
   };
 
   const handleSelectColor = async (color: string, isPremium: boolean) => {
@@ -2499,8 +2511,7 @@ export default function App() {
     // Foreground Message Listener
     const unsubscribe = onMessage(messaging, (payload) => {
       if (payload.notification) {
-        setAlertMessage(`${payload.notification.title}: ${payload.notification.body}`);
-        setActiveModal('alert');
+        showAlert(`${payload.notification.title}: ${payload.notification.body}`);
       }
     });
 
@@ -3356,13 +3367,15 @@ export default function App() {
               ref={mapImageRef}
               src={(() => {
                 const pref = userData?.mapPreference;
+                const useHQ = !!userData?.useHighQualityImages;
+                const prefix = useHQ ? "" : "/map-compressed";
                 if (!pref || pref === 'dynamic' || pref === 'cartoon') {
                   const hour = new Date().getHours();
-                  return (hour >= 20 || hour < 6) ? "/Beatherder Map Dark.png" : "/Beatherder Map 2.png";
+                  return (hour >= 20 || hour < 6) ? `${prefix}/Beatherder Map Dark.png` : `${prefix}/Beatherder Map 2.png`;
                 }
-                if (pref === 'cartoon_dark') return "/Beatherder Map Dark.png";
-                if (pref === 'satellite') return "/Beatherder Map.png";
-                return "/Beatherder Map 2.png";
+                if (pref === 'cartoon_dark') return `${prefix}/Beatherder Map Dark.png`;
+                if (pref === 'satellite') return `${prefix}/Beatherder Map.png`;
+                return `${prefix}/Beatherder Map 2.png`;
               })()}
               alt="Map"
               className="map-image"
@@ -3370,7 +3383,7 @@ export default function App() {
             />
             {waterMapExpiry && waterMapExpiry > Date.now() && (
               <img
-                src="/BH water map overlap.png"
+                src={userData?.useHighQualityImages ? "/BH water map overlap.png" : "/map-compressed/BH water map overlap.png"}
                 alt="Water Taps Overlap"
                 style={{
                   position: 'absolute',
@@ -3379,14 +3392,14 @@ export default function App() {
                   width: '100%',
                   height: '100%',
                   pointerEvents: 'none',
-                  zIndex: 10,
+                  zIndex: 80,
                   borderRadius: 'inherit'
                 }}
               />
             )}
             {medTentMapExpiry && medTentMapExpiry > Date.now() && (
               <img
-                src="/BH med tent map overlay.png"
+                src={userData?.useHighQualityImages ? "/BH med tent map overlay.png" : "/map-compressed/BH med tent map overlay.png"}
                 alt="Med Tent Overlap"
                 style={{
                   position: 'absolute',
@@ -3395,7 +3408,7 @@ export default function App() {
                   width: '100%',
                   height: '100%',
                   pointerEvents: 'none',
-                  zIndex: 10,
+                  zIndex: 80,
                   borderRadius: 'inherit'
                 }}
               />
@@ -4750,17 +4763,19 @@ export default function App() {
                 }}>
                   {(() => {
                     const pref = userData?.mapPreference;
+                    const useHQ = !!userData?.useHighQualityImages;
+                    const prefix = useHQ ? "" : "/map-compressed";
                     if (!pref || pref === 'dynamic' || pref === 'cartoon') {
                       return (
                         <>
-                          <div style={{ flex: 1, backgroundImage: 'url("/Beatherder Map 2.png")', backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                          <div style={{ flex: 1, backgroundImage: 'url("/Beatherder Map Dark.png")', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                          <div style={{ flex: 1, backgroundImage: `url("${prefix}/Beatherder Map 2.png")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                          <div style={{ flex: 1, backgroundImage: `url("${prefix}/Beatherder Map Dark.png")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                           <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: '2px', background: 'rgba(255,255,255,0.2)', transform: 'translateX(-50%)' }} />
                         </>
                       );
                     }
                     const imgSrc = pref === 'cartoon_dark' ? "/Beatherder Map Dark.png" : pref === 'satellite' ? "/Beatherder Map.png" : "/Beatherder Map 2.png";
-                    return <div style={{ flex: 1, backgroundImage: `url("${imgSrc}")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />;
+                    return <div style={{ flex: 1, backgroundImage: `url("${prefix}${imgSrc}")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />;
                   })()}
                 </div>
 
@@ -4863,6 +4878,46 @@ export default function App() {
                     border: '1px solid #555'
                   }} />
                 </div>
+
+                {/* High Quality Map Images Toggle */}
+                <div
+                  className="card"
+                  onClick={() => {
+                    if (currentUser) {
+                      const currentVal = !!userData?.useHighQualityImages;
+                      updateDoc(getUserDocRef(currentUser.uid), { useHighQualityImages: !currentVal }).catch(console.error);
+                    }
+                  }}
+                  style={{
+                    cursor: 'pointer',
+                    marginTop: '12px',
+                    backgroundColor: userData?.useHighQualityImages ? '#333' : '#1e1e1e',
+                    border: userData?.useHighQualityImages ? '2px solid #03dac6' : '1px solid #333',
+                    alignItems: 'center',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    flexDirection: 'row',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <h4 style={{ margin: 0, color: userData?.useHighQualityImages ? '#03dac6' : 'white' }}>
+                      Use High Quality Images
+                    </h4>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                      Uses original full-size maps (uses more data)
+                    </p>
+                  </div>
+                  <div style={{
+                    width: '20px', height: '20px', borderRadius: '50%',
+                    backgroundColor: userData?.useHighQualityImages ? '#03dac6' : '#333',
+                    border: '1px solid #555',
+                    transition: 'background-color 0.2s'
+                  }} />
+                </div>
+
               </div>
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
@@ -7094,6 +7149,45 @@ export default function App() {
           onRestore={handleRestorePersonalise}
           loading={loading}
         />
+      )}
+
+      {/* Premium Banner Notification System */}
+      {bannerMessage && (
+        <div 
+          onClick={() => setBannerMessage(null)}
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 99999,
+            width: '90%',
+            maxWidth: '400px',
+            background: 'rgba(20, 20, 20, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+            cursor: 'pointer',
+            animation: 'slide-down-banner 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+          }}
+        >
+          <div style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: bannerMessage.toLowerCase().includes('success') || bannerMessage.toLowerCase().includes('highlighted') || bannerMessage.toLowerCase().includes('copied') || bannerMessage.toLowerCase().includes('activated') ? '#03dac6' : (bannerMessage.toLowerCase().includes('error') || bannerMessage.toLowerCase().includes('failed') ? '#ff4b4b' : '#ffb300'),
+            flexShrink: 0
+          }} />
+          <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: 500, lineHeight: 1.4, flex: 1 }}>
+            {bannerMessage}
+          </span>
+          <span style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.8rem', marginLeft: '8px' }}>✕</span>
+        </div>
       )}
 
     </div>
