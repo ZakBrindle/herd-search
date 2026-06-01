@@ -1,0 +1,5 @@
+App Name: Herd Search
+
+App Description Short (Up to 80 Characters):
+
+App Description Full (Up to 4000 characters:
