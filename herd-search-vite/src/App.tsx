@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem, FaUserPlus, FaFirstAid
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaChevronRight, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem, FaUserPlus, FaFirstAid
 } from 'react-icons/fa';
 import { getAvatarUrl } from './utils/userUtils';
 import {
@@ -417,7 +417,29 @@ export default function App() {
   const page2Ref = useRef<HTMLDivElement>(null);
   const page3Ref = useRef<HTMLDivElement>(null);
   const landingContainerRef = useRef<HTMLDivElement>(null);
-  const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
+  const [expandedFeature, setExpandedFeature] = useState<string | null>('map');
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  const scrollToSlide = (index: number) => {
+    if (landingContainerRef.current) {
+      landingContainerRef.current.scrollTo({
+        left: landingContainerRef.current.clientWidth * index,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const scrollLeft = container.scrollLeft;
+    const width = container.clientWidth;
+    if (width > 0) {
+      const pageIndex = Math.round(scrollLeft / width);
+      if (pageIndex >= 0 && pageIndex <= 2) {
+        setActiveSlide(pageIndex);
+      }
+    }
+  };
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
   const [isUpdatingGps, setIsUpdatingGps] = useState(false);
@@ -3141,221 +3163,349 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div ref={landingContainerRef} className="app-container" style={{ padding: 0, overflowY: 'auto', height: '100dvh', scrollSnapType: 'y proximity', scrollBehavior: 'smooth' }}>
-        {/* Page 1: Landing */}
-        <div ref={page1Ref} style={{
-          minHeight: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          padding: '10vh 20px 40px',
-          boxSizing: 'border-box',
-          position: 'relative',
-          scrollSnapAlign: 'start'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <img
-              src="/logo-main.png"
-              alt="Herd Search"
-              style={{
-                width: 'min(220px, 40vw)',
-                height: 'auto',
-                marginBottom: '1.5rem',
-                animation: 'pulsate 3s infinite ease-in-out'
-              }}
-            />
-            <h1 className="logo" style={{ fontSize: 'clamp(2rem, 10vw, 3.5rem)', marginBottom: '1.5rem', textAlign: 'center' }}>Herd Search</h1>
-
-            <button
-              onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
-              className="btn primary-btn"
-              style={{
-                background: 'white',
-                color: '#1a1a1a',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-                fontSize: '1.2rem',
-                padding: '16px 32px',
-                borderRadius: '50px',
-                boxShadow: '0 4px 15px rgba(255,255,255,0.2)',
-                marginBottom: '2rem',
-                fontWeight: 'bold'
-              }}
-            >
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="24" />
-              Sign in with Google
-            </button>
-          </div>
-
-          {/* Subtle Bubble Info */}
-          <div style={{
-            maxWidth: '320px',
-            background: 'rgba(255,255,255,0.03)',
-            padding: '15px 20px',
-            borderRadius: '20px',
-            border: '1px solid rgba(255,255,255,0.05)',
-            textAlign: 'center',
-            marginTop: '1rem',
-            marginBottom: 'auto'
+      <div style={{
+        height: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        backgroundColor: '#0a0a0a',
+        color: 'white',
+        overflow: 'hidden',
+        maxWidth: '600px',
+        margin: '0 auto',
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
+        {/* Horizontal Swipable Slide Container */}
+        <div
+          ref={landingContainerRef}
+          onScroll={handleScroll}
+          className="hide-scrollbar"
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'row',
+            overflowX: 'auto',
+            scrollSnapType: 'x mandatory',
+            scrollBehavior: 'smooth',
+            width: '100%',
+            height: '100%',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
+          {/* Page 1: Landing */}
+          <div ref={page1Ref} style={{
+            width: '100%',
+            minWidth: '100%',
+            height: '100%',
+            flexShrink: 0,
+            scrollSnapAlign: 'start',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '40px 24px 180px',
+            boxSizing: 'border-box',
+            overflowY: 'auto'
           }}>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#888', lineHeight: '1.4' }}>
-              Keep track of your friends (your Herd), create squads, vote on where to go next & never lose your group in the crowd again.
-            </p>
-          </div>
-
-          {/* Scroll Indicator 1 */}
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              page2Ref.current?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            style={{
-              marginTop: '20px',
-              paddingBottom: '20px',
-              fontSize: '1.5rem',
-              color: 'var(--primary)',
-              animation: 'bounce 2s infinite',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              cursor: 'pointer',
-              zIndex: 100,
-              width: '100%'
-            }}
-          >
-            <FaChevronDown />
-            <span style={{ fontSize: '0.8rem', display: 'block', textAlign: 'center', marginTop: '4px', fontWeight: '700', letterSpacing: '1px', color: 'var(--secondary)' }}>FEATURES</span>
-          </div>
-        </div>
-
-        {/* Page 2: Features Section */}
-        <div ref={page2Ref} style={{
-          minHeight: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          padding: 'min(60px, 8vh) 20px 40px',
-          background: '#0a0a0a',
-          scrollSnapAlign: 'start',
-          position: 'relative',
-          boxSizing: 'border-box'
-        }}>
-          <h3 style={{ marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem', color: '#fff', fontWeight: '700' }}>Key Features</h3>
-
-          <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
-            {[
-              { id: 'map', icon: <FaMap />, title: 'The Map', color: '#03dac6', desc: "Don't lose the group! See where your friends are in real-time on the map." },
-              { id: 'squads', icon: <FaUserFriends />, title: 'Squads', color: '#bb86fc', desc: "Create a Squad and share your live location with each other." },
-              { id: 'ghost', icon: <FaGhost />, title: 'Ghost Mode', color: '#cf6679', desc: "Want some privacy? Enable Ghost Mode in your profile to hide your location." },
-              { id: 'checkin', icon: <FaMapMarkerAlt />, title: 'Check In', color: '#ffc107', desc: "GPS Acting up? Manually Check In to a festival area to update your location." },
-              { id: 'voting', icon: <FaClock />, title: 'Group Voting', color: 'var(--primary)', desc: "Can't decide where to go? Start a Squad Vote and let the group decide where to head next." },
-              { id: 'schedules', icon: <FaUser />, title: 'Friend Schedules', color: '#03dac6', desc: "View your friends' personal schedules to see who they are watching and where they'll be." }
-            ].map((f) => (
-              <div
-                key={f.id}
-                onClick={() => setExpandedFeature(expandedFeature === f.id ? null : f.id)}
-                className="card"
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+              <img
+                src="/logo-main.png"
+                alt="Herd Search"
                 style={{
-                  flexDirection: 'column',
-                  alignItems: 'stretch',
-                  marginBottom: '0.75rem',
-                  background: expandedFeature === f.id ? 'rgba(255,255,255,0.08)' : '#1a1a1a',
-                  padding: '16px 20px',
-                  cursor: 'pointer',
-                  transition: '0.3s all ease',
-                  border: expandedFeature === f.id ? `1px solid ${f.color}40` : '1px solid transparent'
+                  width: 'min(180px, 35vw)',
+                  height: 'auto',
+                  marginBottom: '1rem',
+                  animation: 'pulsate 3s infinite ease-in-out'
                 }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ fontSize: '1.2rem', color: f.color, display: 'flex' }}>{f.icon}</div>
-                  <h4 style={{ margin: 0, flex: 1, fontSize: '1.05rem', color: expandedFeature === f.id ? '#fff' : '#ddd' }}>{f.title}</h4>
-                  <div style={{ fontSize: '0.8rem', color: '#555', transform: expandedFeature === f.id ? 'rotate(180deg)' : 'none', transition: '0.3s' }}>
-                    <FaChevronDown />
-                  </div>
-                </div>
-                {expandedFeature === f.id && (
-                  <p style={{ margin: '12px 0 0', fontSize: '0.9rem', color: '#ccc', lineHeight: '1.5', animation: 'fadeIn 0.3s ease' }}>
-                    {f.desc}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+              />
+              <h1 className="logo" style={{ fontSize: 'clamp(2.2rem, 8vw, 3.2rem)', marginBottom: '1.5rem', textAlign: 'center' }}>Herd Search</h1>
 
-          {/* Scroll Indicator 2 */}
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              page3Ref.current?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            style={{
-              marginTop: '20px',
-              paddingBottom: '20px',
-              fontSize: '1.5rem',
-              color: 'var(--primary)',
-              animation: 'bounce 2s infinite',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              cursor: 'pointer',
-              zIndex: 100,
-              width: '100%'
-            }}
-          >
-            <FaChevronDown />
-            <span style={{ fontSize: '0.9rem', display: 'block', textAlign: 'center', marginTop: '4px', fontWeight: '700', letterSpacing: '1px', color: 'var(--secondary)' }}>BACKSTORY</span>
-          </div>
-        </div>
-
-        {/* Page 3: Backstory Section */}
-        <div ref={page3Ref} style={{
-          minHeight: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-          padding: 'min(80px, 10vh) 20px 60px',
-          background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)',
-          scrollSnapAlign: 'start',
-          position: 'relative',
-          boxSizing: 'border-box'
-        }}>
-          <div style={{ maxWidth: '600px', width: '100%' }}>
-            <h3 style={{ marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.8rem', color: '#fff', fontWeight: '800' }}>The Story</h3>
-            <div className="card" style={{
-              flexDirection: 'column',
-              padding: '30px',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.05)',
-              borderRadius: '24px'
-            }}>
-              <p style={{ fontSize: '1.1rem', lineHeight: '1.8', color: '#ccc', margin: 0 }}>
-                I've been attending <strong>Beat-Herder</strong> for almost 10 years and it's one of my favorite places on earth.
-                The vibe, the music, the people—it's magic.
-                <br /><br />
-                But there was always one thing missing: the ability to head off on a "solo quest" to explore a new stage or find a specific snack, without completely losing track of your buddies!
-                <br /><br />
-                Fumbling with dead phones or trying to describe a meeting point "near the big tree" just wasn't cutting it. That's why <strong>Herd Search</strong> was born.
-                <br /><br />
-                It's built for those of us who love to roam but still want to find the Herd for the headliners.
-              </p>
-
-              <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    landingContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="btn btn-secondary"
-                  style={{ borderRadius: '50px', padding: '10px 24px', opacity: 0.7, cursor: 'pointer' }}
-                >
-                  Back to Sign In
-                </button>
+              {/* Subtle Bubble Info */}
+              <div style={{
+                maxWidth: '340px',
+                background: 'rgba(255,255,255,0.03)',
+                padding: '20px',
+                borderRadius: '24px',
+                border: '1px solid rgba(255,255,255,0.06)',
+                textAlign: 'center',
+                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
+                backdropFilter: 'blur(5px)',
+                marginBottom: '2rem'
+              }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: '#b0b0b0', lineHeight: '1.6' }}>
+                  Keep track of your friends (your Herd), create squads, vote on where to go next & never lose your group in the crowd again.
+                </p>
               </div>
             </div>
+
+            {/* Swipe Indicator 1 pointing right */}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                scrollToSlide(1);
+              }}
+              style={{
+                marginTop: '1rem',
+                padding: '10px',
+                fontSize: '1.3rem',
+                color: 'var(--primary)',
+                animation: 'bounceRight 2s infinite',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'pointer',
+                zIndex: 100,
+                width: '100%'
+              }}
+            >
+              <FaChevronRight />
+              <span style={{ fontSize: '0.75rem', display: 'block', textAlign: 'center', marginTop: '6px', fontWeight: '700', letterSpacing: '1px', color: 'var(--secondary)' }}>SWIPE RIGHT FOR FEATURES</span>
+            </div>
+          </div>
+
+          {/* Page 2: Features Section */}
+          <div ref={page2Ref} style={{
+            width: '100%',
+            minWidth: '100%',
+            height: '100%',
+            flexShrink: 0,
+            scrollSnapAlign: 'start',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-start',
+            padding: '40px 24px 180px',
+            boxSizing: 'border-box',
+            overflowY: 'auto',
+            backgroundColor: '#0a0a0a'
+          }}>
+            <h3 style={{ marginBottom: '1.5rem', textAlign: 'center', fontSize: '1.5rem', color: '#fff', fontWeight: '700' }}>Key Features</h3>
+
+            <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+              {[
+                { id: 'map', icon: <FaMap />, title: 'The Map', color: '#03dac6', desc: "Don't lose the group! See where your friends are in real-time on the map." },
+                { id: 'squads', icon: <FaUserFriends />, title: 'Squads', color: '#bb86fc', desc: "Create a Squad and share your live location with each other." },
+                { id: 'ghost', icon: <FaGhost />, title: 'Ghost Mode', color: '#cf6679', desc: "Want some privacy? Enable Ghost Mode in your profile to hide your location." },
+                { id: 'checkin', icon: <FaMapMarkerAlt />, title: 'Check In', color: '#ffc107', desc: "GPS Acting up? Manually Check In to a festival area to update your location." },
+                { id: 'voting', icon: <FaClock />, title: 'Group Voting', color: 'var(--primary)', desc: "Can't decide where to go? Start a Squad Vote and let the group decide where to head next." },
+                { id: 'schedules', icon: <FaUser />, title: 'Friend Schedules', color: '#03dac6', desc: "View your friends' personal schedules to see who they are watching and where they'll be." }
+              ].map((f) => (
+                <div
+                  key={f.id}
+                  onClick={() => setExpandedFeature(expandedFeature === f.id ? null : f.id)}
+                  className="card"
+                  style={{
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    marginBottom: '0.75rem',
+                    background: expandedFeature === f.id ? 'rgba(255,255,255,0.08)' : '#1a1a1a',
+                    padding: '16px 20px',
+                    cursor: 'pointer',
+                    transition: '0.3s all ease',
+                    border: expandedFeature === f.id ? `1px solid ${f.color}40` : '1px solid transparent'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ fontSize: '1.2rem', color: f.color, display: 'flex' }}>{f.icon}</div>
+                    <h4 style={{ margin: 0, flex: 1, fontSize: '1.05rem', color: expandedFeature === f.id ? '#fff' : '#ddd' }}>{f.title}</h4>
+                    <div style={{ fontSize: '0.8rem', color: '#555', transform: expandedFeature === f.id ? 'rotate(180deg)' : 'none', transition: '0.3s' }}>
+                      <FaChevronDown />
+                    </div>
+                  </div>
+                  {expandedFeature === f.id && (
+                    <p style={{ margin: '12px 0 0', fontSize: '0.9rem', color: '#ccc', lineHeight: '1.5', animation: 'fadeIn 0.3s ease' }}>
+                      {f.desc}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Swipe Indicator 2 pointing right */}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                scrollToSlide(2);
+              }}
+              style={{
+                marginTop: '2rem',
+                padding: '10px',
+                fontSize: '1.3rem',
+                color: 'var(--primary)',
+                animation: 'bounceRight 2s infinite',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                cursor: 'pointer',
+                zIndex: 100,
+                width: '100%'
+              }}
+            >
+              <FaChevronRight />
+              <span style={{ fontSize: '0.75rem', display: 'block', textAlign: 'center', marginTop: '6px', fontWeight: '700', letterSpacing: '1px', color: 'var(--secondary)' }}>SWIPE RIGHT FOR THE STORY</span>
+            </div>
+          </div>
+
+          {/* Page 3: Backstory Section */}
+          <div ref={page3Ref} style={{
+            width: '100%',
+            minWidth: '100%',
+            height: '100%',
+            flexShrink: 0,
+            scrollSnapAlign: 'start',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-start',
+            padding: '40px 24px 180px',
+            boxSizing: 'border-box',
+            overflowY: 'auto',
+            background: 'radial-gradient(circle at 50% 30%, rgba(187, 134, 252, 0.15) 0%, rgba(3, 218, 198, 0.05) 50%, #0a0a0a 100%)'
+          }}>
+            <div style={{ maxWidth: '600px', width: '100%', margin: '0 auto' }}>
+              <h3 style={{
+                marginBottom: '1.5rem',
+                textAlign: 'center',
+                fontSize: '2rem',
+                fontWeight: '800',
+                background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 0 20px rgba(187,134,252,0.1)'
+              }}>
+                Our Backstory 🐑
+              </h3>
+              <div className="card hide-scrollbar" style={{
+                flexDirection: 'column',
+                padding: '24px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(187, 134, 252, 0.15)',
+                borderRadius: '24px',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 8px 32px 0 rgba(187, 134, 252, 0.05)',
+                textAlign: 'left'
+              }}>
+                <p style={{ fontSize: '1rem', lineHeight: '1.8', color: '#e0e0e0', margin: 0 }}>
+                  I've been attending <strong style={{ color: '#ff79c6', textShadow: '0 0 10px rgba(255,121,198,0.2)' }}>Beat-Herder</strong> for almost 10 years and it's one of my favorite places on earth. The vibe, the music, the people—it's pure magic. ✨
+                  <br /><br />
+                  But there was always one thing missing: the ability to head off on a <span style={{ color: '#ffb86c', fontWeight: 'bold' }}>solo quest 🎒</span> to explore a new stage, grab a cold drink, or get a quick snack, without completely losing track of your buddies!
+                  <br /><br />
+                  Fumbling with dead phones or trying to describe a meeting point "near the big tree" just wasn't cutting it. That's why <strong style={{ color: '#03dac6', textShadow: '0 0 10px rgba(3,218,198,0.2)' }}>Herd Search</strong> was born. 🗺️
+                  <br /><br />
+                  It's built for those of us who love to roam, dance, and explore, but still want to easily <strong style={{ color: '#bb86fc' }}>find the Herd 🐑</strong> for the main stage headliners.
+                </p>
+
+                <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      scrollToSlide(0);
+                    }}
+                    style={{
+                      borderRadius: '50px',
+                      padding: '10px 24px',
+                      background: 'rgba(255,255,255,0.06)',
+                      color: '#fff',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      fontSize: '0.9rem',
+                      transition: 'all 0.3s ease',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+                      e.currentTarget.style.borderColor = 'var(--primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+                    }}
+                  >
+                    <span>👈 Back to Sign In</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Persistent Bottom Sticky Panel */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: '24px 20px calc(24px + env(safe-area-inset-bottom, 0px))',
+          background: 'linear-gradient(180deg, rgba(10,10,10,0) 0%, rgba(10,10,10,0.95) 30%, #0a0a0a 100%)',
+          backdropFilter: 'blur(10px)',
+          borderTop: '1px solid rgba(255,255,255,0.03)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          zIndex: 200,
+          pointerEvents: 'auto'
+        }}>
+          {/* Google Sign-in Button */}
+          <button
+            onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
+            className="btn primary-btn"
+            style={{
+              background: 'white',
+              color: '#1a1a1a',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '1rem',
+              fontSize: '1.1rem',
+              padding: '14px 28px',
+              borderRadius: '50px',
+              boxShadow: '0 4px 20px rgba(255,255,255,0.15)',
+              marginBottom: '20px',
+              fontWeight: 'bold',
+              width: '100%',
+              maxWidth: '320px',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.02)';
+              e.currentTarget.style.boxShadow = '0 6px 25px rgba(255,255,255,0.25)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 4px 20px rgba(255,255,255,0.15)';
+            }}
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="20" />
+            Sign in with Google
+          </button>
+
+          {/* Page Dots Indicator */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', alignItems: 'center' }}>
+            {[0, 1, 2].map((idx) => {
+              const isActive = activeSlide === idx;
+              return (
+                <div
+                  key={idx}
+                  onClick={() => scrollToSlide(idx)}
+                  style={{
+                    width: isActive ? '24px' : '8px',
+                    height: '8px',
+                    borderRadius: '4px',
+                    background: isActive 
+                      ? 'linear-gradient(90deg, var(--primary), var(--secondary))' 
+                      : 'rgba(255,255,255,0.25)',
+                    boxShadow: isActive ? '0 0 10px rgba(187, 134, 252, 0.5)' : 'none',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    cursor: 'pointer'
+                  }}
+                  title={`Go to Slide ${idx + 1}`}
+                />
+              );
+            })}
           </div>
         </div>
       </div>
