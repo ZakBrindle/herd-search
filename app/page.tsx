@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { 
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection, 
@@ -765,6 +766,13 @@ export default function HomePage() {
             </div>
           </button>
         </div>
+
+        {/* --- PRIVACY POLICY LINK --- */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32, fontSize: '0.875rem', opacity: 0.8 }}>
+          <Link href="/privacypolicy" style={{ color: '#22d3ee', textDecoration: 'underline' }}>
+            Privacy Policy
+          </Link>
+        </div>
       </div>
     );
   }
@@ -1267,7 +1275,13 @@ export default function HomePage() {
 
                 
 
-                <div className={styles.modalActions} style={{ marginTop: '2rem' }}>
+                <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '1rem', display: 'flex', justifyContent: 'center' }}>
+                    <Link href="/privacypolicy" className={`${styles.button} ${styles.secondaryButton}`} style={{ textDecoration: 'none', width: '100%' }}>
+                        View Privacy Policy
+                    </Link>
+                </div>
+
+                <div className={styles.modalActions} style={{ marginTop: '1.5rem' }}>
                     <button
                         onClick={() => {
                             setIsDevMode(false);

@@ -1,0 +1,102 @@
+.container {
+  padding: 1.5rem;
+  max-width: 900px;
+  margin: auto;
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  background-color: #242436; /* Dark background */
+  color: #f3f4f6; /* Light text */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1rem 1.5rem;
+  background-color: #35354d; /* Darker header background */
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.logo {
+  font-family: var(--font-lilita-one), cursive;
+  font-size: 2rem;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  letter-spacing: 1px;
+}
+
+.logoImage {
+  border-radius: 8px;
+}
+
+.backButton {
+  background-color: #494e61;
+  color: #fff;
+  font-weight: 600;
+  padding: 0.6rem 1.25rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  font-size: 0.875rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.backButton:hover {
+  background-color: #7c5dfa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 93, 250, 0.3);
+}
+
+.documentWrapper {
+  background-color: #ffffff;
+  color: #333333;
+  padding: 3rem 2.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+/* Ensure links generated inside the policy page are clickable and stand out */
+.documentWrapper a {
+  color: #3b82f6 !important;
+  text-decoration: underline !important;
+}
+
+.documentWrapper a:hover {
+  color: #1d4ed8 !important;
+}
+
+.footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem;
+  }
+  
+  .documentWrapper {
+    padding: 1.5rem 1rem;
+  }
+
+  .logo span {
+    display: none;
+  }
+}
