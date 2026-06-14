@@ -3508,10 +3508,12 @@ export default function App() {
             })}
           </div>
           {/* Footer links on login screen */}
-          <div style={{ display: 'flex', gap: '12px', marginTop: '16px', fontSize: '0.8rem' }}>
+          <div style={{ display: 'flex', gap: '12px', marginTop: '16px', fontSize: '0.8rem', flexWrap: 'wrap', justifyContent: 'center' }}>
             <Link to="/terms" style={{ color: '#888', textDecoration: 'underline' }}>Terms of Service</Link>
             <span style={{ color: '#444' }}>•</span>
             <Link to="/privacypolicy" style={{ color: '#888', textDecoration: 'underline' }}>Privacy Policy</Link>
+            <span style={{ color: '#444' }}>•</span>
+            <Link to="/deleteaccount" style={{ color: '#888', textDecoration: 'underline' }}>Delete Account</Link>
           </div>
         </div>
       </div>
@@ -5763,6 +5765,8 @@ export default function App() {
               <Link to="/terms" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
               <span style={{ color: '#666', padding: '0 8px' }}>|</span>
               <Link to="/privacypolicy" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Privacy Policy</Link>
+              <span style={{ color: '#666', padding: '0 8px' }}>|</span>
+              <Link to="/deleteaccount" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Delete Account</Link>
             </div>
             <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
             </div>
