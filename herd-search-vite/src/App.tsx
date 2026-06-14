@@ -3507,6 +3507,12 @@ export default function App() {
               );
             })}
           </div>
+          {/* Footer links on login screen */}
+          <div style={{ display: 'flex', gap: '12px', marginTop: '16px', fontSize: '0.8rem' }}>
+            <Link to="/terms" style={{ color: '#888', textDecoration: 'underline' }}>Terms of Service</Link>
+            <span style={{ color: '#444' }}>•</span>
+            <Link to="/privacypolicy" style={{ color: '#888', textDecoration: 'underline' }}>Privacy Policy</Link>
+          </div>
         </div>
       </div>
     );
@@ -5752,9 +5758,11 @@ export default function App() {
 
 
             <button onClick={() => signOut()} className="btn btn-danger w-full" style={{ backgroundColor: 'transparent', border: '1px solid var(--error)' }}>Sign Out</button>
-            <div style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
+             <div style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: '#666', textAlign: 'center' }}>
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
               <Link to="/terms" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Terms of Service</Link>
+              <span style={{ color: '#666', padding: '0 8px' }}>|</span>
+              <Link to="/privacypolicy" style={{ paddingTop: '0.1rem', color: '#888', textDecoration: 'none' }}>Privacy Policy</Link>
             </div>
             <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#666' }}>
             </div>

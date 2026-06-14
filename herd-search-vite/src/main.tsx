@@ -6,6 +6,7 @@ import App from './App'
 import TermsOfService from './pages/TermsOfService'
 import AdminSupportPage from './pages/AdminSupportPage'
 import AboutPage from './pages/AboutPage'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 
 import InstallInstructionsPage from './pages/InstallInstructionsPage'
 
@@ -25,7 +26,8 @@ createRoot(document.getElementById('root')!).render(
       <AuthProvider>
         <Routes>
           <Route path="/" element={<App />} />
-          <Route path="/terms" element={<RequireAuth><TermsOfService /></RequireAuth>} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacypolicy" element={<PrivacyPolicy />} />
           <Route path="/upgrade" element={<RequireAuth><UpgradePage /></RequireAuth>} />
           <Route path="/about" element={<RequireAuth><AboutPage /></RequireAuth>} />
           <Route path="/install" element={<RequireAuth><InstallInstructionsPage /></RequireAuth>} />
