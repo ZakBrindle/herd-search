@@ -50,9 +50,14 @@ const UpgradePage = () => {
                         if (snap.exists()) {
                             const members = snap.data().members || [];
                             for (const memberUid of members) {
-                                await updateDoc(getUserDocRef(memberUid), { squadId: null, squadOwnerId: null });
+                                if (memberUid !== currentUser.uid) {
+                                    await updateDoc(getUserDocRef(memberUid), { squadId: null, squadOwnerId: null });
+                                }
                             }
-                            await deleteDoc(squadRef);
+                            await updateDoc(squadRef, {
+                                members: [currentUser.uid],
+                                pendingMembers: []
+                            });
                         }
                         const invitesQ = query(collection(db, "squadInvites"), where("from", "==", currentUser.uid));
                         const invSnap = await getDocs(invitesQ);
@@ -60,13 +65,11 @@ const UpgradePage = () => {
                     }
                     await updateDoc(getUserDocRef(currentUser.uid), {
                         tier: 'free',
-                        subscriptionExpiry: null,
-                        squadId: null,
-                        squadOwnerId: null
+                        subscriptionExpiry: null
                     });
                 } else {
                     const planDetails = PLANS.find(p => p.id === planId);
-                    const finalTier = planId === 'dev_tier_test' ? 'basic' : planId;
+                    const finalTier = planId;
                     await updateDoc(getUserDocRef(currentUser.uid), {
                         tier: finalTier,
                         subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000
@@ -93,7 +96,7 @@ const UpgradePage = () => {
                     userId: currentUser.uid,
                     userEmail: currentUser.email || 'Unknown',
                     userName: userData?.displayName || 'Unknown',
-                    tier: planId === 'dev_tier_test' ? 'basic' : planId,
+                    tier: planId,
                     actualTierId: planId,
                     amount: planDetails?.price || 'Unknown',
                     createdAt: Date.now(),

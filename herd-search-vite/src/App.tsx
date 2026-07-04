@@ -980,16 +980,21 @@ export default function App() {
     const verifySubscription = async () => {
       const handleAutoDisbandSquad = async () => {
         if (userData.squadId && userData.squadOwnerId === userData.uid) {
-          console.log("Subscription Guard: User is squad leader. Disbanding squad due to subscription expiry...");
+          console.log("Subscription Guard: User is squad leader. Removing other members due to subscription expiry...");
           try {
             const squadRef = doc(db, "squads", userData.squadId);
             const snap = await getDoc(squadRef);
             if (snap.exists()) {
               const members = snap.data().members || [];
               for (const memberUid of members) {
-                await updateDoc(getUserDocRef(memberUid), { squadId: null, squadOwnerId: null });
+                if (memberUid !== currentUser.uid) {
+                  await updateDoc(getUserDocRef(memberUid), { squadId: null, squadOwnerId: null });
+                }
               }
-              await deleteDoc(squadRef);
+              await updateDoc(squadRef, {
+                members: [currentUser.uid],
+                pendingMembers: []
+              });
             }
             const invitesQ = query(collection(db, "squadInvites"), where("from", "==", currentUser.uid));
             const invSnap = await getDocs(invitesQ);
@@ -997,7 +1002,7 @@ export default function App() {
               await deleteDoc(d.ref);
             }
           } catch (squadErr) {
-            console.error("Subscription Guard: Error disbanding squad on expiry:", squadErr);
+            console.error("Subscription Guard: Error clearing squad members on expiry:", squadErr);
           }
         }
       };
@@ -1054,9 +1059,7 @@ export default function App() {
               await handleAutoDisbandSquad();
               await updateDoc(getUserDocRef(currentUser.uid), {
                 tier: 'free',
-                subscriptionExpiry: null,
-                squadId: (userData.squadId && userData.squadOwnerId === userData.uid) ? null : userData.squadId,
-                squadOwnerId: (userData.squadId && userData.squadOwnerId === userData.uid) ? null : userData.squadOwnerId
+                subscriptionExpiry: null
               });
             }
           }
@@ -1066,9 +1069,7 @@ export default function App() {
           await handleAutoDisbandSquad();
           await updateDoc(getUserDocRef(currentUser.uid), {
             tier: 'free',
-            subscriptionExpiry: null,
-            squadId: (userData.squadId && userData.squadOwnerId === userData.uid) ? null : userData.squadId,
-            squadOwnerId: (userData.squadId && userData.squadOwnerId === userData.uid) ? null : userData.squadOwnerId
+            subscriptionExpiry: null
           });
         }
       } catch (e) {
