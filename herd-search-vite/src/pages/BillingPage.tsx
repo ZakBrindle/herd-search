@@ -15,12 +15,15 @@ interface Purchase {
     actualTierId?: string;
 }
 
+import { useNavigate } from 'react-router-dom';
+
 interface BillingPageProps {
     onClose: () => void;
     isDev?: boolean;
 }
 
 const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
+    const navigate = useNavigate();
     const [purchases, setPurchases] = useState<Purchase[]>([]);
     const [loading, setLoading] = useState(true);
     const [cleaning, setCleaning] = useState(false);
@@ -839,7 +842,10 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <button
-                        onClick={() => setViewMode('users')}
+                        onClick={() => {
+                            onClose();
+                            navigate('/all-users');
+                        }}
                         style={{
                             background: 'rgba(255,255,255,0.05)',
                             border: '1px solid rgba(255,255,255,0.1)',
