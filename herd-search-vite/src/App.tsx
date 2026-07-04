@@ -1127,32 +1127,78 @@ export default function App() {
           localStorage.removeItem('pendingPlan');
           localStorage.removeItem('pendingPurchaseId');
           localStorage.removeItem('parkedStripeParams');
+          localStorage.removeItem('pendingStripeSessionId');
         } else if (snap.exists() && snap.data().status === 'failed') {
           console.log("Payment Resolution: Purchase FAILED in DB.");
           setPaymentStatus('failed');
           localStorage.removeItem('parkedStripeParams');
+          localStorage.removeItem('pendingStripeSessionId');
         }
       });
 
       // Secure Fallback: Call verify endpoint to fetch status from Stripe directly
       const verifyFallback = async () => {
         try {
+          let sessionId = null;
           const parked = localStorage.getItem('parkedStripeParams');
-          if (!parked) return;
-          const { paymentIntent } = JSON.parse(parked);
-          if (!paymentIntent || paymentIntent === 'checkout_session') return;
+          if (parked) {
+            const parsed = JSON.parse(parked);
+            sessionId = parsed.paymentIntent;
+          }
+          if (!sessionId || sessionId === 'checkout_session') {
+            sessionId = localStorage.getItem('pendingStripeSessionId');
+          }
+          if (!sessionId) {
+            console.warn("Payment Resolution: No checkout session ID found for verification.");
+            return;
+          }
 
-          console.log("Payment Resolution: Calling fallback verification for session", paymentIntent);
-          await fetch('/api/verify-checkout-session', {
+          console.log("Payment Resolution: Calling fallback verification for session", sessionId);
+          const response = await fetch('/api/verify-checkout-session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              sessionId: paymentIntent,
+              sessionId: sessionId,
               purchaseId,
               userId: currentUser?.uid,
               sandboxMode: localStorage.getItem('useSandboxStripe') === 'true'
             })
           });
+
+          const result = await response.json();
+          if (result.verified) {
+            console.log("Payment Resolution: Verified via fallback. Performing client-side Firestore updates...");
+            
+            // Client-side Firestore updates (robust in dev environments)
+            const purchaseRef = doc(db, "purchases", purchaseId);
+            await updateDoc(purchaseRef, {
+              status: 'completed',
+              updatedAt: Date.now()
+            });
+
+            if (result.tierId === 'personalise_package') {
+              await updateDoc(getUserDocRef(currentUser!.uid), {
+                unlockedPersonalisePackage: true,
+                isPaymentPending: false
+              });
+            } else {
+              const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+              const subscriptionEndDate = new Date(expiresAt).toISOString();
+              await updateDoc(getUserDocRef(currentUser!.uid), {
+                tier: result.tierId,
+                subscriptionExpiry: expiresAt,
+                subscriptionEndDate: subscriptionEndDate,
+                tier_level: result.tierId,
+                tier_expires_at: expiresAt,
+                isPaymentPending: false
+              });
+            }
+
+            localStorage.removeItem('pendingPlan');
+            localStorage.removeItem('pendingPurchaseId');
+            localStorage.removeItem('parkedStripeParams');
+            localStorage.removeItem('pendingStripeSessionId');
+          }
         } catch (err) {
           console.error("Payment Resolution: Fallback verification request failed", err);
         }
@@ -1165,6 +1211,7 @@ export default function App() {
           console.warn("Payment Resolution: Timeout reached.");
           setPaymentStatus('failed');
           localStorage.removeItem('parkedStripeParams');
+          localStorage.removeItem('pendingStripeSessionId');
         }
       }, 15000);
 

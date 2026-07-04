@@ -60,7 +60,7 @@ export default async (req, res) => {
             cancel_url: `${cancelUrl}?checkout_cancel=true&redirect_status=canceled`,
         });
 
-        res.json({ url: session.url });
+        res.json({ url: session.url, sessionId: session.id });
     } catch (error) {
         console.error('Stripe error:', error);
         res.status(500).json({ error: 'Internal Server Error' });

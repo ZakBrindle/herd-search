@@ -123,6 +123,9 @@ const UpgradePage = () => {
 
                 const data = await res.json();
                 if (data.url) {
+                    if (data.sessionId) {
+                        localStorage.setItem('pendingStripeSessionId', data.sessionId);
+                    }
                     window.location.href = data.url;
                 } else {
                     console.error("No URL returned from checkout session creation", data);
