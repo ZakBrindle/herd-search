@@ -620,10 +620,12 @@ export default function App() {
         if (data.chatEnabled !== undefined) setChatEnabled(data.chatEnabled);
         if (data.whatsOnEnabled !== undefined) setWhatsOnEnabled(data.whatsOnEnabled);
         if (data.forceNoIcons !== undefined) setForceNoIcons(data.forceNoIcons);
+        if (data.activeOverlays !== undefined) setActiveOverlays(data.activeOverlays || {});
       } else {
         setChatEnabled(true);
         setWhatsOnEnabled(true);
         setForceNoIcons(false);
+        setActiveOverlays({});
       }
     });
 
