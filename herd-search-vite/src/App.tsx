@@ -6743,7 +6743,7 @@ export default function App() {
                       try {
                         await updateDoc(getUserDocRef(currentUser.uid), {
                           tier: newTier,
-                          subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
+                          subscriptionExpiry: newTier === 'free' ? null : Date.now() + 30 * 24 * 60 * 60 * 1000,
                           isPaymentPending: false
                         });
                         showAlert(`Tier overridden to ${newTier.toUpperCase()}`);

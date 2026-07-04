@@ -56,11 +56,11 @@ export default async (req, res) => {
                 tierId,
                 purchaseId, // Include Firestore ID
             },
-            success_url: successUrl,
-            cancel_url: cancelUrl,
+            success_url: `${successUrl}?checkout_success=true&payment_intent={CHECKOUT_SESSION_ID}&redirect_status=succeeded`,
+            cancel_url: `${cancelUrl}?checkout_cancel=true&redirect_status=canceled`,
         });
 
-        res.json({ url: session.url });
+        res.json({ url: session.url, sessionId: session.id });
     } catch (error) {
         console.error('Stripe error:', error);
         res.status(500).json({ error: 'Internal Server Error' });
