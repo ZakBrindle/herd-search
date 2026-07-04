@@ -6759,6 +6759,55 @@ export default function App() {
                     ))}
                   </select>
                 </div>
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <button
+                    onClick={async () => {
+                      if (!currentUser) return;
+                      if (!window.confirm("Wipe all purchase records and reset your subscription to Free?")) return;
+                      try {
+                        const { writeBatch, getDocs, query, collection, where, deleteField } = await import('firebase/firestore');
+                        const q = query(collection(db, "purchases"), where("userId", "==", currentUser.uid));
+                        const snap = await getDocs(q);
+                        
+                        const batch = writeBatch(db);
+                        snap.docs.forEach(docSnap => {
+                          batch.delete(docSnap.ref);
+                        });
+                        
+                        batch.update(getUserDocRef(currentUser.uid), {
+                          tier: 'free',
+                          subscriptionExpiry: deleteField(),
+                          subscriptionEndDate: deleteField(),
+                          tier_level: 'free',
+                          tier_expires_at: deleteField(),
+                          isPaymentPending: false,
+                          unlockedPersonalisePackage: deleteField()
+                        });
+                        
+                        await batch.commit();
+                        showAlert("Subscription history wiped & profile reset!");
+                      } catch (err) {
+                        console.error("Failed to wipe history:", err);
+                        showAlert("Wipe failed. See console.");
+                      }
+                    }}
+                    className="btn"
+                    style={{
+                      background: 'rgba(207, 102, 121, 0.1)',
+                      border: '1px solid rgba(207, 102, 121, 0.3)',
+                      color: '#cf6679',
+                      width: '100%',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Wipe Subscription History & Reset
+                  </button>
+                </div>
               </div>
             )}
 
