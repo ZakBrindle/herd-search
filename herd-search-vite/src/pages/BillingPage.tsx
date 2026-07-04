@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
-import { FaChevronLeft, FaChartLine, FaHistory, FaCheckCircle, FaSpinner, FaTimesCircle, FaDollarSign, FaShoppingCart, FaStar } from 'react-icons/fa';
+import { FaChevronLeft, FaChartLine, FaHistory, FaCheckCircle, FaSpinner, FaTimesCircle, FaDollarSign, FaShoppingCart, FaStar, FaUser } from 'react-icons/fa';
 
 interface Purchase {
     id: string;
@@ -31,6 +31,12 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
         return stored === null ? true : stored === 'true';
     });
 
+    const [viewMode, setViewMode] = useState<'dashboard' | 'users'>('dashboard');
+    const [users, setUsers] = useState<any[]>([]);
+    const [squads, setSquads] = useState<any[]>([]);
+    const [usersLoading, setUsersLoading] = useState(false);
+    const [sortBy, setSortBy] = useState<'active' | 'money'>('active');
+
     const filteredPurchases = useMemo(() => {
         if (!hideDevLogs) return purchases;
         return purchases.filter(p => p.userEmail?.toLowerCase() !== 'z4kbrindle@gmail.com');
@@ -50,6 +56,131 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
         });
         return () => unsub();
     }, []);
+
+    useEffect(() => {
+        if (viewMode !== 'users') return;
+        setUsersLoading(true);
+        // Fetch all users
+        const usersQuery = query(collection(db, "users"));
+        const unsubUsers = onSnapshot(usersQuery, (snap) => {
+            const uData = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
+            setUsers(uData);
+        }, (err) => console.error("Error fetching users:", err));
+
+        // Fetch all squads
+        const squadsQuery = query(collection(db, "squads"));
+        const unsubSquads = onSnapshot(squadsQuery, (snap) => {
+            const sData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setSquads(sData);
+            setUsersLoading(false);
+        }, (err) => {
+            console.error("Error fetching squads:", err);
+            setUsersLoading(false);
+        });
+
+        return () => {
+            unsubUsers();
+            unsubSquads();
+        };
+    }, [viewMode]);
+
+    const formatDateTime = (timestamp: number) => {
+        if (!timestamp) return 'Never';
+        const d = new Date(timestamp);
+        return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const groupedData = useMemo(() => {
+        // 1. Prepare user objects with calculated fields
+        const processedUsers = users.map(u => {
+            const userPurchases = purchases.filter(p => p.userId === u.uid && p.status === 'completed');
+            const totalSpent = userPurchases.reduce((sum, p) => {
+                const amount = parseFloat(p.amount.replace('£', '')) || 0;
+                return sum + amount;
+            }, 0);
+
+            return {
+                ...u,
+                totalSpent,
+                hasPurchased: userPurchases.length > 0,
+                lastActiveTime: u.lastUpdate || 0
+            };
+        });
+
+        // 2. Filter out dev user if hideDevLogs is true
+        const filteredUsers = processedUsers.filter(u => {
+            if (hideDevLogs && u.email?.toLowerCase() === 'z4kbrindle@gmail.com') {
+                return false;
+            }
+            return true;
+        });
+
+        // 3. Separate into grouped and All Alone
+        const aloneUsers: any[] = [];
+        const squadGroupsMap: { [squadId: string]: any[] } = {};
+
+        filteredUsers.forEach(u => {
+            if (u.squadId && squads.some(s => s.id === u.squadId)) {
+                if (!squadGroupsMap[u.squadId]) {
+                    squadGroupsMap[u.squadId] = [];
+                }
+                squadGroupsMap[u.squadId].push(u);
+            } else {
+                aloneUsers.push(u);
+            }
+        });
+
+        // 4. Map squads and calculate summary stats
+        const squadList = Object.entries(squadGroupsMap).map(([squadId, members]) => {
+            const maxLastActive = Math.max(...members.map(m => m.lastActiveTime));
+            const totalSpent = members.reduce((sum, m) => sum + m.totalSpent, 0);
+
+            // Sort members within squad
+            const sortedMembers = [...members].sort((a, b) => {
+                if (sortBy === 'money') {
+                    return b.totalSpent - a.totalSpent || b.lastActiveTime - a.lastActiveTime;
+                }
+                return b.lastActiveTime - a.lastActiveTime;
+            });
+
+            // Get squad owner name to name the squad
+            const squadDoc = squads.find(s => s.id === squadId);
+            let ownerName = 'Unknown';
+            if (squadDoc) {
+                const ownerUser = processedUsers.find(u => u.uid === squadDoc.ownerId);
+                if (ownerUser) ownerName = ownerUser.displayName || 'Unknown';
+            }
+
+            return {
+                squadId,
+                ownerName: `${ownerName}'s Squad`,
+                members: sortedMembers,
+                maxLastActive,
+                totalSpent
+            };
+        });
+
+        // 5. Sort squads
+        squadList.sort((a, b) => {
+            if (sortBy === 'money') {
+                return b.totalSpent - a.totalSpent || b.maxLastActive - a.maxLastActive;
+            }
+            return b.maxLastActive - a.maxLastActive;
+        });
+
+        // 6. Sort alone users
+        const sortedAloneUsers = [...aloneUsers].sort((a, b) => {
+            if (sortBy === 'money') {
+                return b.totalSpent - a.totalSpent || b.lastActiveTime - a.lastActiveTime;
+            }
+            return b.lastActiveTime - a.lastActiveTime;
+        });
+
+        return {
+            squads: squadList,
+            alone: sortedAloneUsers
+        };
+    }, [users, squads, purchases, hideDevLogs, sortBy]);
 
     const handleCleanup = async () => {
         if (!isDev) return;
@@ -117,6 +248,240 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
         );
     }
 
+    if (viewMode === 'users') {
+        return (
+            <div style={{ minHeight: '100vh', background: '#121212', color: 'white', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button onClick={() => setViewMode('dashboard')} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}>
+                            <FaChevronLeft />
+                        </button>
+                        <h1 style={{ margin: 0, fontSize: '1.8rem', background: 'linear-gradient(45deg, #03dac6, #bb86fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                            All Users Directory
+                        </h1>
+                    </div>
+
+                    {/* Sorting & Filter Options */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {/* Sort by toggle */}
+                        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <button 
+                                onClick={() => setSortBy('active')}
+                                style={{
+                                    background: sortBy === 'active' ? 'var(--primary, #03dac6)' : 'transparent',
+                                    border: 'none',
+                                    color: sortBy === 'active' ? '#000' : '#aaa',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Last Active
+                            </button>
+                            <button 
+                                onClick={() => setSortBy('money')}
+                                style={{
+                                    background: sortBy === 'money' ? 'var(--primary, #03dac6)' : 'transparent',
+                                    border: 'none',
+                                    color: sortBy === 'money' ? '#000' : '#aaa',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Money Spent
+                            </button>
+                        </div>
+
+                        {/* Hide Dev Logs (also affects this page) */}
+                        <div 
+                            onClick={() => {
+                                const val = !hideDevLogs;
+                                setHideDevLogs(val);
+                                localStorage.setItem('hideDevLogs', String(val));
+                            }}
+                            style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                cursor: 'pointer',
+                                background: 'rgba(255,255,255,0.05)',
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                userSelect: 'none'
+                            }}
+                        >
+                            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#ccc' }}>Hide Dev Logs</span>
+                            <div style={{ width: '34px', height: '18px', background: hideDevLogs ? 'var(--primary, #03dac6)' : '#555', borderRadius: '9px', position: 'relative', transition: 'background 0.3s' }}>
+                                <div style={{ width: '14px', height: '14px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: hideDevLogs ? '18px' : '2px', transition: 'left 0.3s' }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {usersLoading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+                        <FaSpinner className="spin" style={{ fontSize: '2rem', color: 'var(--primary)' }} />
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        {/* Squads List */}
+                        {groupedData.squads.map(squad => (
+                            <div key={squad.squadId} className="billing-card" style={{ borderLeft: '4px solid #bb86fc' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '0.5rem' }}>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#bb86fc' }}>{squad.ownerName}</h3>
+                                    <div style={{ fontSize: '0.8rem', color: '#888', display: 'flex', gap: '15px' }}>
+                                        <span>Total Squad Spent: <strong style={{ color: '#03dac6' }}>£{squad.totalSpent.toFixed(2)}</strong></span>
+                                        <span>Most Active: <strong>{formatDateTime(squad.maxLastActive)}</strong></span>
+                                    </div>
+                                </div>
+
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '1px solid #222', color: '#666' }}>
+                                                <th style={{ padding: '8px' }}>User</th>
+                                                <th style={{ padding: '8px' }}>Email</th>
+                                                <th style={{ padding: '8px' }}>Friends</th>
+                                                <th style={{ padding: '8px' }}>Last Active</th>
+                                                <th style={{ padding: '8px' }}>Tier</th>
+                                                <th style={{ padding: '8px' }}>Personalisation</th>
+                                                <th style={{ padding: '8px', textAlign: 'right' }}>Total Spent</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {squad.members.map(member => (
+                                                <tr key={member.uid} style={{ borderBottom: '1px solid #2a2a2a', height: '40px' }}>
+                                                    <td style={{ padding: '8px', fontWeight: 'bold' }}>{member.displayName || 'Anonymous'}</td>
+                                                    <td style={{ padding: '8px', color: '#aaa' }}>{member.email || 'N/A'}</td>
+                                                    <td style={{ padding: '8px', color: '#ccc' }}>
+                                                        <FaUser style={{ marginRight: '6px', color: '#03dac6', fontSize: '0.85rem', verticalAlign: 'middle' }} />
+                                                        <span>{member.friends?.length || 0}</span>
+                                                    </td>
+                                                    <td style={{ padding: '8px', color: '#888' }}>{formatDateTime(member.lastActiveTime)}</td>
+                                                    <td style={{ padding: '8px' }}>
+                                                        <span style={{
+                                                            padding: '2px 6px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '0.75rem',
+                                                            textTransform: 'capitalize',
+                                                            background: member.tier === 'free' ? 'rgba(255,255,255,0.05)' : 'rgba(3, 218, 198, 0.1)',
+                                                            color: member.tier === 'free' ? '#888' : '#03dac6',
+                                                            fontWeight: 'bold'
+                                                        }}>
+                                                            {member.tier || 'free'}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '8px' }}>
+                                                        <span style={{
+                                                            padding: '2px 6px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '0.75rem',
+                                                            background: member.unlockedPersonalisePackage ? 'rgba(187, 134, 252, 0.15)' : 'rgba(255,255,255,0.05)',
+                                                            color: member.unlockedPersonalisePackage ? '#bb86fc' : '#555',
+                                                            fontWeight: 'bold'
+                                                        }}>
+                                                            {member.unlockedPersonalisePackage ? 'Unlocked' : 'No'}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: member.hasPurchased ? '#03dac6' : '#666' }}>
+                                                        {member.hasPurchased ? `£${member.totalSpent.toFixed(2)}` : 'Never Purchased'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* All Alone Section */}
+                        <div className="billing-card" style={{ borderLeft: '4px solid #cf6679' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '0.5rem' }}>
+                                <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#cf6679' }}>All Alone (Solo Users)</h3>
+                                <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                                    Total Users: <strong>{groupedData.alone.length}</strong>
+                                </div>
+                            </div>
+
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid #222', color: '#666' }}>
+                                            <th style={{ padding: '8px' }}>User</th>
+                                            <th style={{ padding: '8px' }}>Email</th>
+                                            <th style={{ padding: '8px' }}>Friends</th>
+                                            <th style={{ padding: '8px' }}>Last Active</th>
+                                            <th style={{ padding: '8px' }}>Tier</th>
+                                            <th style={{ padding: '8px' }}>Personalisation</th>
+                                            <th style={{ padding: '8px', textAlign: 'right' }}>Total Spent</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {groupedData.alone.map(member => (
+                                            <tr key={member.uid} style={{ borderBottom: '1px solid #2a2a2a', height: '40px' }}>
+                                                <td style={{ padding: '8px', fontWeight: 'bold' }}>{member.displayName || 'Anonymous'}</td>
+                                                <td style={{ padding: '8px', color: '#aaa' }}>{member.email || 'N/A'}</td>
+                                                <td style={{ padding: '8px', color: '#ccc' }}>
+                                                    <FaUser style={{ marginRight: '6px', color: '#03dac6', fontSize: '0.85rem', verticalAlign: 'middle' }} />
+                                                    <span>{member.friends?.length || 0}</span>
+                                                </td>
+                                                <td style={{ padding: '8px', color: '#888' }}>{formatDateTime(member.lastActiveTime)}</td>
+                                                <td style={{ padding: '8px' }}>
+                                                    <span style={{
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '0.75rem',
+                                                        textTransform: 'capitalize',
+                                                        background: member.tier === 'free' ? 'rgba(255,255,255,0.05)' : 'rgba(3, 218, 198, 0.1)',
+                                                        color: member.tier === 'free' ? '#888' : '#03dac6',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {member.tier || 'free'}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '8px' }}>
+                                                    <span style={{
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        fontSize: '0.75rem',
+                                                        background: member.unlockedPersonalisePackage ? 'rgba(187, 134, 252, 0.15)' : 'rgba(255,255,255,0.05)',
+                                                        color: member.unlockedPersonalisePackage ? '#bb86fc' : '#555',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {member.unlockedPersonalisePackage ? 'Unlocked' : 'No'}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: member.hasPurchased ? '#03dac6' : '#666' }}>
+                                                    {member.hasPurchased ? `£${member.totalSpent.toFixed(2)}` : 'Never Purchased'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {groupedData.alone.length === 0 && (
+                                            <tr>
+                                                <td colSpan={7} style={{ padding: '1.5rem', textAlign: 'center', color: '#555' }}>
+                                                    No solo users active.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return (
         <div style={{ minHeight: '100vh', background: '#121212', color: 'white', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
             <style>
@@ -153,6 +518,24 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                     </h1>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button
+                        onClick={() => setViewMode('users')}
+                        style={{
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'white',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                        }}
+                    >
+                        View All Users
+                    </button>
                     <div 
                         onClick={() => {
                             const val = !hideDevLogs;
