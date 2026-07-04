@@ -36,6 +36,7 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
     const [squads, setSquads] = useState<any[]>([]);
     const [usersLoading, setUsersLoading] = useState(false);
     const [sortBy, setSortBy] = useState<'active' | 'money'>('active');
+    const [selectedUser, setSelectedUser] = useState<any | null>(null);
 
     const filteredPurchases = useMemo(() => {
         if (!hideDevLogs) return purchases;
@@ -248,6 +249,82 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
         );
     }
 
+    if (selectedUser) {
+        const userHistory = purchases.filter(p => p.userId === selectedUser.uid);
+        return (
+            <div style={{ minHeight: '100vh', background: '#121212', color: 'white', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                    <button onClick={() => setSelectedUser(null)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}>
+                        <FaChevronLeft />
+                    </button>
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#03dac6' }}>
+                            Billing History: {selectedUser.displayName || 'Anonymous'}
+                        </h1>
+                        <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                            {selectedUser.email} &bull; Tier: <span style={{ textTransform: 'capitalize', color: '#bb86fc', fontWeight: 'bold' }}>{selectedUser.tier || 'free'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* History Table */}
+                <div className="billing-card">
+                    <h3 style={{ marginTop: 0, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FaHistory /> Transactions ({userHistory.length})
+                    </h3>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {userHistory.map(p => {
+                            const isExpired = p.status === 'started' && (Date.now() - p.createdAt > 7200000);
+                            const displayStatus = isExpired ? 'failed' : p.status;
+                            const isPersonalisation = p.tier === 'personalise_package';
+
+                            return (
+                                <div key={p.id} style={{ 
+                                    padding: '1rem', 
+                                    background: 'rgba(255,255,255,0.02)', 
+                                    borderRadius: '8px',
+                                    borderLeft: `4px solid ${displayStatus === 'completed' ? '#03dac6' : displayStatus === 'started' ? '#ffc107' : '#cf6679'}`,
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <div>
+                                        <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#fff' }}>
+                                            {isPersonalisation ? 'Personalisation Package' : `Tier: ${p.tier.toUpperCase()}`}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: '#666', fontFamily: 'monospace', marginTop: '2px' }}>
+                                            Transaction ID: {p.id}
+                                        </div>
+                                        <div style={{ fontSize: '0.9rem', color: '#ccc', marginTop: '6px' }}>
+                                            Price: <strong style={{ color: '#fff' }}>{p.amount}</strong>
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
+                                            📅 {new Date(p.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className="status-badge" style={{ 
+                                            backgroundColor: displayStatus === 'completed' ? 'rgba(3, 218, 198, 0.1)' : displayStatus === 'started' ? 'rgba(255, 193, 7, 0.1)' : 'rgba(207, 102, 121, 0.1)',
+                                            color: displayStatus === 'completed' ? '#03dac6' : displayStatus === 'started' ? '#ffc107' : '#cf6679'
+                                        }}>
+                                            {displayStatus === 'completed' ? <FaCheckCircle style={{ marginRight: '4px' }} /> : displayStatus === 'started' ? <FaSpinner className="spin" style={{ marginRight: '4px' }} /> : <FaTimesCircle style={{ marginRight: '4px' }} />}
+                                            {displayStatus}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {userHistory.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '2rem', color: '#555' }}>No transactions found for this user.</div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (viewMode === 'users') {
         return (
             <div style={{ minHeight: '100vh', background: '#121212', color: 'white', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
@@ -359,7 +436,13 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                                         </thead>
                                         <tbody>
                                             {squad.members.map(member => (
-                                                <tr key={member.uid} style={{ borderBottom: '1px solid #2a2a2a', height: '40px' }}>
+                                                <tr 
+                                                    key={member.uid} 
+                                                    onClick={() => setSelectedUser(member)}
+                                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                                    style={{ borderBottom: '1px solid #2a2a2a', height: '40px', cursor: 'pointer', transition: 'background 0.2s' }}
+                                                >
                                                     <td style={{ padding: '8px', fontWeight: 'bold' }}>{member.displayName || 'Anonymous'}</td>
                                                     <td style={{ padding: '8px', color: '#aaa' }}>{member.email || 'N/A'}</td>
                                                     <td style={{ padding: '8px', color: '#ccc' }}>
@@ -427,7 +510,13 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                                     </thead>
                                     <tbody>
                                         {groupedData.alone.map(member => (
-                                            <tr key={member.uid} style={{ borderBottom: '1px solid #2a2a2a', height: '40px' }}>
+                                            <tr 
+                                                key={member.uid} 
+                                                onClick={() => setSelectedUser(member)}
+                                                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                                                style={{ borderBottom: '1px solid #2a2a2a', height: '40px', cursor: 'pointer', transition: 'background 0.2s' }}
+                                            >
                                                 <td style={{ padding: '8px', fontWeight: 'bold' }}>{member.displayName || 'Anonymous'}</td>
                                                 <td style={{ padding: '8px', color: '#aaa' }}>{member.email || 'N/A'}</td>
                                                 <td style={{ padding: '8px', color: '#ccc' }}>
