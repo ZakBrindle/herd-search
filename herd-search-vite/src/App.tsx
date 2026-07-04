@@ -1089,14 +1089,17 @@ export default function App() {
             const hasActive = hasActiveSubscription(userData);
             const correctExpiry = purchaseDate + (30 * 24 * 60 * 60 * 1000);
 
-            // If tier doesn't match or expiry is significantly off (more than 1 min difference)
-            if (!hasActive || userData.tier !== latestPurchase.tier || Math.abs((userData.subscriptionExpiry || 0) - correctExpiry) > 60000) {
-              console.log("Subscription Guard: Active purchase found but user profile is outdated. Fixing...");
-              await updateDoc(getUserDocRef(currentUser.uid), {
-                tier: latestPurchase.tier,
-                subscriptionExpiry: correctExpiry,
-                isPaymentPending: false
-              });
+            const lastOverrideTime = userData?.lastOverrideTime || 0;
+            if (purchaseDate > lastOverrideTime) {
+              // If tier doesn't match or expiry is significantly off (more than 1 min difference)
+              if (!hasActive || userData.tier !== latestPurchase.tier || Math.abs((userData.subscriptionExpiry || 0) - correctExpiry) > 60000) {
+                console.log("Subscription Guard: Active purchase found but user profile is outdated. Fixing...");
+                await updateDoc(getUserDocRef(currentUser.uid), {
+                  tier: latestPurchase.tier,
+                  subscriptionExpiry: correctExpiry,
+                  isPaymentPending: false
+                });
+              }
             }
           } else {
             // Latest purchase is older than 30 days
@@ -6976,7 +6979,8 @@ export default function App() {
                         await updateDoc(getUserDocRef(currentUser.uid), {
                           tier: newTier,
                           subscriptionExpiry: newTier === 'free' ? null : Date.now() + 30 * 24 * 60 * 60 * 1000,
-                          isPaymentPending: false
+                          isPaymentPending: false,
+                          lastOverrideTime: Date.now()
                         });
                         showAlert(`Tier overridden to ${newTier.toUpperCase()}`);
                       } catch (err) {

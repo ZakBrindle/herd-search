@@ -379,7 +379,8 @@ const AllUsersPage: React.FC = () => {
                                         await updateDoc(doc(db, "users", selectedUserForAction.uid), {
                                             tier: newTier,
                                             subscriptionExpiry: newTier === 'free' ? null : Date.now() + 30 * 24 * 60 * 60 * 1000,
-                                            isPaymentPending: false
+                                            isPaymentPending: false,
+                                            lastOverrideTime: Date.now()
                                         });
                                         setSelectedUserForAction((prev: any) => ({
                                             ...prev,
