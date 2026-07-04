@@ -6785,7 +6785,10 @@ export default function App() {
                   setChatEnabled(newValue); // Optimistic
                   try {
                     await setDoc(doc(db, 'config', 'features'), { chatEnabled: newValue }, { merge: true });
-                  } catch (e) { console.error(e); }
+                  } catch (e: any) {
+                    console.error(e);
+                    showAlert("Failed to save Chat setting: " + e.message);
+                  }
                 }} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span>Enable Chat Feature</span>
                   <div style={{ width: '40px', height: '20px', background: chatEnabled ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
@@ -6799,7 +6802,10 @@ export default function App() {
                   setWhatsOnEnabled(newValue); // Optimistic
                   try {
                     await setDoc(doc(db, 'config', 'features'), { whatsOnEnabled: newValue }, { merge: true });
-                  } catch (e) { console.error(e); }
+                  } catch (e: any) {
+                    console.error(e);
+                    showAlert("Failed to save What's On setting: " + e.message);
+                  }
                 }} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span>Enable What's On Feature</span>
                   <div style={{ width: '40px', height: '20px', background: whatsOnEnabled ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
@@ -6813,7 +6819,10 @@ export default function App() {
                   setForceNoIcons(newValue); // Optimistic
                   try {
                     await setDoc(doc(db, 'config', 'features'), { forceNoIcons: newValue }, { merge: true });
-                  } catch (e) { console.error(e); }
+                  } catch (e: any) {
+                    console.error(e);
+                    showAlert("Failed to save Force No Icons setting: " + e.message);
+                  }
                 }} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span>Force Map 'No Icons' for all</span>
                   <div style={{ width: '40px', height: '20px', background: forceNoIcons ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
@@ -6870,7 +6879,10 @@ export default function App() {
                                 setActiveOverlays(newOverlays);
                                 try {
                                   await setDoc(doc(db, 'config', 'features'), { activeOverlays: newOverlays }, { merge: true });
-                                } catch (e) { console.error(e); }
+                                } catch (e: any) {
+                                  console.error(e);
+                                  showAlert("Failed to save Overlay setting: " + e.message);
+                                }
                               }}
                               style={{
                                 display: 'flex',
