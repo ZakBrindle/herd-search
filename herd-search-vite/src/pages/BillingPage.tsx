@@ -26,6 +26,16 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
     const [cleaning, setCleaning] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const [hideDevLogs, setHideDevLogs] = useState(() => {
+        const stored = localStorage.getItem('hideDevLogs');
+        return stored === null ? true : stored === 'true';
+    });
+
+    const filteredPurchases = useMemo(() => {
+        if (!hideDevLogs) return purchases;
+        return purchases.filter(p => p.userEmail?.toLowerCase() !== 'z4kbrindle@gmail.com');
+    }, [purchases, hideDevLogs]);
+
     useEffect(() => {
         const q = query(collection(db, "purchases"), orderBy("createdAt", "desc"));
         const unsub = onSnapshot(q, (snap) => {
@@ -64,7 +74,7 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
     };
 
     const stats = useMemo(() => {
-        const completed = purchases.filter(p => p.status === 'completed');
+        const completed = filteredPurchases.filter(p => p.status === 'completed');
         const totalIncome = completed.reduce((acc, p) => {
             const amount = parseFloat(p.amount.replace('£', '')) || 0;
             return acc + amount;
@@ -90,10 +100,10 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
         return {
             totalIncome: totalIncome.toFixed(2),
             totalSales: completed.length,
-            paymentsStarted: purchases.length,
+            paymentsStarted: filteredPurchases.length,
             mostPurchasedTier
         };
-    }, [purchases]);
+    }, [filteredPurchases]);
 
     if (loading) {
         return (
@@ -142,24 +152,49 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                         Billing Center
                     </h1>
                 </div>
-                {isDev && (
-                    <button 
-                        onClick={handleCleanup} 
-                        disabled={cleaning}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div 
+                        onClick={() => {
+                            const val = !hideDevLogs;
+                            setHideDevLogs(val);
+                            localStorage.setItem('hideDevLogs', String(val));
+                        }}
                         style={{ 
-                            background: 'rgba(207, 102, 121, 0.1)', 
-                            border: '1px solid rgba(207, 102, 121, 0.3)', 
-                            color: '#cf6679', 
-                            padding: '8px 16px', 
-                            borderRadius: '8px', 
-                            fontSize: '0.8rem', 
-                            cursor: cleaning ? 'not-allowed' : 'pointer',
-                            fontWeight: 'bold'
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px', 
+                            cursor: 'pointer',
+                            background: 'rgba(255,255,255,0.05)',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            userSelect: 'none'
                         }}
                     >
-                        {cleaning ? 'Cleaning...' : 'Cleanup Old Records'}
-                    </button>
-                )}
+                        <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#ccc' }}>Hide Dev Logs</span>
+                        <div style={{ width: '34px', height: '18px', background: hideDevLogs ? 'var(--primary, #03dac6)' : '#555', borderRadius: '9px', position: 'relative', transition: 'background 0.3s' }}>
+                            <div style={{ width: '14px', height: '14px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: hideDevLogs ? '18px' : '2px', transition: 'left 0.3s' }} />
+                        </div>
+                    </div>
+                    {isDev && (
+                        <button 
+                            onClick={handleCleanup} 
+                            disabled={cleaning}
+                            style={{ 
+                                background: 'rgba(207, 102, 121, 0.1)', 
+                                border: '1px solid rgba(207, 102, 121, 0.3)', 
+                                color: '#cf6679', 
+                                padding: '8px 16px', 
+                                borderRadius: '8px', 
+                                fontSize: '0.8rem', 
+                                cursor: cleaning ? 'not-allowed' : 'pointer',
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            {cleaning ? 'Cleaning...' : 'Cleanup Old Records'}
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Stats Grid */}
@@ -213,7 +248,7 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {purchases.map(p => {
+                    {filteredPurchases.map(p => {
                         const isExpired = p.status === 'started' && (Date.now() - p.createdAt > 7200000); // 2 hours
                         const displayStatus = isExpired ? 'failed' : p.status;
 
@@ -253,7 +288,7 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                             </div>
                         </div>
                     )})}
-                    {purchases.length === 0 && (
+                    {filteredPurchases.length === 0 && (
                         <div style={{ textAlign: 'center', padding: '2rem', color: '#555' }}>No payment activity yet.</div>
                     )}
                 </div>

@@ -73,6 +73,28 @@ const server = http.createServer(async (req, res) => {
         enhanceRes(res);
         const stripeWebhook = (await import('./webhooks/stripe.js')).default;
         await stripeWebhook(req, res);
+    } else if (pathname === '/api/verify-checkout-session') {
+        if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+            req.on('end', async () => {
+                try {
+                    req.body = body ? JSON.parse(body) : {};
+                    enhanceRes(res);
+                    const verifyCheckout = (await import('./verify-checkout-session.js')).default;
+                    await verifyCheckout(req, res);
+                } catch (e) {
+                    console.error(e);
+                    res.statusCode = 400;
+                    res.end('Invalid JSON');
+                }
+            });
+        } else {
+            res.statusCode = 405;
+            res.end('Method Not Allowed');
+        }
     } else {
         res.statusCode = 404;
         res.end('Not Found');

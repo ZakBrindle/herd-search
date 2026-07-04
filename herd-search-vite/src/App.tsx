@@ -1134,6 +1134,31 @@ export default function App() {
         }
       });
 
+      // Secure Fallback: Call verify endpoint to fetch status from Stripe directly
+      const verifyFallback = async () => {
+        try {
+          const parked = localStorage.getItem('parkedStripeParams');
+          if (!parked) return;
+          const { paymentIntent } = JSON.parse(parked);
+          if (!paymentIntent || paymentIntent === 'checkout_session') return;
+
+          console.log("Payment Resolution: Calling fallback verification for session", paymentIntent);
+          await fetch('/api/verify-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: paymentIntent,
+              purchaseId,
+              userId: currentUser?.uid,
+              sandboxMode: localStorage.getItem('useSandboxStripe') === 'true'
+            })
+          });
+        } catch (err) {
+          console.error("Payment Resolution: Fallback verification request failed", err);
+        }
+      };
+      verifyFallback();
+
       const timer = setTimeout(() => {
         unsub();
         if (paymentStatus === 'pending') {

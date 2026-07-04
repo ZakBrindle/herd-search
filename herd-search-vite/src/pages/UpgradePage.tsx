@@ -116,8 +116,8 @@ const UpgradePage = () => {
                         userId: currentUser.uid,
                         purchaseId: purchaseDoc.id,
                         sandboxMode: useSandboxStripe,
-                        successUrl: window.location.origin + '?checkout_success=true',
-                        cancelUrl: window.location.origin + '?checkout_cancel=true',
+                        successUrl: window.location.origin,
+                        cancelUrl: window.location.origin,
                     })
                 });
 

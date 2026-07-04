@@ -56,8 +56,8 @@ export default async (req, res) => {
                 tierId,
                 purchaseId
             },
-            success_url: `${successUrl}?payment_intent={CHECKOUT_SESSION_ID}&redirect_status=succeeded`,
-            cancel_url: `${cancelUrl}?redirect_status=canceled`,
+            success_url: `${successUrl}?checkout_success=true&payment_intent={CHECKOUT_SESSION_ID}&redirect_status=succeeded`,
+            cancel_url: `${cancelUrl}?checkout_cancel=true&redirect_status=canceled`,
         });
 
         res.json({ url: session.url });
