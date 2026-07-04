@@ -442,6 +442,8 @@ export default function App() {
   };
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
+  const [chatEnabled, setChatEnabled] = useState(true);
+  const [whatsOnEnabled, setWhatsOnEnabled] = useState(true);
   const [isUpdatingGps, setIsUpdatingGps] = useState(false);
 
   // Ref to track latest userData without triggering dependency loops
@@ -582,6 +584,22 @@ export default function App() {
         setUpgradesEnabled(doc.data().upgradesEnabled);
       } else {
         setUpgradesEnabled(true);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Fetch Features config
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "config", "features"), (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        if (data.chatEnabled !== undefined) setChatEnabled(data.chatEnabled);
+        if (data.whatsOnEnabled !== undefined) setWhatsOnEnabled(data.whatsOnEnabled);
+      } else {
+        setChatEnabled(true);
+        setWhatsOnEnabled(true);
       }
     });
 
@@ -5866,8 +5884,8 @@ export default function App() {
 
     if (activeTab === 'chat') {
       const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
-      // Double check validation if they somehow got here without a squad
-      if (!userData?.squadId || squadMembers.length <= 1) {
+      // Double check validation if they somehow got here without a squad or if feature is disabled
+      if (!chatEnabled || !userData?.squadId || squadMembers.length <= 1) {
         // Redirect back to map if requirements not met
         setTimeout(() => setActiveTab('map'), 0);
         return null;
@@ -5890,7 +5908,7 @@ export default function App() {
       const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
       const hasWhatsOnAccess = tier !== 'free' || (userData?.squadId && squadMembers.length > 1);
 
-      if (!hasWhatsOnAccess) {
+      if (!whatsOnEnabled || !hasWhatsOnAccess) {
         setTimeout(() => setActiveTab('map'), 0);
         return null;
       }
@@ -6084,6 +6102,7 @@ export default function App() {
 
         {/* Chat Tab - Only visible if in a squad with > 1 person */}
         {(() => {
+          if (!chatEnabled) return null;
           const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
           if (userData?.squadId && squadMembers.length > 1) {
             return (
@@ -6126,6 +6145,7 @@ export default function App() {
         </button>
 
         {(() => {
+          if (!whatsOnEnabled) return null;
           const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
           const tier = hasActiveSubscription(userData) ? (userData?.tier || 'free') : 'free';
           const hasWhatsOnAccess = tier !== 'free' || (userData?.squadId && squadMembers.length > 1);
@@ -6560,6 +6580,34 @@ export default function App() {
                   <span>Users can Upgrade</span>
                   <div style={{ width: '40px', height: '20px', background: upgradesEnabled ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
                     <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: upgradesEnabled ? '22px' : '2px', transition: 'left 0.3s' }} />
+                  </div>
+                </div>
+
+                {/* Chat Enabled Toggle */}
+                <div className="card" onClick={async () => {
+                  const newValue = !chatEnabled;
+                  setChatEnabled(newValue); // Optimistic
+                  try {
+                    await setDoc(doc(db, 'config', 'features'), { chatEnabled: newValue }, { merge: true });
+                  } catch (e) { console.error(e); }
+                }} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Enable Chat Feature</span>
+                  <div style={{ width: '40px', height: '20px', background: chatEnabled ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
+                    <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: chatEnabled ? '22px' : '2px', transition: 'left 0.3s' }} />
+                  </div>
+                </div>
+
+                {/* What's On Enabled Toggle */}
+                <div className="card" onClick={async () => {
+                  const newValue = !whatsOnEnabled;
+                  setWhatsOnEnabled(newValue); // Optimistic
+                  try {
+                    await setDoc(doc(db, 'config', 'features'), { whatsOnEnabled: newValue }, { merge: true });
+                  } catch (e) { console.error(e); }
+                }} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Enable What's On Feature</span>
+                  <div style={{ width: '40px', height: '20px', background: whatsOnEnabled ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
+                    <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: whatsOnEnabled ? '22px' : '2px', transition: 'left 0.3s' }} />
                   </div>
                 </div>
 
