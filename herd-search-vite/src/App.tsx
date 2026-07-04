@@ -88,6 +88,27 @@ const getPartyhatImg = (skin?: string): string => {
   return '/party-hat.png';
 };
 
+const OVERLAY_ICONS = [
+  { file: 'camping-east.png', name: 'Camping East' },
+  { file: 'map-overlay-camping-west.png', name: 'Camping West' },
+  { file: 'map-overlay-glamping.png', name: 'Glamping' },
+  { file: 'map-overlay-main-stage.png', name: 'Main Stage' },
+  { file: 'map-overlay-toil-trees.png', name: 'Toil Trees' },
+  { file: 'map-overlay-the-ring.png', name: 'The Ring' },
+  { file: 'map-overlay-factory.png', name: 'The Factory' },
+  { file: 'map-overlay-bubba-gumma.png', name: 'Bubba Gumma' },
+  { file: 'map-overlay-bushrocker.png', name: 'Bushrocker' },
+  { file: 'map-overlay-fortress.png', name: 'Fortress' },
+  { file: 'map-overlay-garage.png', name: 'Garage' },
+  { file: 'map-overlay-launderette.png', name: 'Launderette' },
+  { file: 'map-overlay-smoking-tentacles.png', name: 'Smoking Tentacles' },
+  { file: 'map-overlay-sunrise.png', name: 'Sunrise' },
+  { file: 'map-overlay-the-snug.png', name: 'The Snug' },
+  { file: 'map-overlay-town.png', name: 'Town' },
+  { file: 'map-overlay-waterfall.png', name: 'Waterfall' },
+  { file: 'map-overlay-working-mens-club.png', name: 'Working Mens Club' }
+];
+
 const getTrafficconeImg = (skin?: string): string => {
   if (skin === 'green') return '/traffic-cone-green.png';
   if (skin === 'purple') return '/traffic-cone-purple.png';
@@ -813,6 +834,8 @@ export default function App() {
   const [alertIsUpgrade, setAlertIsUpgrade] = useState(false);
   const [showPersonaliseModal, setShowPersonaliseModal] = useState(false);
   const [showUncompressedMapImages, setShowUncompressedMapImages] = useState(false);
+  const [activeOverlays, setActiveOverlays] = useState<{ [key: string]: boolean }>({});
+  const [showOverlayConfig, setShowOverlayConfig] = useState(false);
   const [showHaloSkinModal, setShowHaloSkinModal] = useState(false);
   const [showPartyhatSkinModal, setShowPartyhatSkinModal] = useState(false);
   const [showTrafficconeSkinModal, setShowTrafficconeSkinModal] = useState(false);
@@ -3886,6 +3909,27 @@ export default function App() {
               className="map-image"
               onLoad={resizeCanvas}
             />
+            {/* Render Active Overlay Icons */}
+            {(forceNoIcons || userData?.mapNoIcons) && Object.entries(activeOverlays).map(([filename, isEnabled]) => {
+              if (!isEnabled) return null;
+              return (
+                <img
+                  key={filename}
+                  src={`/map-compressed/overlay icons/${filename}`}
+                  alt={filename}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    pointerEvents: 'none',
+                    zIndex: 70,
+                    borderRadius: 'inherit'
+                  }}
+                />
+              );
+            })}
             {waterMapExpiry && waterMapExpiry > Date.now() && (
               <img
                 src={userData?.useHighQualityImages ? "/BH water map overlap.png" : "/map-compressed/BH water map overlap.png"}
@@ -6774,6 +6818,88 @@ export default function App() {
                     <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: forceNoIcons ? '22px' : '2px', transition: 'left 0.3s' }} />
                   </div>
                 </div>
+
+                {/* Configure Overlay Icons button (Only when forceNoIcons is enabled) */}
+                {forceNoIcons && (
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <button
+                      onClick={() => setShowOverlayConfig(!showOverlayConfig)}
+                      className="btn"
+                      style={{
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'white',
+                        fontSize: '0.8rem',
+                        padding: '10px 16px',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      <span>{showOverlayConfig ? 'Hide Overlay Config' : 'Configure Overlay Icons'}</span>
+                      <FaChevronDown style={{ transform: showOverlayConfig ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s', fontSize: '0.7rem' }} />
+                    </button>
+
+                    {showOverlayConfig && (
+                      <div style={{
+                        marginTop: '0.5rem',
+                        padding: '12px',
+                        background: 'rgba(0,0,0,0.3)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}>
+                        {OVERLAY_ICONS.map((overlay) => {
+                          const isEnabled = !!activeOverlays[overlay.file];
+                          return (
+                            <div
+                              key={overlay.file}
+                              onClick={async () => {
+                                const newOverlays = { ...activeOverlays, [overlay.file]: !isEnabled };
+                                setActiveOverlays(newOverlays);
+                                try {
+                                  await setDoc(doc(db, 'config', 'features'), { activeOverlays: newOverlays }, { merge: true });
+                                } catch (e) { console.error(e); }
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '8px 10px',
+                                background: 'rgba(255,255,255,0.02)',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.75rem',
+                                userSelect: 'none'
+                              }}
+                            >
+                              <span style={{ color: '#ddd' }}>{overlay.name}</span>
+                              <div style={{
+                                width: '30px', height: '16px', background: isEnabled ? 'var(--primary)' : '#555',
+                                borderRadius: '8px', position: 'relative', transition: 'background 0.3s'
+                              }}>
+                                <div style={{
+                                  width: '12px', height: '12px', background: 'white', borderRadius: '50%',
+                                  position: 'absolute', top: '2px', left: isEnabled ? '16px' : '2px',
+                                  transition: 'left 0.3s'
+                                }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* GPS Refresh Interval */}
                 <div className="card" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '0.5rem', padding: '1rem' }}>
