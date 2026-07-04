@@ -444,6 +444,7 @@ export default function App() {
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
   const [chatEnabled, setChatEnabled] = useState(true);
   const [whatsOnEnabled, setWhatsOnEnabled] = useState(true);
+  const [forceNoIcons, setForceNoIcons] = useState(false);
   const [isUpdatingGps, setIsUpdatingGps] = useState(false);
 
   // Ref to track latest userData without triggering dependency loops
@@ -597,9 +598,11 @@ export default function App() {
         const data = doc.data();
         if (data.chatEnabled !== undefined) setChatEnabled(data.chatEnabled);
         if (data.whatsOnEnabled !== undefined) setWhatsOnEnabled(data.whatsOnEnabled);
+        if (data.forceNoIcons !== undefined) setForceNoIcons(data.forceNoIcons);
       } else {
         setChatEnabled(true);
         setWhatsOnEnabled(true);
+        setForceNoIcons(false);
       }
     });
 
@@ -1163,35 +1166,54 @@ export default function App() {
               userId: currentUser?.uid,
               sandboxMode: localStorage.getItem('useSandboxStripe') === 'true'
             })
-          });
-
-          const result = await response.json();
+          });           const result = await response.json();
           if (result.verified) {
             console.log("Payment Resolution: Verified via fallback. Performing client-side Firestore updates...");
             
-            // Client-side Firestore updates (robust in dev environments)
-            const purchaseRef = doc(db, "purchases", purchaseId);
-            await updateDoc(purchaseRef, {
-              status: 'completed',
-              updatedAt: Date.now()
-            });
+            // Client-side purchase update fallback
+            try {
+              const purchaseRef = doc(db, "purchases", purchaseId);
+              await updateDoc(purchaseRef, {
+                status: 'completed',
+                updatedAt: Date.now()
+              });
+            } catch (purchaseErr) {
+              console.warn("Payment Resolution: Purchase update client fallback failed (likely rules):", purchaseErr);
+            }
 
-            if (result.tierId === 'personalise_package') {
-              await updateDoc(getUserDocRef(currentUser!.uid), {
-                unlockedPersonalisePackage: true,
-                isPaymentPending: false
-              });
-            } else {
-              const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
-              const subscriptionEndDate = new Date(expiresAt).toISOString();
-              await updateDoc(getUserDocRef(currentUser!.uid), {
-                tier: result.tierId,
-                subscriptionExpiry: expiresAt,
-                subscriptionEndDate: subscriptionEndDate,
-                tier_level: result.tierId,
-                tier_expires_at: expiresAt,
-                isPaymentPending: false
-              });
+            // Client-side user profile update fallback
+            try {
+              if (result.tierId === 'personalise_package') {
+                await updateDoc(getUserDocRef(currentUser!.uid), {
+                  unlockedPersonalisePackage: true,
+                  isPaymentPending: false
+                });
+              } else {
+                const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+                const subscriptionEndDate = new Date(expiresAt).toISOString();
+                await updateDoc(getUserDocRef(currentUser!.uid), {
+                  tier: result.tierId,
+                  subscriptionExpiry: expiresAt,
+                  subscriptionEndDate: subscriptionEndDate,
+                  tier_level: result.tierId,
+                  tier_expires_at: expiresAt,
+                  isPaymentPending: false
+                });
+              }
+            } catch (userErr) {
+              console.warn("Payment Resolution: Full user update fallback failed. Retrying minimal allowed parameters...", userErr);
+              // Retry updating only the standard keys permitted in older Firestore rules
+              try {
+                if (result.tierId !== 'personalise_package') {
+                  await updateDoc(getUserDocRef(currentUser!.uid), {
+                    tier: result.tierId,
+                    subscriptionExpiry: Date.now() + 30 * 24 * 60 * 60 * 1000,
+                    isPaymentPending: false
+                  });
+                }
+              } catch (retryErr) {
+                console.error("Payment Resolution: Failed to update minimal user fields client-side:", retryErr);
+              }
             }
 
             localStorage.removeItem('pendingPlan');
@@ -3843,6 +3865,12 @@ export default function App() {
             <img
               ref={mapImageRef}
               src={(() => {
+                const isForced = forceNoIcons;
+                const isNoIconsToggled = !!userData?.mapNoIcons;
+                if (isForced || isNoIconsToggled) {
+                  return "/map-compressed/Beatherder Map No Icons.png";
+                }
+
                 const pref = userData?.mapPreference;
                 const useHQ = !!userData?.useHighQualityImages;
                 const prefix = useHQ ? "" : "/map-compressed";
@@ -5322,211 +5350,261 @@ export default function App() {
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
               {/* Map Preference */}
-              <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
-                <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <FaMap color="#03dac6" /> Map Style
-                </h3>
-                <div style={{
-                  width: '100%',
-                  height: '120px',
-                  borderRadius: '12px',
-                  marginBottom: '15px',
-                  overflow: 'hidden',
-                  border: '1px solid #333',
-                  display: 'flex',
-                  position: 'relative'
-                }}>
-                  {(() => {
-                    const pref = userData?.mapPreference;
-                    const useHQ = !!userData?.useHighQualityImages;
-                    const prefix = useHQ ? "" : "/map-compressed";
-                    if (!pref || pref === 'dynamic' || pref === 'cartoon') {
-                      return (
-                        <>
-                          <div style={{ flex: 1, backgroundImage: `url("${prefix}/Beatherder Map 2.png")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                          <div style={{ flex: 1, backgroundImage: `url("${prefix}/Beatherder Map Dark.png")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                          <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: '2px', background: 'rgba(255,255,255,0.2)', transform: 'translateX(-50%)' }} />
-                        </>
-                      );
-                    }
-                    const imgSrc = pref === 'cartoon_dark' ? "/Beatherder Map Dark.png" : pref === 'satellite' ? "/Beatherder Map.png" : "/Beatherder Map 2.png";
-                    return <div style={{ flex: 1, backgroundImage: `url("${prefix}${imgSrc}")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />;
-                  })()}
-                </div>
+              {!forceNoIcons && (
+                <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
+                  <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FaMap color="#03dac6" /> Map Style
+                  </h3>
 
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                  <button
-                    onClick={() => {
-                      if (currentUser) {
-                        updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'cartoon_light' }).catch(console.error);
-                      }
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '12px 8px',
-                      backgroundColor: userData?.mapPreference === 'cartoon_light' ? '#03dac6' : '#1e1e1e',
-                      color: userData?.mapPreference === 'cartoon_light' ? '#000' : '#fff',
-                      border: userData?.mapPreference === 'cartoon_light' ? 'none' : '1px solid #333',
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      transition: 'all 0.2s',
-                      fontSize: '0.85rem'
-                    }}
-                  >
-                    Cartoon Light
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (currentUser) {
-                        updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'cartoon_dark' }).catch(console.error);
-                      }
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '12px 8px',
-                      backgroundColor: userData?.mapPreference === 'cartoon_dark' ? '#03dac6' : '#1e1e1e',
-                      color: userData?.mapPreference === 'cartoon_dark' ? '#000' : '#fff',
-                      border: userData?.mapPreference === 'cartoon_dark' ? 'none' : '1px solid #333',
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      transition: 'all 0.2s',
-                      fontSize: '0.85rem'
-                    }}
-                  >
-                    Cartoon Dark
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (currentUser) {
-                        updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'satellite' }).catch(console.error);
-                      }
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '12px 8px',
-                      backgroundColor: userData?.mapPreference === 'satellite' ? '#03dac6' : '#1e1e1e',
-                      color: userData?.mapPreference === 'satellite' ? '#000' : '#fff',
-                      border: userData?.mapPreference === 'satellite' ? 'none' : '1px solid #333',
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      transition: 'all 0.2s',
-                      fontSize: '0.85rem'
-                    }}
-                  >
-                    Satellite
-                  </button>
-                </div>
-                {/* Dynamic Map Toggle */}
-                <div
-                  className="card"
-                  onClick={() => {
-                    if (currentUser) {
-                      const isDynamic = !userData?.mapPreference || userData.mapPreference === 'dynamic' || userData.mapPreference === 'cartoon';
-                      updateDoc(getUserDocRef(currentUser.uid), { mapPreference: isDynamic ? 'cartoon_light' : 'dynamic' }).catch(console.error);
-                    }
-                  }}
-                  style={{
-                    cursor: 'pointer',
-                    backgroundColor: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#333' : '#1e1e1e',
-                    border: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '2px solid #03dac6' : '1px solid #333',
-                    alignItems: 'center',
-                    padding: '12px 16px',
-                    display: 'flex',
-                    flexDirection: 'row',
-                    width: '100%',
-                    boxSizing: 'border-box'
-                  }}
-                >
-
-                  <div style={{ flex: 1 }}>
-                    <h4 style={{ margin: 0, color: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#03dac6' : 'white' }}>Dynamic Map</h4>
-                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                      Auto-switches to Cartoon Dark from 8pm to 6am
-                    </p>
-                  </div>
-                  <div style={{
-                    width: '20px', height: '20px', borderRadius: '50%',
-                    backgroundColor: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#03dac6' : '#333',
-                    border: '1px solid #555'
-                  }} />
-                </div>
-
-                {/* Subtle Show More arrow under Dynamic Map */}
-                <div
-                  onClick={() => setShowUncompressedMapImages(!showUncompressedMapImages)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    padding: '8px 0',
-                    cursor: 'pointer',
-                    color: '#888',
-                    fontSize: '0.8rem',
-                    fontWeight: 'bold',
-                    userSelect: 'none',
-                    transition: 'color 0.2s',
-                    marginTop: '8px',
-                    textAlign: 'center'
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = '#03dac6'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; }}
-                >
-                  <span>{showUncompressedMapImages ? 'Show Less' : 'Show More'}</span>
-                  <FaChevronDown
-                    style={{
-                      transform: showUncompressedMapImages ? 'rotate(180deg)' : 'rotate(0deg)',
-                      transition: 'transform 0.3s ease',
-                      fontSize: '0.75rem'
-                    }}
-                  />
-                </div>
-
-                {/* High Quality Map Images Toggle */}
-                {showUncompressedMapImages && (
+                  {/* Hide Map Icons Toggle */}
                   <div
                     className="card"
                     onClick={() => {
                       if (currentUser) {
-                        const currentVal = !!userData?.useHighQualityImages;
-                        updateDoc(getUserDocRef(currentUser.uid), { useHighQualityImages: !currentVal }).catch(console.error);
+                        updateDoc(getUserDocRef(currentUser.uid), { mapNoIcons: !userData?.mapNoIcons }).catch(console.error);
                       }
                     }}
                     style={{
                       cursor: 'pointer',
-                      marginTop: '12px',
-                      backgroundColor: userData?.useHighQualityImages ? '#333' : '#1e1e1e',
-                      border: userData?.useHighQualityImages ? '2px solid #03dac6' : '1px solid #333',
+                      backgroundColor: userData?.mapNoIcons ? '#333' : '#1e1e1e',
+                      border: userData?.mapNoIcons ? '2px solid #03dac6' : '1px solid #333',
                       alignItems: 'center',
                       padding: '12px 16px',
                       display: 'flex',
                       flexDirection: 'row',
                       width: '100%',
                       boxSizing: 'border-box',
+                      marginBottom: '15px',
                       transition: 'all 0.2s'
                     }}
                   >
                     <div style={{ flex: 1 }}>
-                      <h4 style={{ margin: 0, color: userData?.useHighQualityImages ? '#03dac6' : 'white' }}>
-                        Uncompressed Map Images
-                      </h4>
+                      <h4 style={{ margin: 0, color: userData?.mapNoIcons ? '#03dac6' : 'white' }}>Hide Map Icons</h4>
                       <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                        Use the original uncompressed map images (not recommended as this uses significantly more data, and well.. you're in a field).
+                        Uses Beatherder Map without overlay icons
                       </p>
                     </div>
                     <div style={{
                       width: '20px', height: '20px', borderRadius: '50%',
-                      backgroundColor: userData?.useHighQualityImages ? '#03dac6' : '#333',
+                      backgroundColor: userData?.mapNoIcons ? '#03dac6' : '#333',
                       border: '1px solid #555',
                       transition: 'background-color 0.2s'
                     }} />
                   </div>
-                )}
 
-              </div>
+                  <div style={{
+                    width: '100%',
+                    height: '120px',
+                    borderRadius: '12px',
+                    marginBottom: '15px',
+                    overflow: 'hidden',
+                    border: '1px solid #333',
+                    display: 'flex',
+                    position: 'relative'
+                  }}>
+                    {(() => {
+                      const isNoIconsToggled = !!userData?.mapNoIcons;
+                      if (isNoIconsToggled) {
+                        return <div style={{ flex: 1, backgroundImage: `url("/map-compressed/Beatherder Map No Icons.png")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />;
+                      }
+
+                      const pref = userData?.mapPreference;
+                      const useHQ = !!userData?.useHighQualityImages;
+                      const prefix = useHQ ? "" : "/map-compressed";
+                      if (!pref || pref === 'dynamic' || pref === 'cartoon') {
+                        return (
+                          <>
+                            <div style={{ flex: 1, backgroundImage: `url("${prefix}/Beatherder Map 2.png")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                            <div style={{ flex: 1, backgroundImage: `url("${prefix}/Beatherder Map Dark.png")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                            <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', width: '2px', background: 'rgba(255,255,255,0.2)', transform: 'translateX(-50%)' }} />
+                          </>
+                        );
+                      }
+                      const imgSrc = pref === 'cartoon_dark' ? "/Beatherder Map Dark.png" : pref === 'satellite' ? "/Beatherder Map.png" : "/Beatherder Map 2.png";
+                      return <div style={{ flex: 1, backgroundImage: `url("${prefix}${imgSrc}")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />;
+                    })()}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                    <button
+                      disabled={!!userData?.mapNoIcons}
+                      onClick={() => {
+                        if (currentUser) {
+                          updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'cartoon_light' }).catch(console.error);
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '12px 8px',
+                        backgroundColor: userData?.mapPreference === 'cartoon_light' ? '#03dac6' : '#1e1e1e',
+                        color: userData?.mapPreference === 'cartoon_light' ? '#000' : '#fff',
+                        border: userData?.mapPreference === 'cartoon_light' ? 'none' : '1px solid #333',
+                        borderRadius: '12px',
+                        cursor: userData?.mapNoIcons ? 'not-allowed' : 'pointer',
+                        fontWeight: 'bold',
+                        transition: 'all 0.2s',
+                        fontSize: '0.85rem',
+                        opacity: userData?.mapNoIcons ? 0.4 : 1
+                      }}
+                    >
+                      Cartoon Light
+                    </button>
+                    <button
+                      disabled={!!userData?.mapNoIcons}
+                      onClick={() => {
+                        if (currentUser) {
+                          updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'cartoon_dark' }).catch(console.error);
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '12px 8px',
+                        backgroundColor: userData?.mapPreference === 'cartoon_dark' ? '#03dac6' : '#1e1e1e',
+                        color: userData?.mapPreference === 'cartoon_dark' ? '#000' : '#fff',
+                        border: userData?.mapPreference === 'cartoon_dark' ? 'none' : '1px solid #333',
+                        borderRadius: '12px',
+                        cursor: userData?.mapNoIcons ? 'not-allowed' : 'pointer',
+                        fontWeight: 'bold',
+                        transition: 'all 0.2s',
+                        fontSize: '0.85rem',
+                        opacity: userData?.mapNoIcons ? 0.4 : 1
+                      }}
+                    >
+                      Cartoon Dark
+                    </button>
+                    <button
+                      disabled={!!userData?.mapNoIcons}
+                      onClick={() => {
+                        if (currentUser) {
+                          updateDoc(getUserDocRef(currentUser.uid), { mapPreference: 'satellite' }).catch(console.error);
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '12px 8px',
+                        backgroundColor: userData?.mapPreference === 'satellite' ? '#03dac6' : '#1e1e1e',
+                        color: userData?.mapPreference === 'satellite' ? '#000' : '#fff',
+                        border: userData?.mapPreference === 'satellite' ? 'none' : '1px solid #333',
+                        borderRadius: '12px',
+                        cursor: userData?.mapNoIcons ? 'not-allowed' : 'pointer',
+                        fontWeight: 'bold',
+                        transition: 'all 0.2s',
+                        fontSize: '0.85rem',
+                        opacity: userData?.mapNoIcons ? 0.4 : 1
+                      }}
+                    >
+                      Satellite
+                    </button>
+                  </div>
+                  {/* Dynamic Map Toggle */}
+                  <div
+                    className="card"
+                    onClick={() => {
+                      if (userData?.mapNoIcons) return;
+                      if (currentUser) {
+                        const isDynamic = !userData?.mapPreference || userData.mapPreference === 'dynamic' || userData.mapPreference === 'cartoon';
+                        updateDoc(getUserDocRef(currentUser.uid), { mapPreference: isDynamic ? 'cartoon_light' : 'dynamic' }).catch(console.error);
+                      }
+                    }}
+                    style={{
+                      cursor: userData?.mapNoIcons ? 'not-allowed' : 'pointer',
+                      backgroundColor: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#333' : '#1e1e1e',
+                      border: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '2px solid #03dac6' : '1px solid #333',
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      flexDirection: 'row',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      opacity: userData?.mapNoIcons ? 0.4 : 1
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <h4 style={{ margin: 0, color: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#03dac6' : 'white' }}>Dynamic Map</h4>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                        Auto-switches to Cartoon Dark from 8pm to 6am
+                      </p>
+                    </div>
+                    <div style={{
+                      width: '20px', height: '20px', borderRadius: '50%',
+                      backgroundColor: (!userData?.mapPreference || userData?.mapPreference === 'dynamic' || userData?.mapPreference === 'cartoon') ? '#03dac6' : '#333',
+                      border: '1px solid #555'
+                    }} />
+                  </div>
+
+                  {/* Subtle Show More arrow under Dynamic Map */}
+                  <div
+                    onClick={() => setShowUncompressedMapImages(!showUncompressedMapImages)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '8px 0',
+                      cursor: 'pointer',
+                      color: '#888',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      userSelect: 'none',
+                      transition: 'color 0.2s',
+                      marginTop: '8px',
+                      textAlign: 'center'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = '#03dac6'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; }}
+                  >
+                    <span>{showUncompressedMapImages ? 'Show Less' : 'Show More'}</span>
+                    <FaChevronDown
+                      style={{
+                        transform: showUncompressedMapImages ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.3s ease',
+                        fontSize: '0.75rem'
+                      }}
+                    />
+                  </div>
+
+                  {/* High Quality Map Images Toggle */}
+                  {showUncompressedMapImages && (
+                    <div
+                      className="card"
+                      onClick={() => {
+                        if (currentUser) {
+                          const currentVal = !!userData?.useHighQualityImages;
+                          updateDoc(getUserDocRef(currentUser.uid), { useHighQualityImages: !currentVal }).catch(console.error);
+                        }
+                      }}
+                      style={{
+                        cursor: 'pointer',
+                        marginTop: '12px',
+                        backgroundColor: userData?.useHighQualityImages ? '#333' : '#1e1e1e',
+                        border: userData?.useHighQualityImages ? '2px solid #03dac6' : '1px solid #333',
+                        alignItems: 'center',
+                        padding: '12px 16px',
+                        display: 'flex',
+                        flexDirection: 'row',
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <h4 style={{ margin: 0, color: userData?.useHighQualityImages ? '#03dac6' : 'white' }}>
+                          Uncompressed Map Images
+                        </h4>
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                          Use the original uncompressed map images (not recommended as this uses significantly more data, and well.. you're in a field).
+                        </p>
+                      </div>
+                      <div style={{
+                        width: '20px', height: '20px', borderRadius: '50%',
+                        backgroundColor: userData?.useHighQualityImages ? '#03dac6' : '#333',
+                        border: '1px solid #555',
+                        transition: 'background-color 0.2s'
+                      }} />
+                    </div>
+                  )}
+                </div>
+              )}
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
 
@@ -6680,6 +6758,20 @@ export default function App() {
                   <span>Enable What's On Feature</span>
                   <div style={{ width: '40px', height: '20px', background: whatsOnEnabled ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
                     <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: whatsOnEnabled ? '22px' : '2px', transition: 'left 0.3s' }} />
+                  </div>
+                </div>
+
+                {/* Force No Icons Toggle */}
+                <div className="card" onClick={async () => {
+                  const newValue = !forceNoIcons;
+                  setForceNoIcons(newValue); // Optimistic
+                  try {
+                    await setDoc(doc(db, 'config', 'features'), { forceNoIcons: newValue }, { merge: true });
+                  } catch (e) { console.error(e); }
+                }} style={{ cursor: 'pointer', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Force Map 'No Icons' for all</span>
+                  <div style={{ width: '40px', height: '20px', background: forceNoIcons ? 'var(--primary)' : '#555', borderRadius: '10px', position: 'relative', transition: 'background 0.3s' }}>
+                    <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: forceNoIcons ? '22px' : '2px', transition: 'left 0.3s' }} />
                   </div>
                 </div>
 
