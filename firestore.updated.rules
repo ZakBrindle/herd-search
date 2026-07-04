@@ -69,6 +69,8 @@ service cloud.firestore {
           request.resource.data.friends.size() == (resource.data.keys().hasAny(['friends']) ? resource.data.friends.size() : 0) + 1 &&
           request.auth.uid in request.resource.data.friends
         )
+        // Allow Admins to update user details (such as manually overriding tiers)
+        || isAdmin()
       );
 
       // --- ADDED: Wrapped / Daily Stats ---

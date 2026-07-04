@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { FaChevronLeft, FaChartLine, FaHistory, FaCheckCircle, FaSpinner, FaTimesCircle, FaDollarSign, FaShoppingCart, FaStar, FaUser } from 'react-icons/fa';
 
@@ -36,7 +36,8 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
     const [squads, setSquads] = useState<any[]>([]);
     const [usersLoading, setUsersLoading] = useState(false);
     const [sortBy, setSortBy] = useState<'active' | 'money'>('active');
-    const [selectedUser, setSelectedUser] = useState<any | null>(null);
+    const [selectedUserForAction, setSelectedUserForAction] = useState<any | null>(null);
+    const [actionType, setActionType] = useState<'menu' | 'history' | 'override'>('menu');
 
     const filteredPurchases = useMemo(() => {
         if (!hideDevLogs) return purchases;
@@ -249,80 +250,304 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
         );
     }
 
-    if (selectedUser) {
-        const userHistory = purchases.filter(p => p.userId === selectedUser.uid);
-        return (
-            <div style={{ minHeight: '100vh', background: '#121212', color: 'white', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-                    <button onClick={() => setSelectedUser(null)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}>
-                        <FaChevronLeft />
-                    </button>
-                    <div>
-                        <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#03dac6' }}>
-                            Billing History: {selectedUser.displayName || 'Anonymous'}
-                        </h1>
-                        <div style={{ fontSize: '0.85rem', color: '#888' }}>
-                            {selectedUser.email} &bull; Tier: <span style={{ textTransform: 'capitalize', color: '#bb86fc', fontWeight: 'bold' }}>{selectedUser.tier || 'free'}</span>
+    if (selectedUserForAction) {
+        if (actionType === 'menu') {
+            return (
+                <div style={{ minHeight: '100vh', background: '#121212', color: 'white', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                        <button onClick={() => setSelectedUserForAction(null)} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}>
+                            <FaChevronLeft />
+                        </button>
+                        <div>
+                            <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#03dac6' }}>
+                                Manage User: {selectedUserForAction.displayName || 'Anonymous'}
+                            </h1>
+                            <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                                {selectedUserForAction.email}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="billing-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '500px', margin: '0 auto' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', textAlign: 'center', marginBottom: '1rem' }}>Select Action</h3>
+                        
+                        <button 
+                            onClick={() => setActionType('history')}
+                            className="btn w-full"
+                            style={{
+                                background: 'linear-gradient(45deg, #03dac6, #018786)',
+                                color: 'black',
+                                border: 'none',
+                                padding: '15px',
+                                borderRadius: '10px',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.1s'
+                            }}
+                        >
+                            View Billing History 📊
+                        </button>
+
+                        <button 
+                            onClick={() => setActionType('override')}
+                            className="btn w-full"
+                            style={{
+                                background: 'linear-gradient(45deg, #bb86fc, #6200ee)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '15px',
+                                borderRadius: '10px',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.1s'
+                            }}
+                        >
+                            Manually Override Tier ⚙️
+                        </button>
+
+                        <button 
+                            onClick={() => setSelectedUserForAction(null)}
+                            className="btn btn-secondary w-full"
+                            style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'white',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                fontSize: '0.9rem',
+                                cursor: 'pointer',
+                                marginTop: '1rem'
+                            }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        if (actionType === 'history') {
+            const userHistory = purchases.filter(p => p.userId === selectedUserForAction.uid);
+            return (
+                <div style={{ minHeight: '100vh', background: '#121212', color: 'white', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                        <button onClick={() => setActionType('menu')} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}>
+                            <FaChevronLeft />
+                        </button>
+                        <div>
+                            <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#03dac6' }}>
+                                Billing History: {selectedUserForAction.displayName || 'Anonymous'}
+                            </h1>
+                            <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                                {selectedUserForAction.email} &bull; Tier: <span style={{ textTransform: 'capitalize', color: '#bb86fc', fontWeight: 'bold' }}>{selectedUserForAction.tier || 'free'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* History Table */}
+                    <div className="billing-card">
+                        <h3 style={{ marginTop: 0, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <FaHistory /> Transactions ({userHistory.length})
+                        </h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {userHistory.map(p => {
+                                const isExpired = p.status === 'started' && (Date.now() - p.createdAt > 7200000);
+                                const displayStatus = isExpired ? 'failed' : p.status;
+                                const isPersonalisation = p.tier === 'personalise_package';
+
+                                return (
+                                    <div key={p.id} style={{ 
+                                        padding: '1rem', 
+                                        background: 'rgba(255,255,255,0.02)', 
+                                        borderRadius: '8px',
+                                        borderLeft: `4px solid ${displayStatus === 'completed' ? '#03dac6' : displayStatus === 'started' ? '#ffc107' : '#cf6679'}`,
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}>
+                                        <div>
+                                            <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#fff' }}>
+                                                {isPersonalisation ? 'Personalisation Package' : `Tier: ${p.tier.toUpperCase()}`}
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: '#666', fontFamily: 'monospace', marginTop: '2px' }}>
+                                                Transaction ID: {p.id}
+                                            </div>
+                                            <div style={{ fontSize: '0.9rem', color: '#ccc', marginTop: '6px' }}>
+                                                Price: <strong style={{ color: '#fff' }}>{p.amount}</strong>
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
+                                                📅 {new Date(p.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="status-badge" style={{ 
+                                                backgroundColor: displayStatus === 'completed' ? 'rgba(3, 218, 198, 0.1)' : displayStatus === 'started' ? 'rgba(255, 193, 7, 0.1)' : 'rgba(207, 102, 121, 0.1)',
+                                                color: displayStatus === 'completed' ? '#03dac6' : displayStatus === 'started' ? '#ffc107' : '#cf6679'
+                                            }}>
+                                                {displayStatus === 'completed' ? <FaCheckCircle style={{ marginRight: '4px' }} /> : displayStatus === 'started' ? <FaSpinner className="spin" style={{ marginRight: '4px' }} /> : <FaTimesCircle style={{ marginRight: '4px' }} />}
+                                                {displayStatus}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {userHistory.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '2rem', color: '#555' }}>No transactions found for this user.</div>
+                            )}
                         </div>
                     </div>
                 </div>
+            );
+        }
 
-                {/* History Table */}
-                <div className="billing-card">
-                    <h3 style={{ marginTop: 0, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <FaHistory /> Transactions ({userHistory.length})
-                    </h3>
+        if (actionType === 'override') {
+            return (
+                <div style={{ minHeight: '100vh', background: '#121212', color: 'white', padding: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+                        <button onClick={() => setActionType('menu')} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', padding: '10px', borderRadius: '50%', cursor: 'pointer' }}>
+                            <FaChevronLeft />
+                        </button>
+                        <div>
+                            <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#03dac6' }}>
+                                Override User Tier: {selectedUserForAction.displayName || 'Anonymous'}
+                            </h1>
+                            <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                                {selectedUserForAction.email}
+                            </div>
+                        </div>
+                    </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {userHistory.map(p => {
-                            const isExpired = p.status === 'started' && (Date.now() - p.createdAt > 7200000);
-                            const displayStatus = isExpired ? 'failed' : p.status;
-                            const isPersonalisation = p.tier === 'personalise_package';
+                    <div className="billing-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '500px', margin: '0 auto' }}>
+                        {/* Current info */}
+                        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid #333' }}>
+                            <div style={{ marginBottom: '8px' }}>
+                                Current Subscription: <strong style={{ color: '#03dac6', textTransform: 'capitalize' }}>{selectedUserForAction.tier || 'free'}</strong>
+                            </div>
+                            <div style={{ marginBottom: '8px' }}>
+                                Expiry Date: <strong style={{ color: '#aaa' }}>{formatDateTime(selectedUserForAction.subscriptionExpiry)}</strong>
+                            </div>
+                            <div>
+                                Personalisation Package: <strong style={{ color: selectedUserForAction.unlockedPersonalisePackage ? '#bb86fc' : '#555' }}>
+                                    {selectedUserForAction.unlockedPersonalisePackage ? 'Unlocked' : 'No'}
+                                </strong>
+                            </div>
+                        </div>
 
-                            return (
-                                <div key={p.id} style={{ 
-                                    padding: '1rem', 
-                                    background: 'rgba(255,255,255,0.02)', 
+                        {/* Tier Select */}
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', color: '#bb86fc', fontSize: '0.9rem', fontWeight: 'bold' }}>Select New Tier</label>
+                            <select
+                                value={selectedUserForAction.tier || 'free'}
+                                onChange={async (e) => {
+                                    const newTier = e.target.value;
+                                    try {
+                                        await updateDoc(doc(db, "users", selectedUserForAction.uid), {
+                                            tier: newTier,
+                                            subscriptionExpiry: newTier === 'free' ? null : Date.now() + 30 * 24 * 60 * 60 * 1000,
+                                            isPaymentPending: false
+                                        });
+                                        setSelectedUserForAction((prev: any) => ({
+                                            ...prev,
+                                            tier: newTier,
+                                            subscriptionExpiry: newTier === 'free' ? null : Date.now() + 30 * 24 * 60 * 60 * 1000
+                                        }));
+                                        alert(`Manually overridden tier to ${newTier.toUpperCase()}`);
+                                    } catch (err: any) {
+                                        console.error(err);
+                                        alert("Failed to override tier: " + err.message);
+                                    }
+                                }}
+                                style={{
+                                    width: '100%',
+                                    background: '#121212',
+                                    border: '1px solid #444',
+                                    color: 'white',
+                                    padding: '12px',
                                     borderRadius: '8px',
-                                    borderLeft: `4px solid ${displayStatus === 'completed' ? '#03dac6' : displayStatus === 'started' ? '#ffc107' : '#cf6679'}`,
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center'
-                                }}>
-                                    <div>
-                                        <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#fff' }}>
-                                            {isPersonalisation ? 'Personalisation Package' : `Tier: ${p.tier.toUpperCase()}`}
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: '#666', fontFamily: 'monospace', marginTop: '2px' }}>
-                                            Transaction ID: {p.id}
-                                        </div>
-                                        <div style={{ fontSize: '0.9rem', color: '#ccc', marginTop: '6px' }}>
-                                            Price: <strong style={{ color: '#fff' }}>{p.amount}</strong>
-                                        </div>
-                                        <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '6px' }}>
-                                            📅 {new Date(p.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span className="status-badge" style={{ 
-                                            backgroundColor: displayStatus === 'completed' ? 'rgba(3, 218, 198, 0.1)' : displayStatus === 'started' ? 'rgba(255, 193, 7, 0.1)' : 'rgba(207, 102, 121, 0.1)',
-                                            color: displayStatus === 'completed' ? '#03dac6' : displayStatus === 'started' ? '#ffc107' : '#cf6679'
-                                        }}>
-                                            {displayStatus === 'completed' ? <FaCheckCircle style={{ marginRight: '4px' }} /> : displayStatus === 'started' ? <FaSpinner className="spin" style={{ marginRight: '4px' }} /> : <FaTimesCircle style={{ marginRight: '4px' }} />}
-                                            {displayStatus}
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {userHistory.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#555' }}>No transactions found for this user.</div>
-                        )}
+                                    fontSize: '0.95rem'
+                                }}
+                            >
+                                <option value="free">Free</option>
+                                <option value="basic">Just the 2 of us (basic)</option>
+                                <option value="standard">Squad of 4 (standard)</option>
+                                <option value="premium">Full Squad (premium)</option>
+                                <option value="festival">Festival Group (festival)</option>
+                                <option value="dev_tier_test">Dev Test (dev_tier_test)</option>
+                            </select>
+                        </div>
+
+                        {/* Personalisation Toggle */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', borderTop: '1px solid #333', paddingTop: '1.5rem' }}>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#fff' }}>Unlock Personalisation Package</h4>
+                                <p style={{ margin: 0, fontSize: '0.75rem', color: '#888' }}>Grants access to premium avatar options manually.</p>
+                            </div>
+                            <div 
+                                onClick={async () => {
+                                    const currentVal = !!selectedUserForAction.unlockedPersonalisePackage;
+                                    try {
+                                        await updateDoc(doc(db, "users", selectedUserForAction.uid), {
+                                            unlockedPersonalisePackage: !currentVal
+                                        });
+                                        setSelectedUserForAction((prev: any) => ({
+                                            ...prev,
+                                            unlockedPersonalisePackage: !currentVal
+                                        }));
+                                        alert(`Personalisation Package ${!currentVal ? 'Unlocked' : 'Locked'}`);
+                                    } catch (err: any) {
+                                        console.error(err);
+                                        alert("Failed to update personalisation: " + err.message);
+                                    }
+                                }}
+                                style={{
+                                    width: '40px',
+                                    height: '20px',
+                                    background: selectedUserForAction.unlockedPersonalisePackage ? '#bb86fc' : '#555',
+                                    borderRadius: '10px',
+                                    position: 'relative',
+                                    cursor: 'pointer',
+                                    transition: 'background 0.3s'
+                                }}
+                            >
+                                <div style={{
+                                    width: '16px',
+                                    height: '16px',
+                                    background: 'white',
+                                    borderRadius: '50%',
+                                    position: 'absolute',
+                                    top: '2px',
+                                    left: selectedUserForAction.unlockedPersonalisePackage ? '22px' : '2px',
+                                    transition: 'left 0.3s'
+                                }} />
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={() => setActionType('menu')}
+                            className="btn btn-secondary w-full"
+                            style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'white',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                fontSize: '0.9rem',
+                                cursor: 'pointer',
+                                marginTop: '1.5rem'
+                            }}
+                        >
+                            Back to Actions
+                        </button>
                     </div>
                 </div>
-            </div>
-        );
+            );
+        }
     }
 
     if (viewMode === 'users') {
@@ -438,7 +663,10 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                                             {squad.members.map(member => (
                                                 <tr 
                                                     key={member.uid} 
-                                                    onClick={() => setSelectedUser(member)}
+                                                    onClick={() => {
+                                                        setSelectedUserForAction(member);
+                                                        setActionType('menu');
+                                                    }}
                                                     onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
                                                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                                                     style={{ borderBottom: '1px solid #2a2a2a', height: '40px', cursor: 'pointer', transition: 'background 0.2s' }}
@@ -512,7 +740,10 @@ const BillingPage: React.FC<BillingPageProps> = ({ onClose, isDev }) => {
                                         {groupedData.alone.map(member => (
                                             <tr 
                                                 key={member.uid} 
-                                                onClick={() => setSelectedUser(member)}
+                                                onClick={() => {
+                                                    setSelectedUserForAction(member);
+                                                    setActionType('menu');
+                                                }}
                                                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
                                                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                                                 style={{ borderBottom: '1px solid #2a2a2a', height: '40px', cursor: 'pointer', transition: 'background 0.2s' }}
