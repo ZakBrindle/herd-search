@@ -46,6 +46,22 @@ type GPSBounds = {
 
 const STATUS_EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+const getVoteCountdownText = (createdAt: number): string => {
+  const elapsedMs = Date.now() - createdAt;
+  const totalDurationMs = 15 * 60 * 1000; // 15 minutes
+  const remainingMs = totalDurationMs - elapsedMs;
+  if (remainingMs <= 0) {
+    return "Vote ended";
+  }
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  if (remainingSeconds >= 60) {
+    const mins = Math.ceil(remainingSeconds / 60);
+    return `Vote ends in ${mins} ${mins === 1 ? 'minute' : 'minutes'}`;
+  } else {
+    return `Vote ends in ${remainingSeconds} ${remainingSeconds === 1 ? 'second' : 'seconds'}`;
+  }
+};
+
 type Vote = {
   id: string;
   creatorId: string;
@@ -829,7 +845,37 @@ export default function App() {
   };
 
   const [activeVote, setActiveVote] = useState<Vote | null>(null);
+  const [voteTimerTick, setVoteTimerTick] = useState(0);
   const [dismissedVoteId, setDismissedVoteId] = useState<string | null>(() => localStorage.getItem('dismissedVoteId'));
+
+  // Auto-end vote timer check
+  useEffect(() => {
+    if (!activeVote || activeVote.completedAt || !userData?.squadId) return;
+
+    const checkTimer = () => {
+      const elapsedMs = Date.now() - activeVote.createdAt;
+      const totalDurationMs = 15 * 60 * 1000;
+      if (elapsedMs >= totalDurationMs) {
+        autoEndVote(activeVote);
+      }
+    };
+
+    // Run once immediately
+    checkTimer();
+
+    // Run every 10 seconds to check for timeout
+    const timer = setInterval(checkTimer, 10000);
+    return () => clearInterval(timer);
+  }, [activeVote, userData?.squadId]);
+
+  // UI timer ticker to force re-render Map active vote widget every second
+  useEffect(() => {
+    if (!activeVote || activeVote.completedAt) return;
+    const timer = setInterval(() => {
+      setVoteTimerTick(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [activeVote]);
 
   const handleDismissVote = (voteId: string) => {
     setDismissedVoteId(voteId);
@@ -2182,13 +2228,25 @@ export default function App() {
           ? `Vote Ended: We are going to ${activeVote.targetAreaName}`
           : `Vote Ended: We are NOT going to ${activeVote.targetAreaName}`;
 
-        addDoc(collection(db, "squads", userData.squadId, "messages"), {
+        const votesWithDetails = Object.entries(updatedVotes).map(([uid, val]) => {
+          const isMe = uid === userData.uid;
+          const member = isMe ? userData : friendsData.find((f: any) => f.uid === uid);
+          return {
+            uid,
+            vote: val as 'yes' | 'no',
+            displayName: member?.displayName || 'Unknown Member',
+            photoURL: member?.photoURL || ''
+          };
+        });
+
+        setDoc(doc(db, "squads", userData.squadId, "messages", `vote_ended_${activeVote.id}`), {
           senderId: userData.uid, // Must match auth uid for rules
           senderName: 'Squad Vote',
           senderPhotoURL: '', // No avatar for system msg
           content: resultString,
           type: 'vote_ended',
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          votes: votesWithDetails
         }).catch(console.error);
 
         // --- Send Push Notifications (Vote Ended) ---
@@ -2218,6 +2276,84 @@ export default function App() {
       await updateDoc(squadRef, updateData);
     } catch (e) { console.error(e); }
   };
+
+  async function autoEndVote(voteToEnd: Vote) {
+    if (!userData?.squadId || voteToEnd.completedAt) return;
+
+    const squadRef = doc(db, "squads", userData.squadId);
+    try {
+      const squadSnap = await getDoc(squadRef);
+      if (!squadSnap.exists()) return;
+      const squadData = squadSnap.data();
+      const currentVote = squadData.activeVote;
+      if (!currentVote || currentVote.id !== voteToEnd.id || currentVote.completedAt) {
+        return; // Already ended or cleared
+      }
+
+      const votes = currentVote.votes || {};
+      const yesVotes = Object.values(votes).filter(v => v === 'yes').length;
+      const noVotes = Object.values(votes).filter(v => v === 'no').length;
+
+      const completedAt = Date.now();
+      const resultString = yesVotes > noVotes
+        ? `Vote Ended: We are going to ${currentVote.targetAreaName}`
+        : `Vote Ended: We are NOT going to ${currentVote.targetAreaName}`;
+
+      // Build votes with details (uid, vote, displayName, photoURL) to save to the chat message
+      const votesWithDetails = Object.entries(votes).map(([uid, val]) => {
+        const isMe = uid === userData.uid;
+        const member = isMe ? userData : friendsData.find((f: any) => f.uid === uid);
+        return {
+          uid,
+          vote: val as 'yes' | 'no',
+          displayName: member?.displayName || 'Unknown Member',
+          photoURL: member?.photoURL || ''
+        };
+      });
+
+      // Update the activeVote inside squad doc
+      await updateDoc(squadRef, {
+        "activeVote.completedAt": completedAt
+      });
+
+      // Send to Chat using deterministic ID
+      await setDoc(doc(db, "squads", userData.squadId, "messages", `vote_ended_${currentVote.id}`), {
+        senderId: userData.uid, // Must match auth uid for rules
+        senderName: 'Squad Vote',
+        senderPhotoURL: '', // No avatar for system msg
+        content: resultString,
+        type: 'vote_ended',
+        createdAt: Date.now(),
+        votes: votesWithDetails
+      });
+
+      // --- Send Push Notifications (Vote Ended) ---
+      try {
+        const q = query(collection(db, 'users'), where('squadId', '==', userData.squadId));
+        const snap = await getDocs(q);
+        const tokens = snap.docs
+          .map(d => d.data())
+          .filter(u => u.uid !== userData.uid && u.fcmToken)
+          .map(u => u.fcmToken);
+
+        if (tokens.length > 0) {
+          fetch('/api/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tokens,
+              title: 'Squad Vote Result!',
+              body: resultString,
+              data: { type: 'vote_end', squadId: userData.squadId }
+            })
+          }).catch(err => console.error("Notification API failed:", err));
+        }
+      } catch (e) { console.warn("Could not send vote end notification:", e); }
+
+    } catch (e) {
+      console.error("Error auto-ending vote:", e);
+    }
+  }
 
   const handleSearchForMember = async (member: UserData) => {
     if (!currentUser || !userData) return;
@@ -2342,15 +2478,25 @@ export default function App() {
           </button>
         )}
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-          <strong style={{ color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Squad Vote</strong>
-          <span style={{ fontSize: '1rem' }}>🗳️</span>
+        <div data-tick={voteTimerTick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <strong style={{ color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Squad Vote</strong>
+            <span style={{ fontSize: '1rem' }}>🗳️</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#aaa' }}>
+            Started by {activeVote.creatorName}
+          </div>
         </div>
 
         {/* Question */}
-        <h3 style={{ margin: '0 0 16px 0', textAlign: 'center', fontSize: '1.3rem' }}>
+        <h3 style={{ margin: '0 0 4px 0', textAlign: 'center', fontSize: '1.3rem' }}>
           Go to <span style={{ color: 'white' }}>{activeVote.targetAreaName}</span>?
         </h3>
+        {!isCompleted && (
+          <div style={{ fontSize: '0.85rem', color: '#ffb74d', marginBottom: '16px', fontWeight: 'bold', textAlign: 'center' }}>
+            ⏳ {getVoteCountdownText(activeVote.createdAt)}
+          </div>
+        )}
 
         {!isCompleted ? (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -6099,13 +6245,18 @@ export default function App() {
     }
 
     if (activeTab === 'chat') {
-      const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
+      const memberUids = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
       // Double check validation if they somehow got here without a squad or if feature is disabled
-      if (!chatEnabled || !userData?.squadId || squadMembers.length <= 1) {
+      if (!chatEnabled || !userData?.squadId || memberUids.length <= 1) {
         // Redirect back to map if requirements not met
         setTimeout(() => setActiveTab('map'), 0);
         return null;
       }
+
+      const squadMembersData = memberUids.map((uid: string) => {
+        if (uid === userData?.uid) return userData;
+        return friendsData.find((f: any) => f.uid === uid) || { uid, displayName: 'Unknown Member' };
+      }).filter(Boolean) as UserData[];
 
       return (
         <ChatTab
@@ -6114,7 +6265,7 @@ export default function App() {
           activeVote={activeVote}
           onVote={castVote}
           onSelectMemberByUid={handleSelectMemberByUid}
-          squadMembers={squadMembers}
+          squadMembers={squadMembersData}
           chatHourlyLimit={chatHourlyLimit}
         />
       );
@@ -6704,6 +6855,79 @@ export default function App() {
                   🏮 Let them know you're searching!
                 </button>
               )}
+
+              {/* Check-in / Vote we go for the location under the user */}
+              {(() => {
+                const memberArea = (selectedMember.location ? findAreaAtPoint(selectedMember.location) : null)
+                  || (selectedMember.currentArea ? areas.find(a => a.name === selectedMember.currentArea) : null);
+
+                if (!memberArea) return null;
+
+                return (
+                  <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '0.75rem' }}>
+                    {!userData?.useGps && (
+                      <button
+                        onClick={async () => {
+                          handleManualCheckIn(memberArea);
+                          setSelectedMember(null);
+                        }}
+                        className="btn btn-primary"
+                        style={{
+                          flex: 1,
+                          background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                          padding: '12px 6px',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          borderRadius: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px',
+                          border: 'none',
+                          color: 'black',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        <FaMapMarkerAlt size={14} />
+                        <span>Check in to {memberArea.name}</span>
+                      </button>
+                    )}
+                    {userData?.squadId && (
+                      <button
+                        onClick={() => {
+                          startVote(memberArea);
+                          setSelectedMember(null);
+                        }}
+                        className="btn"
+                        style={{
+                          flex: 1,
+                          background: 'linear-gradient(45deg, #ff0080, #7928ca)',
+                          padding: '12px 6px',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          borderRadius: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px',
+                          color: 'white',
+                          border: 'none',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}
+                      >
+                        <FaUserFriends size={14} />
+                        <span>Vote we go</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 {/* Kick from Squad */}

@@ -13,6 +13,8 @@ import {
 import { db } from '../firebase';
 import type { UserData } from '../contexts/AuthContext';
 import { FaComments, FaReply } from 'react-icons/fa';
+import VoteResultsModal from './modals/VoteResultsModal';
+
 const getPartyhatImg = (skin?: string): string => {
     if (skin === 'dino') return '/dino-hat.png';
     if (skin === 'princess') return '/princess-hat.png';
@@ -44,6 +46,12 @@ interface ChatMessage {
             displayName: string;
         }
     };
+    votes?: Array<{
+        uid: string;
+        vote: 'yes' | 'no';
+        displayName: string;
+        photoURL?: string;
+    }>;
 }
 
 interface Vote {
@@ -67,8 +75,35 @@ interface ChatTabProps {
     chatHourlyLimit?: string;
 }
 
+const getVoteCountdownText = (createdAt: number): string => {
+    const elapsedMs = Date.now() - createdAt;
+    const totalDurationMs = 15 * 60 * 1000; // 15 minutes
+    const remainingMs = totalDurationMs - elapsedMs;
+    if (remainingMs <= 0) {
+        return "Vote ended";
+    }
+    const remainingSeconds = Math.ceil(remainingMs / 1000);
+    if (remainingSeconds >= 60) {
+        const mins = Math.ceil(remainingSeconds / 60);
+        return `Vote ends in ${mins} ${mins === 1 ? 'minute' : 'minutes'}`;
+    } else {
+        return `Vote ends in ${remainingSeconds} ${remainingSeconds === 1 ? 'second' : 'seconds'}`;
+    }
+};
+
 export default function ChatTab({ userData, squadId, activeVote, onVote, onSelectMemberByUid, squadMembers = [], chatHourlyLimit = '10' }: ChatTabProps) {
     const [nowTime, setNowTime] = useState(Date.now());
+    const [selectedVoteResultMsg, setSelectedVoteResultMsg] = useState<ChatMessage | null>(null);
+    const [voteTimerTick, setVoteTimerTick] = useState(0);
+
+    // Countdown timer ticker
+    useEffect(() => {
+        if (!activeVote || activeVote.completedAt) return;
+        const interval = setInterval(() => {
+            setVoteTimerTick(prev => prev + 1);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [activeVote]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -618,19 +653,47 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                     // If it is a vote ended message or search notification, render it differently
                     if (msg.type === 'vote_ended' || msg.type === 'search_notification') {
                         const isSearch = msg.type === 'search_notification';
+                        const hasVotes = msg.type === 'vote_ended' && msg.votes && msg.votes.length > 0;
                         return (
                             <div key={msg.id} style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
-                                <div style={{
-                                    background: isSearch ? '#FFF9C4' : '#E1BEE7', // Pastel Yellow for Search, Purple for Vote
-                                    padding: '6px 16px',
-                                    borderRadius: '20px',
-                                    fontSize: '0.8rem',
-                                    color: '#444',
-                                    fontWeight: isSearch ? '500' : '600',
-                                    border: isSearch ? '1px solid #F0E68C' : '1px solid #D1C4E9',
-                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                }}>
+                                <div
+                                    onClick={() => {
+                                        if (hasVotes) {
+                                            setSelectedVoteResultMsg(msg);
+                                        }
+                                    }}
+                                    style={{
+                                        background: isSearch ? '#FFF9C4' : '#E1BEE7', // Pastel Yellow for Search, Purple for Vote
+                                        padding: '6px 16px',
+                                        borderRadius: '20px',
+                                        fontSize: '0.8rem',
+                                        color: '#444',
+                                        fontWeight: isSearch ? '500' : '600',
+                                        border: isSearch ? '1px solid #F0E68C' : '1px solid #D1C4E9',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                                        cursor: hasVotes ? 'pointer' : 'default',
+                                        transition: 'transform 0.1s ease',
+                                        textAlign: 'center'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (hasVotes) {
+                                            e.currentTarget.style.transform = 'scale(1.03)';
+                                            e.currentTarget.style.boxShadow = '0 3px 6px rgba(0,0,0,0.15)';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (hasVotes) {
+                                            e.currentTarget.style.transform = 'scale(1)';
+                                            e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+                                        }
+                                    }}
+                                >
                                     {msg.content}
+                                    {hasVotes && (
+                                        <span style={{ fontSize: '0.65rem', display: 'block', opacity: 0.7, marginTop: '2px', fontWeight: 'normal' }}>
+                                            (Tap to see details)
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -850,13 +913,21 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                         gap: '12px',
                         animation: 'fadeIn 0.5s ease-out'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--primary)', fontWeight: 'bold', letterSpacing: '1px' }}>Active Squad Vote</span>
-                            <span>📋</span>
+                        <div data-tick={voteTimerTick} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--primary)', fontWeight: 'bold', letterSpacing: '1px' }}>Active Squad Vote</span>
+                                <span>📋</span>
+                            </div>
+                            <span style={{ fontSize: '0.75rem', color: '#aaa' }}>
+                                Started by {activeVote.creatorName}
+                            </span>
                         </div>
                         <h3 style={{ margin: 0, fontSize: '1.2rem', textAlign: 'center' }}>
                             Go to <span style={{ color: 'var(--primary)' }}>{activeVote.targetAreaName}</span>?
                         </h3>
+                        <div style={{ fontSize: '0.85rem', color: '#ffb74d', fontWeight: 'bold' }}>
+                            ⏳ {getVoteCountdownText(activeVote.createdAt)}
+                        </div>
 
                         <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '8px' }}>
                             {/* Yes Button */}
@@ -1178,6 +1249,13 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                         </div>
                     </div>
                 </div>
+            )}
+            {selectedVoteResultMsg && selectedVoteResultMsg.votes && (
+                <VoteResultsModal
+                    onClose={() => setSelectedVoteResultMsg(null)}
+                    content={selectedVoteResultMsg.content}
+                    votes={selectedVoteResultMsg.votes}
+                />
             )}
         </div >
     );
