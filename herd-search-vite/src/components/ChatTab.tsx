@@ -68,6 +68,26 @@ interface ChatTabProps {
 }
 
 export default function ChatTab({ userData, squadId, activeVote, onVote, onSelectMemberByUid, squadMembers = [], chatHourlyLimit = '10' }: ChatTabProps) {
+    const [nowTime, setNowTime] = useState(Date.now());
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setNowTime(Date.now());
+        }, 5000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const getChatCooldownMinutes = (): number => {
+        if (!userData || chatHourlyLimit === 'Unlimited') return 0;
+        const limitNum = parseInt(chatHourlyLimit, 10);
+        const currentHour = Math.floor(nowTime / (3600 * 1000));
+        
+        if (userData.chatHourStart === currentHour && (userData.chatCountThisHour || 0) >= limitNum) {
+            const nextHourStart = (currentHour + 1) * 3600 * 1000;
+            return Math.max(1, Math.ceil((nextHourStart - nowTime) / 60000));
+        }
+        return 0;
+    };
     const getSenderData = (senderId: string, msg: ChatMessage): UserData => {
         if (userData && userData.uid === senderId) {
             return userData;
@@ -898,74 +918,102 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
                 zIndex: 100,
                 boxShadow: '0 -4px 10px rgba(0,0,0,0.5)'
             }}>
-                {replyToMessage && (
-                    <div style={{
-                        background: '#FFF9C4', // Pastel Yellow background
-                        padding: '8px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '10px',
-                        borderBottom: '1px solid #F0E68C',
-                    }}>
-                        <span style={{ fontSize: '0.8rem', color: '#444', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            Replying to {replyToMessage.senderName.split(' ')[0]}'s message: {replyToMessage.content.substring(0, 30)}{replyToMessage.content.length > 30 ? '...' : ''}
-                        </span>
-                        <button
-                            onClick={() => setReplyToMessage(null)}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#e53935',
-                                cursor: 'pointer',
-                                fontSize: '1.1rem',
-                                padding: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                fontWeight: 'bold'
-                            }}
-                        >
-                            ✖
-                        </button>
-                    </div>
-                )}
-                <div style={{ display: 'flex', gap: '8px', padding: '12px' }}>
-                    <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                        placeholder="Message squad..."
-                        className="input-field"
-                        style={{
-                            flex: 1,
-                            borderRadius: '24px',
-                            padding: '10px 16px',
-                            border: 'none',
-                            background: '#333',
-                            color: 'white',
-                            marginBottom: 0, // Override input-field margin
-                            fontSize: '16px' // Prevent iOS Zoom
-                        }}
-                    />
-                    <button
-                        onClick={() => handleSendMessage()}
-                        className="btn"
-                        style={{
-                            borderRadius: '50%',
-                            width: '42px',
-                            height: '42px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'var(--primary)',
-                            border: 'none',
-                            color: 'black'
-                        }}
-                    >
-                        <span style={{ fontSize: '1.2rem', marginTop: '-2px' }}>➤</span>
-                    </button>
-                </div>
+                {(() => {
+                    const cooldownMins = getChatCooldownMinutes();
+                    return (
+                        <>
+                            {cooldownMins > 0 && (
+                                <div style={{
+                                    background: 'rgba(229, 57, 53, 0.1)',
+                                    borderBottom: '1px solid rgba(229, 57, 53, 0.2)',
+                                    padding: '8px 16px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    color: '#ef5350',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 'bold',
+                                    textAlign: 'center'
+                                }}>
+                                    <span>⚠️ Chat limit reached. Cooldown: {cooldownMins} minutes remaining.</span>
+                                </div>
+                            )}
+                            {replyToMessage && (
+                                <div style={{
+                                    background: '#FFF9C4', // Pastel Yellow background
+                                    padding: '8px 16px',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '10px',
+                                    borderBottom: '1px solid #F0E68C',
+                                    display: cooldownMins > 0 ? 'none' : 'flex' // Hide reply preview if rate limited
+                                }}>
+                                    <span style={{ fontSize: '0.8rem', color: '#444', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        Replying to {replyToMessage.senderName.split(' ')[0]}'s message: {replyToMessage.content.substring(0, 30)}{replyToMessage.content.length > 30 ? '...' : ''}
+                                    </span>
+                                    <button
+                                        onClick={() => setReplyToMessage(null)}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#e53935',
+                                            cursor: 'pointer',
+                                            fontSize: '1.1rem',
+                                            padding: '4px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        ✖
+                                    </button>
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '8px', padding: '12px' }}>
+                                <input
+                                    type="text"
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && cooldownMins === 0 && handleSendMessage()}
+                                    placeholder={cooldownMins > 0 ? `Rate limited... (${cooldownMins}m remaining)` : "Message squad..."}
+                                    disabled={cooldownMins > 0}
+                                    className="input-field"
+                                    style={{
+                                        flex: 1,
+                                        borderRadius: '24px',
+                                        padding: '10px 16px',
+                                        border: 'none',
+                                        background: cooldownMins > 0 ? '#222' : '#333',
+                                        color: cooldownMins > 0 ? '#666' : 'white',
+                                        marginBottom: 0, // Override input-field margin
+                                        fontSize: '16px', // Prevent iOS Zoom
+                                        cursor: cooldownMins > 0 ? 'not-allowed' : 'text'
+                                    }}
+                                />
+                                <button
+                                    onClick={() => cooldownMins === 0 && handleSendMessage()}
+                                    disabled={cooldownMins > 0}
+                                    className="btn"
+                                    style={{
+                                        borderRadius: '50%',
+                                        width: '42px',
+                                        height: '42px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: cooldownMins > 0 ? '#444' : 'var(--primary)',
+                                        border: 'none',
+                                        color: cooldownMins > 0 ? '#888' : 'black',
+                                        cursor: cooldownMins > 0 ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    <span style={{ fontSize: '1.2rem', marginTop: '-2px' }}>➤</span>
+                                </button>
+                            </div>
+                        </>
+                    );
+                })()}
             </div>
 
             {/* Custom Premium Message Options Popup */}
