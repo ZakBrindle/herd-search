@@ -52,7 +52,9 @@ service cloud.firestore {
             'statusMessage', 'statusTimestamp', 'ghostMode', 'ghostModeExpiry', 'ghostModeCooldown',
             'fcmToken', 'isDev', 'hasSeenWelcome', 'schedule', 'lastSeenWrapped', 'searchingFor', 'lastRatedWeek',
             'mapPreference', 'hasRated', 'avatarColor', 'avatarEffects', 'useHighQualityImages', 'avatarHaloSkin', 'avatarPartyhatSkin', 'avatarTrafficconeSkin', 'mapNoIcons',
-            'staleNotificationSent'
+            'staleNotificationSent',
+            'chatCountThisHour',
+            'chatHourStart'
           ])
         )
         // Squad owner can set squadId to null for members

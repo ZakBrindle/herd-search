@@ -464,6 +464,7 @@ export default function App() {
   const [allUsersOnMap, setAllUsersOnMap] = useState<UserData[]>([]);
   const [upgradesEnabled, setUpgradesEnabled] = useState(true);
   const [chatEnabled, setChatEnabled] = useState(true);
+  const [chatHourlyLimit, setChatHourlyLimit] = useState<string>('10');
   const [whatsOnEnabled, setWhatsOnEnabled] = useState(true);
   const [forceNoIcons, setForceNoIcons] = useState(false);
   const [isUpdatingGps, setIsUpdatingGps] = useState(false);
@@ -621,11 +622,13 @@ export default function App() {
         if (data.whatsOnEnabled !== undefined) setWhatsOnEnabled(data.whatsOnEnabled);
         if (data.forceNoIcons !== undefined) setForceNoIcons(data.forceNoIcons);
         if (data.activeOverlays !== undefined) setActiveOverlays(data.activeOverlays || {});
+        setChatHourlyLimit(data.chatHourlyLimit || '10');
       } else {
         setChatEnabled(true);
         setWhatsOnEnabled(true);
         setForceNoIcons(false);
         setActiveOverlays({});
+        setChatHourlyLimit('10');
       }
     });
 
@@ -6112,6 +6115,7 @@ export default function App() {
           onVote={castVote}
           onSelectMemberByUid={handleSelectMemberByUid}
           squadMembers={squadMembers}
+          chatHourlyLimit={chatHourlyLimit}
         />
       );
     }
@@ -6812,6 +6816,41 @@ export default function App() {
                     <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: chatEnabled ? '22px' : '2px', transition: 'left 0.3s' }} />
                   </div>
                 </div>
+
+                {chatEnabled && (
+                  <div className="card" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', padding: '12px' }}>
+                    <span>Limit to X chats per hour</span>
+                    <select
+                      value={chatHourlyLimit}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setChatHourlyLimit(val);
+                        try {
+                          await setDoc(doc(db, 'config', 'features'), { chatHourlyLimit: val }, { merge: true });
+                        } catch (err: any) {
+                          console.error(err);
+                          showAlert("Failed to save Chat limit: " + err.message);
+                        }
+                      }}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: '4px',
+                        color: '#fff',
+                        padding: '4px 8px',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="3" style={{ background: '#1e1e1e' }}>3</option>
+                      <option value="5" style={{ background: '#1e1e1e' }}>5</option>
+                      <option value="10" style={{ background: '#1e1e1e' }}>10</option>
+                      <option value="15" style={{ background: '#1e1e1e' }}>15</option>
+                      <option value="20" style={{ background: '#1e1e1e' }}>20</option>
+                      <option value="Unlimited" style={{ background: '#1e1e1e' }}>Unlimited</option>
+                    </select>
+                  </div>
+                )}
 
                 {/* What's On Enabled Toggle */}
                 <div className="card" onClick={async () => {

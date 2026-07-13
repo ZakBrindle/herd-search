@@ -64,9 +64,10 @@ interface ChatTabProps {
     onVote?: (voteVal: 'yes' | 'no') => Promise<void>;
     onSelectMemberByUid?: (uid: string) => void;
     squadMembers?: UserData[];
+    chatHourlyLimit?: string;
 }
 
-export default function ChatTab({ userData, squadId, activeVote, onVote, onSelectMemberByUid, squadMembers = [] }: ChatTabProps) {
+export default function ChatTab({ userData, squadId, activeVote, onVote, onSelectMemberByUid, squadMembers = [], chatHourlyLimit = '10' }: ChatTabProps) {
     const getSenderData = (senderId: string, msg: ChatMessage): UserData => {
         if (userData && userData.uid === senderId) {
             return userData;
@@ -381,6 +382,29 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
         setReplyToMessage(null);
 
         try {
+            // Check hourly limit (resets every calendar hour)
+            if (chatHourlyLimit !== 'Unlimited') {
+                const limitNum = parseInt(chatHourlyLimit, 10);
+                const currentHour = Math.floor(Date.now() / (3600 * 1000));
+                let currentCount = 0;
+
+                if (userData.chatHourStart === currentHour) {
+                    currentCount = userData.chatCountThisHour || 0;
+                }
+
+                if (currentCount >= limitNum) {
+                    alert(`Hourly chat limit reached (${limitNum} messages/hour). Resets next hour!`);
+                    setNewMessage(msgContent); // Restore
+                    return;
+                }
+
+                // Increment hourly count
+                await updateDoc(doc(db, 'users', userData.uid), {
+                    chatHourStart: currentHour,
+                    chatCountThisHour: currentCount + 1
+                });
+            }
+
             const messageData: any = {
                 senderId: userData.uid,
                 senderName: userData.displayName || 'Unknown',
@@ -429,7 +453,8 @@ export default function ChatTab({ userData, squadId, activeVote, onVote, onSelec
             scrollToBottom();
         } catch (error) {
             console.error("Error sending message:", error);
-            // Ideally show an error toast here or restore the message
+            alert("Error sending message. Please try again.");
+            setNewMessage(msgContent); // Restore
         }
     };
 
