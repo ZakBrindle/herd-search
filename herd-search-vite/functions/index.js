@@ -128,3 +128,67 @@ exports.onSquadUpdate = functions.firestore
         }
         return null;
     });
+
+/**
+ * Scheduled Trigger: Check for users who haven't updated their location in 2h or more.
+ * Runs every 30 minutes.
+ */
+exports.checkStaleLocations = functions.pubsub
+    .schedule("every 30 minutes")
+    .onRun(async (context) => {
+        const now = Date.now();
+        const twoHoursAgo = now - 2 * 60 * 60 * 1000;
+
+        const snapshot = await db.collection("users")
+            .where("lastUpdate", "<", twoHoursAgo)
+            .get();
+
+        if (snapshot.empty) {
+            console.log("No stale locations found.");
+            return null;
+        }
+
+        const tokens = [];
+        const userRefsToUpdate = [];
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            // Skip if notification was already sent
+            if (data.staleNotificationSent === true) return;
+
+            // Only notify if they have an FCM token and are not in active ghost mode
+            const isGhost = data.ghostMode && data.ghostModeExpiry > now;
+            if (data.fcmToken && !isGhost) {
+                tokens.push(data.fcmToken);
+                userRefsToUpdate.push(doc.ref);
+            }
+        });
+
+        if (tokens.length === 0) {
+            console.log("No users to notify with FCM tokens.");
+            return null;
+        }
+
+        const messagePayload = {
+            notification: {
+                title: "Location Stale 📍",
+                body: "Open to update location"
+            },
+            tokens: tokens
+        };
+
+        try {
+            const response = await messaging.sendMulticast(messagePayload);
+            console.log(`Sent stale location notifications to ${response.successCount} users.`);
+
+            const batch = db.batch();
+            userRefsToUpdate.forEach(ref => {
+                batch.update(ref, { staleNotificationSent: true });
+            });
+            await batch.commit();
+        } catch (e) {
+            console.error("Error sending stale location notifications:", e);
+        }
+
+        return null;
+    });

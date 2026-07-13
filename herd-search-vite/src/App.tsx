@@ -14,7 +14,7 @@ import { useAuth, type UserData, type Tier, type Point } from './contexts/AuthCo
 import SupportSystem from './components/SupportSystem';
 import {
   doc, onSnapshot, setDoc, getDoc, updateDoc, arrayUnion, collection,
-  query, where, getDocs, addDoc, deleteDoc, type DocumentData, arrayRemove, limit, orderBy
+  query, where, getDocs, addDoc, deleteDoc, type DocumentData, arrayRemove, limit, orderBy, writeBatch
 } from "firebase/firestore";
 import { auth, db, messaging } from './firebase';
 import { getToken, onMessage } from "firebase/messaging";
@@ -1330,7 +1330,8 @@ export default function App() {
           const updateData: any = {
             location: newPoint,
             lastUpdate: Date.now(),
-            currentArea: areaName
+            currentArea: areaName,
+            staleNotificationSent: false
           };
 
           if (areaName !== 'Out of bounds') {
@@ -2037,7 +2038,8 @@ export default function App() {
         location: centroid,
         currentArea: area.name,
         lastKnownArea: area.name,
-        lastUpdate: Date.now()
+        lastUpdate: Date.now(),
+        staleNotificationSent: false
       });
       setActiveModal(null);
       setSelectedAreaForCheckIn(null);
@@ -2577,23 +2579,30 @@ export default function App() {
   const handleKickMemberConfirmed = async (member: UserData) => {
     if (!userData || !userData.squadId || !member.uid) return;
     try {
-      await updateDoc(doc(db, "squads", userData.squadId), {
+      const batch = writeBatch(db);
+
+      // 1. Remove member from squad
+      batch.update(doc(db, "squads", userData.squadId), {
         members: arrayRemove(member.uid)
       });
-      await updateDoc(getUserDocRef(member.uid), {
+
+      // 2. Set kicked user's squadId to null
+      batch.update(getUserDocRef(member.uid), {
         squadId: null
       });
 
-      // Send to Chat
-      addDoc(collection(db, "squads", userData.squadId, "messages"), {
+      // 3. Send to Chat
+      const messageRef = doc(collection(db, "squads", userData.squadId, "messages"));
+      batch.set(messageRef, {
         senderId: 'system',
         senderName: 'Squad Info',
         senderPhotoURL: '',
         content: `${member.displayName} was removed from the squad.`,
         type: 'status_update',
         createdAt: Date.now()
-      }).catch(console.error);
+      });
 
+      await batch.commit();
       setSelectedMember(null);
     } catch (error) {
       console.error("Error kicking member:", error);
@@ -2613,29 +2622,40 @@ export default function App() {
   const handleLeaveSquadConfirmed = async () => {
     if (!userData || !userData.squadId || !currentUser) return;
     try {
-      await updateDoc(doc(db, "squads", userData.squadId), {
+      const batch = writeBatch(db);
+
+      // 1. Remove self from old squad members
+      batch.update(doc(db, "squads", userData.squadId), {
         members: arrayRemove(currentUser.uid)
       });
 
-      // Send to Chat
-      addDoc(collection(db, "squads", userData.squadId, "messages"), {
+      // 2. Send to Chat (in old squad)
+      const oldChatMessageRef = doc(collection(db, "squads", userData.squadId, "messages"));
+      batch.set(oldChatMessageRef, {
         senderId: 'system',
         senderName: 'Squad Info',
         senderPhotoURL: '',
         content: `${userData.displayName} left the squad.`,
         type: 'status_update',
         createdAt: Date.now()
-      }).catch(console.error);
-      const squadDoc = await addDoc(collection(db, "squads"), {
+      });
+
+      // 3. Pre-create new squad doc ref
+      const newSquadRef = doc(collection(db, "squads"));
+      batch.set(newSquadRef, {
         ownerId: currentUser.uid,
         members: [currentUser.uid],
         pendingMembers: [],
         createdAt: Date.now(),
       });
-      await updateDoc(doc(db, "users", currentUser.uid), {
-        squadId: squadDoc.id,
+
+      // 4. Update current user doc with new squad info
+      batch.update(doc(db, "users", currentUser.uid), {
+        squadId: newSquadRef.id,
         squadOwnerId: currentUser.uid,
       });
+
+      await batch.commit();
       setSelectedMember(null);
     } catch (error) {
       console.error("Error leaving squad:", error);
@@ -2654,34 +2674,38 @@ export default function App() {
 
   const handleAcceptSquadInvite = async (invite: DocumentData) => {
     try {
+      const batch = writeBatch(db);
+
       // Leave old squad if in one
       if (userData?.squadId) {
-        await updateDoc(doc(db, "squads", userData.squadId), {
+        batch.update(doc(db, "squads", userData.squadId), {
           members: arrayRemove(currentUser!.uid)
         });
       }
 
-      await updateDoc(doc(db, "squads", invite.squadId), {
+      batch.update(doc(db, "squads", invite.squadId), {
         members: arrayUnion(currentUser!.uid)
       });
-      await updateDoc(doc(db, "users", currentUser!.uid), {
+      batch.update(doc(db, "users", currentUser!.uid), {
         squadId: invite.squadId,
         squadOwnerId: invite.from
       });
-      await updateDoc(doc(db, "squadInvites", invite.id), {
+      batch.update(doc(db, "squadInvites", invite.id), {
         status: "accepted"
       });
 
       // Send to Chat
-      addDoc(collection(db, "squads", invite.squadId, "messages"), {
+      const messageRef = doc(collection(db, "squads", invite.squadId, "messages"));
+      batch.set(messageRef, {
         senderId: 'system',
         senderName: 'Squad Info',
         senderPhotoURL: '',
         content: `${userData?.displayName} joined the squad! 🥳`,
         type: 'status_update',
         createdAt: Date.now()
-      }).catch(console.error);
+      });
 
+      await batch.commit();
       setActiveModal(null);
     } catch (error) {
       console.error("Error accepting squad invite:", error);
@@ -2911,7 +2935,11 @@ export default function App() {
 
   // Listen to Squad Data for activeVote
   useEffect(() => {
-    if (!userData?.squadId) return;
+    if (!userData?.squadId) {
+      setSquadData(null);
+      setActiveVote(null);
+      return;
+    }
     const unsubSquad = onSnapshot(doc(db, "squads", userData.squadId), (docSnap) => {
       if (docSnap.exists()) {
         setSquadData(docSnap.data());
@@ -3101,38 +3129,19 @@ export default function App() {
 
   const handleAcceptFriendRequest = async (request: DocumentData) => {
     if (!currentUser) return;
-    let warningShown = false;
     try {
+      const batch = writeBatch(db);
       // 1. Add them to MY friends list (I have permission to edit my own doc)
-      await updateDoc(getUserDocRef(currentUser.uid), { friends: arrayUnion(request.from) });
+      batch.update(getUserDocRef(currentUser.uid), { friends: arrayUnion(request.from) });
 
       // 2. Try to add ME to THEIR friends list (Mutual add)
-      // This might fail if the other user has strict security rules or if their "friends" field is missing
-      try {
-        await updateDoc(getUserDocRef(request.from), { friends: arrayUnion(currentUser.uid) });
-      } catch (err) {
-        console.warn("Could not add self to other user's friend list (Permission/Missing Field). They may need to add you back manually.", err);
-        // We do NOT throw here, so we can still delete the request.
-        // However, the "Auto-Desync" feature might remove them later if they don't have us.
-        showAlert("Friend accepted! Note: You might not appear in their list until they add you too.");
-        warningShown = true;
-      }
+      batch.update(getUserDocRef(request.from), { friends: arrayUnion(currentUser.uid) });
 
       // 3. Delete the request
-      await deleteDoc(doc(db, "friendRequests", request.id));
+      batch.delete(doc(db, "friendRequests", request.id));
 
-      // Only show success if we didn't show the warning above? 
-      // Actually showAlert replaces the message. Let's just show a generic success if no warning was shown?
-      // Or just let the generic success overwrite?
-      // Let's refine the UX:
-      // If the catch block above ran, showAlert was called. 
-      // If we call it again here, it overwrites.
-      // So let's conditionally call it.
-      // But for now, let's just say "Accepted" if it worked perfectly.
-      // We can use a flag.
-      if (!warningShown) {
-        showAlert("Friend Request Accepted!");
-      }
+      await batch.commit();
+      showAlert("Friend Request Accepted!");
     } catch (e) {
       console.error(e);
       showAlert("Error accepting friend request. Please try again.");
@@ -3231,30 +3240,35 @@ export default function App() {
         return;
       }
 
-      // 2. Accept
-      await updateDoc(squadRef, { members: arrayUnion(request.from) });
-      await updateDoc(getUserDocRef(request.from), {
+      const batch = writeBatch(db);
+
+      // 2. Accept - Add to squad, update user squad, update join request
+      batch.update(squadRef, { members: arrayUnion(request.from) });
+      batch.update(getUserDocRef(request.from), {
         squadId: userData.squadId,
         squadOwnerId: userData.uid
       });
-      await updateDoc(doc(db, "squadJoinRequests", request.id), {
+      batch.update(doc(db, "squadJoinRequests", request.id), {
         status: 'accepted',
         updatedAt: Date.now()
       });
 
-      // 3. Optional: Add as friends too (mutual)
-      await updateDoc(getUserDocRef(userData.uid), { friends: arrayUnion(request.from) }).catch(console.error);
-      await updateDoc(getUserDocRef(request.from), { friends: arrayUnion(userData.uid) }).catch(console.error);
-
-      // 4. Send to Chat
-      addDoc(collection(db, "squads", userData.squadId, "messages"), {
+      // 3. Send to Chat
+      const messageRef = doc(collection(db, "squads", userData.squadId, "messages"));
+      batch.set(messageRef, {
         senderId: 'system',
         senderName: 'Squad Info',
         senderPhotoURL: '',
         content: `${request.fromName || 'Someone'} joined the squad! 🛡️`,
         type: 'status_update',
         createdAt: Date.now()
-      }).catch(console.error);
+      });
+
+      await batch.commit();
+
+      // 4. Optional: Add as friends too (mutual) - separate non-atomic calls because of security rules diff limits
+      await updateDoc(getUserDocRef(userData.uid), { friends: arrayUnion(request.from) }).catch(console.error);
+      await updateDoc(getUserDocRef(request.from), { friends: arrayUnion(userData.uid) }).catch(console.error);
 
       showAlert("Request accepted! They are now in your squad.");
     } catch (e) {

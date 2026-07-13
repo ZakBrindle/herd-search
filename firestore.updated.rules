@@ -51,7 +51,8 @@ service cloud.firestore {
             'subscriptionEndDate', 'tier_level', 'tier_expires_at', 'unlockedPersonalisePackage',
             'statusMessage', 'statusTimestamp', 'ghostMode', 'ghostModeExpiry', 'ghostModeCooldown',
             'fcmToken', 'isDev', 'hasSeenWelcome', 'schedule', 'lastSeenWrapped', 'searchingFor', 'lastRatedWeek',
-            'mapPreference', 'hasRated', 'avatarColor', 'avatarEffects', 'useHighQualityImages', 'avatarHaloSkin', 'avatarPartyhatSkin', 'avatarTrafficconeSkin', 'mapNoIcons'
+            'mapPreference', 'hasRated', 'avatarColor', 'avatarEffects', 'useHighQualityImages', 'avatarHaloSkin', 'avatarPartyhatSkin', 'avatarTrafficconeSkin', 'mapNoIcons',
+            'staleNotificationSent'
           ])
         )
         // Squad owner can set squadId to null for members
@@ -68,6 +69,13 @@ service cloud.firestore {
           // Modified rule: Checks if 'friends' field exists on target doc, defaulting to empty array logic
           request.resource.data.friends.size() == (resource.data.keys().hasAny(['friends']) ? resource.data.friends.size() : 0) + 1 &&
           request.auth.uid in request.resource.data.friends
+        )
+        // Allow squad owner to set squadId and squadOwnerId for a user who is added to their squad
+        || (
+          request.resource.data.squadId != null &&
+          get(/databases/$(database)/documents/squads/$(request.resource.data.squadId)).data.ownerId == request.auth.uid &&
+          request.resource.data.squadOwnerId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['squadId', 'squadOwnerId'])
         )
         // Allow Admins to update user details (such as manually overriding tiers)
         || isAdmin()

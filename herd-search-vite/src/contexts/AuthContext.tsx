@@ -104,7 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             currentArea: 'unknown',
                             useGps: true,
                             lastKnownArea: 'unknown',
-                            hasSeenWelcome: false
+                            hasSeenWelcome: false,
+                            staleNotificationSent: false
                         });
                         await setDoc(publicProfileRef, profileData);
 
