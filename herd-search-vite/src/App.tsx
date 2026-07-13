@@ -6864,68 +6864,74 @@ export default function App() {
                 if (!memberArea) return null;
 
                 return (
-                  <div style={{ display: 'flex', gap: '10px', width: '100%', marginTop: '0.75rem' }}>
-                    {!userData?.useGps && (
-                      <button
-                        onClick={async () => {
-                          handleManualCheckIn(memberArea);
-                          setSelectedMember(null);
-                        }}
-                        className="btn btn-primary"
-                        style={{
-                          flex: 1,
-                          background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
-                          padding: '12px 6px',
-                          fontSize: '0.8rem',
-                          fontWeight: 'bold',
-                          borderRadius: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px',
-                          border: 'none',
-                          color: 'black',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        <FaMapMarkerAlt size={14} />
-                        <span>Check in to {memberArea.name}</span>
-                      </button>
-                    )}
-                    {userData?.squadId && (
-                      <button
-                        onClick={() => {
-                          startVote(memberArea);
-                          setSelectedMember(null);
-                        }}
-                        className="btn"
-                        style={{
-                          flex: 1,
-                          background: 'linear-gradient(45deg, #ff0080, #7928ca)',
-                          padding: '12px 6px',
-                          fontSize: '0.8rem',
-                          fontWeight: 'bold',
-                          borderRadius: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '4px',
-                          color: 'white',
-                          border: 'none',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        <FaUserFriends size={14} />
-                        <span>Vote we go</span>
-                      </button>
-                    )}
-                  </div>
+                  <>
+                    {/* Separator and Location Heading */}
+                    <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'left', width: '100%' }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '4px' }}>
+                        Area Actions
+                      </span>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '1.05rem', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        📍 {memberArea.name}
+                      </h4>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                      {!userData?.useGps && (
+                        <button
+                          onClick={async () => {
+                            handleManualCheckIn(memberArea);
+                            setSelectedMember(null);
+                          }}
+                          className="btn btn-primary"
+                          style={{
+                            flex: 1,
+                            background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                            padding: '12px 6px',
+                            fontSize: '0.85rem',
+                            fontWeight: 'bold',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            border: 'none',
+                            color: 'black',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <FaMapMarkerAlt size={14} />
+                          <span>Check In</span>
+                        </button>
+                      )}
+                      {userData?.squadId && (
+                        <button
+                          onClick={() => {
+                            startVote(memberArea);
+                            setSelectedMember(null);
+                          }}
+                          className="btn"
+                          style={{
+                            flex: 1,
+                            background: 'linear-gradient(45deg, #ff0080, #7928ca)',
+                            padding: '12px 6px',
+                            fontSize: '0.85rem',
+                            fontWeight: 'bold',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            color: 'white',
+                            border: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <FaUserFriends size={14} />
+                          <span>Vote we go</span>
+                        </button>
+                      )}
+                    </div>
+                  </>
                 );
               })()}
 
