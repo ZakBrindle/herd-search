@@ -203,10 +203,11 @@ service cloud.firestore {
     
      // --- Squad Invites Collection Rules ---
     match /squadInvites/{inviteId} {
-      // Allow reading if the user is the sender or recipient
+      // Allow reading if the user is the sender or recipient or an admin
       allow read: if request.auth != null && (
         resource.data.from == request.auth.uid ||
-        resource.data.to == request.auth.uid
+        resource.data.to == request.auth.uid ||
+        isAdmin()
       );
       // Allow creating if the sender is the authenticated user
       allow create: if request.auth != null &&
@@ -234,7 +235,11 @@ service cloud.firestore {
 
     // --- Friend Requests Collection Rules ---
     match /friendRequests/{requestId} {
-      allow read: if request.auth != null && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+      allow read: if request.auth != null && (
+        resource.data.to == request.auth.uid || 
+        resource.data.from == request.auth.uid ||
+        isAdmin()
+      );
       allow create: if request.auth != null && request.resource.data.from == request.auth.uid;
       allow update: if request.auth != null && (
         (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid) ||

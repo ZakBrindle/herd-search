@@ -4108,7 +4108,7 @@ export default function App() {
                     width: '100%',
                     height: '100%',
                     pointerEvents: 'none',
-                    zIndex: 70,
+                    zIndex: 2,
                     borderRadius: 'inherit'
                   }}
                 />
@@ -4125,7 +4125,7 @@ export default function App() {
                   width: '100%',
                   height: '100%',
                   pointerEvents: 'none',
-                  zIndex: 80,
+                  zIndex: 3,
                   borderRadius: 'inherit'
                 }}
               />
@@ -4141,7 +4141,7 @@ export default function App() {
                   width: '100%',
                   height: '100%',
                   pointerEvents: 'none',
-                  zIndex: 80,
+                  zIndex: 3,
                   borderRadius: 'inherit'
                 }}
               />
@@ -4335,7 +4335,8 @@ export default function App() {
               return (
                 <div key={u.uid} className="user-marker" style={{
                   left: `${Math.max(0, Math.min(100, u.location.x * 100))}%`,
-                  top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`
+                  top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`,
+                  zIndex: isMe ? 20 : 10
                 }}>
                   <img
                     src={getAvatarUrl(u.photoURL, u.displayName)}
