@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, type DocumentData } from 'firebase/firestore';
+import { collection, getDocs, type DocumentData, collectionGroup } from 'firebase/firestore';
 import { db } from '../firebase';
 import { 
     FaMapMarkerAlt, FaChartBar, FaGlobe, FaTimes, 
@@ -34,6 +34,7 @@ const COLORS = ['#03dac6', '#bb86fc', '#cf6679', '#018786', '#3700b3', '#ffc107'
 export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, onOpenBilling, onOpenAllUsers }: Props) {
     const [users, setUsers] = useState<UserData[]>([]);
     const [squads, setSquads] = useState<DocumentData[]>([]);
+    const [messages, setMessages] = useState<DocumentData[]>([]);
     const [loading, setLoading] = useState(true);
     const [timeFrame, setTimeFrame] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
 
@@ -43,9 +44,11 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
                 setLoading(true);
                 const usersSnap = await getDocs(collection(db, 'users'));
                 const squadsSnap = await getDocs(collection(db, 'squads'));
+                const messagesSnap = await getDocs(collectionGroup(db, 'messages'));
 
                 setUsers(usersSnap.docs.map(d => d.data() as UserData));
                 setSquads(squadsSnap.docs.map(d => d.data()));
+                setMessages(messagesSnap.docs.map(d => d.data()));
             } catch (error) {
                 console.error("Error fetching stats data:", error);
             } finally {
@@ -106,15 +109,24 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
         const activeSquads = squads.filter(s => s.members && s.members.length > 1);
         const squadsInTimeframe = squads.filter(s => s.createdAt && (now - s.createdAt < ms));
 
+        // Messages Sent in Timeframe
+        const messagesInTimeframe = messages.filter(m => m.createdAt && (now - m.createdAt < ms));
+        const messagesSentCount = messagesInTimeframe.filter(m => m.senderId !== 'system').length;
+
+        // Squad Votes Started in Timeframe
+        const squadVotesStartedCount = messagesInTimeframe.filter(m => m.senderId === 'system' && m.senderName === 'Squad Vote').length;
+
         return {
             totalActive: activeUsers.length,
             tierData,
             topAreasData,
             timelineData: timelineDataArray,
             activeSquadsCount: activeSquads.length,
-            newSquadsInTimeframe: squadsInTimeframe.length
+            newSquadsInTimeframe: squadsInTimeframe.length,
+            messagesSentCount,
+            squadVotesStartedCount
         };
-    }, [users, squads, timeFrame]);
+    }, [users, squads, messages, timeFrame]);
 
     if (loading) {
         return (
@@ -328,6 +340,32 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
                     <span style={{ color: '#bb86fc', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Squads</span>
                     <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'white', textShadow: '0 0 20px rgba(187, 134, 252, 0.3)' }}>{stats.activeSquadsCount}</div>
                     <span style={{ fontSize: '0.65rem', color: '#666', marginTop: '4px' }}>+{stats.newSquadsInTimeframe} new</span>
+                </div>
+
+                <div style={{
+                    background: 'rgba(255, 193, 7, 0.05)',
+                    padding: '1.25rem',
+                    borderRadius: '24px',
+                    border: '1px solid rgba(255, 193, 7, 0.1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
+                }}>
+                    <span style={{ color: '#ffc107', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Messages Sent ({timeFrame})</span>
+                    <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'white', textShadow: '0 0 20px rgba(255, 193, 7, 0.3)' }}>{stats.messagesSentCount}</div>
+                </div>
+
+                <div style={{
+                    background: 'rgba(255, 107, 107, 0.05)',
+                    padding: '1.25rem',
+                    borderRadius: '24px',
+                    border: '1px solid rgba(255, 107, 107, 0.1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center'
+                }}>
+                    <span style={{ color: '#ff6b6b', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Votes Started ({timeFrame})</span>
+                    <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'white', textShadow: '0 0 20px rgba(255, 107, 107, 0.3)' }}>{stats.squadVotesStartedCount}</div>
                 </div>
             </div>
 

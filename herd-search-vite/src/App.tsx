@@ -2170,7 +2170,8 @@ export default function App() {
         senderPhotoURL: '',
         content: `${userData.displayName} started a vote to go to ${area.name}! 🗳️`,
         type: 'status_update',
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        creatorId: userData.uid
       }).catch(console.error);
 
       // --- Send Push Notifications ---
@@ -4162,14 +4163,25 @@ export default function App() {
               // 1. Gather all visible squad members (Me + Friends in Squad)
               const visibleMembers: UserData[] = [];
 
-              // Me (if enabled)
-              if (userData && userData.location && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())) {
+              // Me (if enabled and not stale)
+              const STALE_THRESHOLD_MS = 100 * 60 * 60 * 1000; // 100 hours
+              const isLocationStale = (u: UserData) => {
+                if (!u.lastUpdate) return true;
+                return (Date.now() - u.lastUpdate) > STALE_THRESHOLD_MS;
+              };
+
+              if (userData && userData.location && !isLocationStale(userData) && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())) {
                 visibleMembers.push(userData);
               }
 
-              // Friends (in squad, not ghost)
+              // Friends (in squad, not ghost, not stale)
               if (!devMapFilterDuration) {
-                const visibleFriends = friendsData.filter((f: any) => !!f.location && f.squadId === userData?.squadId && !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now()));
+                const visibleFriends = friendsData.filter((f: any) => 
+                  !!f.location && 
+                  f.squadId === userData?.squadId && 
+                  !isLocationStale(f) && 
+                  !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now())
+                );
                 visibleMembers.push(...visibleFriends);
               }
 

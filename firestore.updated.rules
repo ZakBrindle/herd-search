@@ -201,6 +201,11 @@ service cloud.firestore {
         );
       }
     }
+
+    // --- Collection Group Match for Messages (for admin queries) ---
+    match /{path=**}/messages/{messageId} {
+      allow read: if request.auth != null && isAdmin();
+    }
     
      // --- Squad Invites Collection Rules ---
     match /squadInvites/{inviteId} {
