@@ -4186,7 +4186,7 @@ export default function App() {
                   const isMe = u.uid === userData?.uid;
                   return (
                     <div key={u.uid}
-                      className="user-marker"
+                      className={`user-marker size-${userData?.markerSize || 'normal'}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (userData?.useGps === false && u.location) {
@@ -4259,7 +4259,7 @@ export default function App() {
                   const name2 = (u2.uid === userData?.uid) ? 'You' : u2.displayName?.split(' ')[0];
 
                   return (
-                    <div key={key} className="user-marker"
+                    <div key={key} className={`user-marker size-${userData?.markerSize || 'normal'}`}
                       onClick={(e) => { e.stopPropagation(); handleClusterClick(cluster.users, cluster.centroid); }}
                       style={{
                         left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
@@ -4288,7 +4288,7 @@ export default function App() {
                 const displayUsers = cluster.users.slice(0, 3);
 
                 return (
-                  <div key={key} className="user-marker"
+                  <div key={key} className={`user-marker size-${userData?.markerSize || 'normal'}`}
                     onClick={(e) => { e.stopPropagation(); handleClusterClick(cluster.users, cluster.centroid); }}
                     style={{
                       left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
@@ -4333,7 +4333,7 @@ export default function App() {
               else if (isFriend) borderColor = 'var(--secondary)';
 
               return (
-                <div key={u.uid} className="user-marker" style={{
+                <div key={u.uid} className={`user-marker size-${userData?.markerSize || 'normal'}`} style={{
                   left: `${Math.max(0, Math.min(100, u.location.x * 100))}%`,
                   top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`,
                   zIndex: isMe ? 20 : 10
@@ -5834,6 +5834,47 @@ export default function App() {
                   )}
                 </div>
               )}
+              <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
+
+              {/* Map Markers Section */}
+              <div style={{ width: '100%', marginBottom: '20px', boxSizing: 'border-box' }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaUser color="#03dac6" /> Map Markers
+                </h3>
+                <p style={{ margin: '0 0 15px 0', fontSize: '0.85rem', color: '#888' }}>
+                  Choose the display size of user markers on the map.
+                </p>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                  {(['normal', 'small', 'tiny'] as const).map((size) => {
+                    const isSelected = (userData?.markerSize || 'normal') === size;
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => {
+                          if (currentUser) {
+                            updateDoc(getUserDocRef(currentUser.uid), { markerSize: size }).catch(console.error);
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '12px 8px',
+                          backgroundColor: isSelected ? '#03dac6' : '#1e1e1e',
+                          color: isSelected ? '#000' : '#fff',
+                          border: isSelected ? 'none' : '1px solid #333',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          transition: 'all 0.2s',
+                          fontSize: '0.85rem',
+                          textTransform: 'capitalize'
+                        }}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <hr style={{ borderColor: '#33333310', margin: '1rem 0', width: '100%' }} />
 
 

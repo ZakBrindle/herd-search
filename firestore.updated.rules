@@ -52,6 +52,7 @@ service cloud.firestore {
             'statusMessage', 'statusTimestamp', 'ghostMode', 'ghostModeExpiry', 'ghostModeCooldown',
             'fcmToken', 'isDev', 'hasSeenWelcome', 'schedule', 'lastSeenWrapped', 'searchingFor', 'lastRatedWeek',
             'mapPreference', 'hasRated', 'avatarColor', 'avatarEffects', 'useHighQualityImages', 'avatarHaloSkin', 'avatarPartyhatSkin', 'avatarTrafficconeSkin', 'mapNoIcons',
+            'markerSize',
             'staleNotificationSent',
             'chatCountThisHour',
             'chatHourStart'
