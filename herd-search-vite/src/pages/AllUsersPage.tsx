@@ -4,7 +4,8 @@ import { db } from '../firebase';
 import { 
     FaChevronLeft, FaSearch, FaUser, FaUserFriends, 
     FaMapMarkerAlt, FaClock, FaCheckCircle, FaTimesCircle, 
-    FaDollarSign, FaSatellite, FaHistory
+    FaDollarSign, FaSatellite, FaHistory,
+    FaUsers, FaPaperPlane, FaUserPlus
 } from 'react-icons/fa';
 
 interface UserAuditData {
@@ -22,6 +23,8 @@ interface UserAuditData {
     purchaseCount: number;
     squadSize: number;
     subscriptionExpiry?: number;
+    sentSquadInvites?: number;
+    sentFriendRequests?: number;
 }
 
 import { useNavigate } from 'react-router-dom';
@@ -32,6 +35,8 @@ const AllUsersPage: React.FC = () => {
     const [users, setUsers] = useState<DocumentData[]>([]);
     const [squads, setSquads] = useState<DocumentData[]>([]);
     const [purchases, setPurchases] = useState<DocumentData[]>([]);
+    const [squadInvites, setSquadInvites] = useState<DocumentData[]>([]);
+    const [friendRequests, setFriendRequests] = useState<DocumentData[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filter, setFilter] = useState<'all' | 'free' | 'paid'>('all');
@@ -46,10 +51,14 @@ const AllUsersPage: React.FC = () => {
                 const usersSnap = await getDocs(collection(db, 'users'));
                 const squadsSnap = await getDocs(collection(db, 'squads'));
                 const purchasesSnap = await getDocs(collection(db, 'purchases'));
+                const squadInvitesSnap = await getDocs(collection(db, 'squadInvites'));
+                const friendRequestsSnap = await getDocs(collection(db, 'friendRequests'));
 
                 setUsers(usersSnap.docs.map(d => ({ uid: d.id, ...d.data() })));
                 setSquads(squadsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
                 setPurchases(purchasesSnap.docs.map(d => d.data()));
+                setSquadInvites(squadInvitesSnap.docs.map(d => d.data()));
+                setFriendRequests(friendRequestsSnap.docs.map(d => d.data()));
                 setLoading(false);
             } catch (err) {
                 console.error("Error fetching audit data:", err);
@@ -78,14 +87,22 @@ const AllUsersPage: React.FC = () => {
                 }
             }
 
+            // Calculate Outgoing Squad Invites (pending)
+            const sentSquadInvites = squadInvites.filter(inv => inv.from === u.uid && inv.status === 'pending').length;
+
+            // Calculate Outgoing Friend Requests (pending)
+            const sentFriendRequests = friendRequests.filter(req => req.from === u.uid && req.status === 'pending').length;
+
             return {
                 ...u,
                 totalSpent,
                 purchaseCount: completedPurchases.length,
-                squadSize
+                squadSize,
+                sentSquadInvites,
+                sentFriendRequests
             } as UserAuditData;
         });
-    }, [users, squads, purchases]);
+    }, [users, squads, purchases, squadInvites, friendRequests]);
 
     const formatDateTime = (timestamp?: number) => {
         if (!timestamp) return 'Never';
@@ -688,6 +705,15 @@ const AllUsersPage: React.FC = () => {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
                                             <FaUserFriends size={12} style={{ color: '#03dac6' }} /> {user.friends?.length || 0} Friends
                                         </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                            <FaUsers size={12} style={{ color: '#bb86fc' }} /> Squad Size: {user.squadSize || 0}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                            <FaPaperPlane size={12} style={{ color: '#03dac6' }} /> Sent Invites: {user.sentSquadInvites || 0}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                            <FaUserPlus size={12} style={{ color: '#03dac6' }} /> Friend Requests Out: {user.sentFriendRequests || 0}
+                                        </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.unlockedPersonalisePackage ? '#bb86fc' : '#555', fontWeight: 'bold' }}>
                                             Personalisation: {user.unlockedPersonalisePackage ? 'Unlocked' : 'No'}
                                         </div>
@@ -781,6 +807,15 @@ const AllUsersPage: React.FC = () => {
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
                                         <FaUserFriends size={12} style={{ color: '#03dac6' }} /> {user.friends?.length || 0} Friends
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                        <FaUsers size={12} style={{ color: '#bb86fc' }} /> Squad Size: {user.squadSize || 0}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                        <FaPaperPlane size={12} style={{ color: '#03dac6' }} /> Sent Invites: {user.sentSquadInvites || 0}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                        <FaUserPlus size={12} style={{ color: '#03dac6' }} /> Friend Requests Out: {user.sentFriendRequests || 0}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.unlockedPersonalisePackage ? '#bb86fc' : '#555', fontWeight: 'bold' }}>
                                         Personalisation: {user.unlockedPersonalisePackage ? 'Unlocked' : 'No'}

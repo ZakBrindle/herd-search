@@ -3084,12 +3084,13 @@ export default function App() {
 
   // Listen to Squad Data for activeVote
   useEffect(() => {
-    if (!userData?.squadId) {
+    const squadId = userData?.squadId;
+    if (!squadId) {
       setSquadData(null);
       setActiveVote(null);
       return;
     }
-    const unsubSquad = onSnapshot(doc(db, "squads", userData.squadId), (docSnap) => {
+    const unsubSquad = onSnapshot(doc(db, "squads", squadId), async (docSnap) => {
       if (docSnap.exists()) {
         setSquadData(docSnap.data());
         const data = docSnap.data();
@@ -3102,10 +3103,25 @@ export default function App() {
         } else {
           setActiveVote(null);
         }
+      } else {
+        // If the squad document doesn't exist but the user is the leader/owner of it, recreate it
+        if (userData.uid === userData.squadOwnerId) {
+          console.warn("Squad document is missing from Firestore. Recreating squad...");
+          try {
+            await setDoc(doc(db, "squads", squadId), {
+              ownerId: userData.uid,
+              members: [userData.uid],
+              pendingMembers: [],
+              createdAt: Date.now()
+            });
+          } catch (e) {
+            console.error("Failed to recreate missing squad:", e);
+          }
+        }
       }
     });
     return () => unsubSquad();
-  }, [userData?.squadId]);
+  }, [userData?.squadId, userData?.squadOwnerId, userData?.uid]);
 
   // --- Chat Unread Listener ---
   useEffect(() => {

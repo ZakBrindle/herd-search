@@ -185,8 +185,15 @@ service cloud.firestore {
           isAdmin()
         );
         allow create: if request.auth != null && (
-          request.auth.uid == request.resource.data.senderId &&
-          request.auth.uid in get(/databases/$(database)/documents/squads/$(squadId)).data.members
+          (request.auth.uid == request.resource.data.senderId &&
+           request.auth.uid in get(/databases/$(database)/documents/squads/$(squadId)).data.members) ||
+          (request.resource.data.senderId == 'system' && (
+            request.auth.uid in get(/databases/$(database)/documents/squads/$(squadId)).data.members ||
+            (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             'friends' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.friends.hasAny(get(/databases/$(database)/documents/squads/$(squadId)).data.members)
+            )
+          ))
         );
         allow update: if request.auth != null && (
           request.auth.uid in get(/databases/$(database)/documents/squads/$(squadId)).data.members
