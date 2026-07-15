@@ -4,7 +4,7 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaChevronRight, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem, FaUserPlus, FaFirstAid
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaChevronRight, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem, FaUserPlus, FaFirstAid, FaCalendarAlt
 } from 'react-icons/fa';
 import { getAvatarUrl } from './utils/userUtils';
 import {
@@ -32,6 +32,7 @@ import { BASIC_COLORS, PREMIUM_COLORS, AVATAR_EFFECTS } from './constants/avatar
 import WrappedModal from './components/modals/WrappedModal';
 import ScheduleModal from './components/modals/ScheduleModal';
 import WhatsOnTab from './components/WhatsOn/WhatsOnTab';
+import ScheduleTab from './components/ScheduleTab';
 import BillingPage from './pages/BillingPage';
 import { increment } from 'firebase/firestore';
 
@@ -271,7 +272,7 @@ export default function App() {
   const [currentStatusInput, setCurrentStatusInput] = useState('');
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: any }>({});
   const [useSandboxStripe, setUseSandboxStripe] = useState(() => localStorage.getItem('useSandboxStripe') === 'true');
-  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile' | 'chat' | 'billing' | 'whats-on'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'friends' | 'notifications' | 'profile' | 'chat' | 'billing' | 'whats-on' | 'schedule'>('map');
   const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
   const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -349,6 +350,7 @@ export default function App() {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleViewingUser, setScheduleViewingUser] = useState<UserData | null>(null);
   const [whatsOnInitialTab, setWhatsOnInitialTab] = useState<'programme' | 'schedule'>('programme');
+  const [scheduleTabUser, setScheduleTabUser] = useState<UserData | null>(null);
 
   // QR Code Modal State
   const [activeQRModal, setActiveQRModal] = useState<'friend' | 'squad' | null>(null);
@@ -6364,6 +6366,28 @@ export default function App() {
         </>
       );
     }
+
+    if (activeTab === 'schedule') {
+      const squadMembers = (squadData?.members) || [userData?.uid, ...(friendsData.filter((f: any) => f.squadId === userData?.squadId).map((f: any) => f.uid))].filter(Boolean);
+      const squadMembersData = squadMembers.map((uid: string) => {
+        if (uid === userData?.uid) return userData;
+        return friendsData.find((f: any) => f.uid === uid) || { uid, displayName: 'Unknown Member' };
+      }).filter(Boolean) as UserData[];
+
+      return (
+        <>
+          {renderHeader()}
+          <ScheduleTab
+            userData={userData!}
+            squadMembers={squadMembersData}
+            selectedUser={scheduleTabUser}
+            onSelectUser={setScheduleTabUser}
+            showAlert={showAlert}
+            showConfirm={showConfirm}
+          />
+        </>
+      );
+    }
   }; // End renderContent
 
 
@@ -6601,6 +6625,14 @@ export default function App() {
           }
           return null;
         })()}
+
+        <button className={`nav-item ${activeTab === 'schedule' ? 'active' : ''}`} onClick={() => {
+          setScheduleTabUser(null);
+          setActiveTab('schedule');
+        }}>
+          <FaCalendarAlt />
+          <span>Schedule</span>
+        </button>
 
         <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
           <FaUser />
@@ -6877,13 +6909,8 @@ export default function App() {
               {/* View Schedule Button */}
               <button
                 onClick={() => {
-                  if (selectedMember.uid === userData?.uid) {
-                    setWhatsOnInitialTab('schedule');
-                    setActiveTab('whats-on');
-                  } else {
-                    setScheduleViewingUser(selectedMember);
-                    setShowScheduleModal(true);
-                  }
+                  setScheduleTabUser(selectedMember);
+                  setActiveTab('schedule');
                   setSelectedMember(null);
                 }}
                 className="btn w-full"
@@ -6903,7 +6930,7 @@ export default function App() {
                 }}
               >
                 <FaClock />
-                {selectedMember.uid === userData?.uid ? 'My Festival Schedule' : `View Schedule`}
+                {selectedMember.uid === userData?.uid ? 'View My Schedule' : `View Schedule`}
               </button>
 
               {/* Squad Actions */}

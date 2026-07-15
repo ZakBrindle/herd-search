@@ -50,7 +50,7 @@ service cloud.firestore {
             'squadId', 'squadOwnerId', 'friends', 'tier', 'subscriptionExpiry','isPaymentPending', 'lastOverrideTime',
             'subscriptionEndDate', 'tier_level', 'tier_expires_at', 'unlockedPersonalisePackage',
             'statusMessage', 'statusTimestamp', 'ghostMode', 'ghostModeExpiry', 'ghostModeCooldown',
-            'fcmToken', 'isDev', 'hasSeenWelcome', 'schedule', 'lastSeenWrapped', 'searchingFor', 'lastRatedWeek',
+            'fcmToken', 'hasSeenWelcome', 'schedule', 'lastSeenWrapped', 'searchingFor', 'lastRatedWeek',
             'mapPreference', 'hasRated', 'avatarColor', 'avatarEffects', 'useHighQualityImages', 'avatarHaloSkin', 'avatarPartyhatSkin', 'avatarTrafficconeSkin', 'mapNoIcons',
             'markerSize',
             'staleNotificationSent',
@@ -236,7 +236,11 @@ service cloud.firestore {
     // --- Config Collection ---
     match /config/{docId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && isAdmin();
+      allow write: if request.auth != null && (
+        isAdmin() || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isDev == true)
+      );
     }
 
     // --- Friend Requests Collection Rules ---
