@@ -5599,41 +5599,7 @@ export default function App() {
                     <FaMap color="#03dac6" /> Map Style
                   </h3>
 
-                  {/* Hide Map Icons Toggle */}
-                  <div
-                    className="card"
-                    onClick={() => {
-                      if (currentUser) {
-                        updateDoc(getUserDocRef(currentUser.uid), { mapNoIcons: !userData?.mapNoIcons }).catch(console.error);
-                      }
-                    }}
-                    style={{
-                      cursor: 'pointer',
-                      backgroundColor: userData?.mapNoIcons ? '#333' : '#1e1e1e',
-                      border: userData?.mapNoIcons ? '2px solid #03dac6' : '1px solid #333',
-                      alignItems: 'center',
-                      padding: '12px 16px',
-                      display: 'flex',
-                      flexDirection: 'row',
-                      width: '100%',
-                      boxSizing: 'border-box',
-                      marginBottom: '15px',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{ margin: 0, color: userData?.mapNoIcons ? '#03dac6' : 'white' }}>Hide Map Icons</h4>
-                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                        Uses Beatherder Map without overlay icons
-                      </p>
-                    </div>
-                    <div style={{
-                      width: '20px', height: '20px', borderRadius: '50%',
-                      backgroundColor: userData?.mapNoIcons ? '#03dac6' : '#333',
-                      border: '1px solid #555',
-                      transition: 'background-color 0.2s'
-                    }} />
-                  </div>
+
 
                   <div style={{
                     width: '100%',
@@ -5806,45 +5772,84 @@ export default function App() {
                     />
                   </div>
 
-                  {/* High Quality Map Images Toggle */}
+                  {/* High Quality Map Images & Hide Map Icons Toggles */}
                   {showUncompressedMapImages && (
-                    <div
-                      className="card"
-                      onClick={() => {
-                        if (currentUser) {
-                          const currentVal = !!userData?.useHighQualityImages;
-                          updateDoc(getUserDocRef(currentUser.uid), { useHighQualityImages: !currentVal }).catch(console.error);
-                        }
-                      }}
-                      style={{
-                        cursor: 'pointer',
-                        marginTop: '12px',
-                        backgroundColor: userData?.useHighQualityImages ? '#333' : '#1e1e1e',
-                        border: userData?.useHighQualityImages ? '2px solid #03dac6' : '1px solid #333',
-                        alignItems: 'center',
-                        padding: '12px 16px',
-                        display: 'flex',
-                        flexDirection: 'row',
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <h4 style={{ margin: 0, color: userData?.useHighQualityImages ? '#03dac6' : 'white' }}>
-                          Uncompressed Map Images
-                        </h4>
-                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
-                          Use the original uncompressed map images (not recommended as this uses significantly more data, and well.. you're in a field).
-                        </p>
+                    <>
+                      {/* Hide Map Icons Toggle */}
+                      <div
+                        className="card"
+                        onClick={() => {
+                          if (currentUser) {
+                            updateDoc(getUserDocRef(currentUser.uid), { mapNoIcons: !userData?.mapNoIcons }).catch(console.error);
+                          }
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          marginTop: '12px',
+                          backgroundColor: userData?.mapNoIcons ? '#333' : '#1e1e1e',
+                          border: userData?.mapNoIcons ? '2px solid #03dac6' : '1px solid #333',
+                          alignItems: 'center',
+                          padding: '12px 16px',
+                          display: 'flex',
+                          flexDirection: 'row',
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{ margin: 0, color: userData?.mapNoIcons ? '#03dac6' : 'white' }}>Hide Map Icons</h4>
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                            Uses Beatherder Map without overlay icons
+                          </p>
+                        </div>
+                        <div style={{
+                          width: '20px', height: '20px', borderRadius: '50%',
+                          backgroundColor: userData?.mapNoIcons ? '#03dac6' : '#333',
+                          border: '1px solid #555',
+                          transition: 'background-color 0.2s'
+                        }} />
                       </div>
-                      <div style={{
-                        width: '20px', height: '20px', borderRadius: '50%',
-                        backgroundColor: userData?.useHighQualityImages ? '#03dac6' : '#333',
-                        border: '1px solid #555',
-                        transition: 'background-color 0.2s'
-                      }} />
-                    </div>
+
+                      {/* High Quality Map Images Toggle */}
+                      <div
+                        className="card"
+                        onClick={() => {
+                          if (currentUser) {
+                            const currentVal = !!userData?.useHighQualityImages;
+                            updateDoc(getUserDocRef(currentUser.uid), { useHighQualityImages: !currentVal }).catch(console.error);
+                          }
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          marginTop: '12px',
+                          backgroundColor: userData?.useHighQualityImages ? '#333' : '#1e1e1e',
+                          border: userData?.useHighQualityImages ? '2px solid #03dac6' : '1px solid #333',
+                          alignItems: 'center',
+                          padding: '12px 16px',
+                          display: 'flex',
+                          flexDirection: 'row',
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{ margin: 0, color: userData?.useHighQualityImages ? '#03dac6' : 'white' }}>
+                            Uncompressed Map Images
+                          </h4>
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: '#888' }}>
+                            Use the original uncompressed map images (not recommended as this uses significantly more data, and well.. you're in a field).
+                          </p>
+                        </div>
+                        <div style={{
+                          width: '20px', height: '20px', borderRadius: '50%',
+                          backgroundColor: userData?.useHighQualityImages ? '#03dac6' : '#333',
+                          border: '1px solid #555',
+                          transition: 'background-color 0.2s'
+                        }} />
+                      </div>
+                    </>
                   )}
                 </div>
               )}
