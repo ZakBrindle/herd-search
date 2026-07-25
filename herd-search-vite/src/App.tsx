@@ -134,6 +134,21 @@ const getTrafficconeImg = (skin?: string): string => {
   return '/traffic-cone.png';
 };
 
+const formatRelativeTime = (timestamp: number | null | undefined): string => {
+  if (!timestamp) return "Unknown";
+  const diff = (Date.now() - timestamp) / 60000;
+  if (diff < 2) return "Right Now";
+  if (diff < 90) return `${Math.floor(diff)}m ago`;
+  const hours = Math.floor(diff / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return days === 1 ? "1 day ago" : `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (days < 365) return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+  const years = Math.floor(days / 365);
+  return years === 1 ? "1 year ago" : `${years} years ago`;
+};
+
 import { PLANS, TIER_LIMITS } from './constants/plans';
 
 // --- Helper Components ---
@@ -4867,7 +4882,7 @@ export default function App() {
                             filter: isHighlighted
                               ? 'drop-shadow(0 0 8px #FFD700) drop-shadow(0 0 12px #FFD700)'
                               : undefined,
-                            transform: `translate(-50%, -50%) scale(${(1 / (fullscreenZoom / 100)) * (isHighlighted ? 1.2 : 1.0)})`,
+                            transform: `translate(-50%, -50%) scale(${ (0.7 + 0.3 / (fullscreenZoom / 100)) * (isHighlighted ? 1.2 : 1.0) })`,
                             transition: 'opacity 0.3s ease'
                           } as any}>
                           <div
@@ -4929,7 +4944,7 @@ export default function App() {
                             top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
                             zIndex: 30,
                             cursor: 'pointer',
-                            transform: `translate(-50%, -50%) scale(${1 / (fullscreenZoom / 100)})`
+                            transform: `translate(-50%, -50%) scale(${0.7 + 0.3 / (fullscreenZoom / 100)})`
                           }}>
                           <div className="marker-avatar" style={{
                             position: 'relative',
@@ -4961,7 +4976,7 @@ export default function App() {
                           top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
                           zIndex: 40,
                           cursor: 'pointer',
-                          transform: `translate(-50%, -50%) scale(${1 / (fullscreenZoom / 100)})`
+                          transform: `translate(-50%, -50%) scale(${0.7 + 0.3 / (fullscreenZoom / 100)})`
                         }}>
                         <div className="marker-avatar" style={{
                           position: 'relative',
@@ -4999,7 +5014,7 @@ export default function App() {
                       left: `${Math.max(0, Math.min(100, u.location.x * 100))}%`,
                       top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`,
                       zIndex: isMe ? 20 : 10,
-                      transform: `translate(-50%, -50%) scale(${1 / (fullscreenZoom / 100)})`
+                      transform: `translate(-50%, -50%) scale(${0.7 + 0.3 / (fullscreenZoom / 100)})`
                     }}>
                       <img
                         src={getAvatarUrl(u.photoURL, u.displayName)}
@@ -5385,27 +5400,18 @@ export default function App() {
                         (member.currentArea === 'The Wilds' ?
                           <>
                             Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
-                              ({(() => {
-                                const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
-                                if (diff < 2) return "Right Now";
-                                if (diff < 90) return `${Math.floor(diff)}m ago`;
-                                return `${Math.floor(diff / 60)}h ago`;
-                              })()})
+                              ({formatRelativeTime(member.lastUpdate)})
                             </span>
                           </> :
                           <>
                             Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
-                              ({(() => {
-                                const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
-                                if (diff < 2) return "Right Now";
-                                if (diff < 90) return `${Math.floor(diff)}m ago`;
-                                return `${Math.floor(diff / 60)}h ago`;
-                              })()})
+                              ({formatRelativeTime(member.lastUpdate)})
                             </span>
                           </>
                         )
                       }
                     </p>
+
                     {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < 2 * 60 * 60 * 1000) && (
                       <p style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0', fontStyle: 'italic', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         "{member.statusMessage}"
@@ -5711,48 +5717,35 @@ export default function App() {
                         </div>
                       );
                     })()}
-                    <img src={member.photoURL!} className="avatar" alt="Avatar" />
+                    <img src={member.photoURL || undefined} className="avatar" alt="Avatar" />
                     <div>
                       <h3>
                         {leaderUid === member.uid && '👑 '}
                         {member.displayName}
                       </h3>
                       <p style={{ fontSize: '0.8rem', marginTop: '0.2rem', marginBottom: '0' }}>
-                        {(member.ghostMode && member.ghostModeExpiry && member.ghostModeExpiry > Date.now()) ?
-                          <span style={{ color: 'var(--text-muted)' }}>Ghost Mode 👻</span> :
-                          (member.currentArea === 'The Wilds' ?
+                        {(member.ghostMode && member.ghostModeExpiry && member.ghostModeExpiry > Date.now()) ? (
+                          <span style={{ color: 'var(--text-muted)' }}>Ghost Mode 👻</span>
+                        ) : (
+                          member.currentArea === 'The Wilds' ? (
                             <>
                               Last Seen <span className="location-tag">{member.lastKnownArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
-                                ({(() => {
-                                  const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
-                                  if (diff < 2) return "Right Now";
-                                  if (diff < 90) return `${Math.floor(diff)}m ago`;
-                                  return `${Math.floor(diff / 60)}h ago`;
-                                })()})
+                                ({formatRelativeTime(member.lastUpdate)})
                               </span>
-                            </> :
+                            </>
+                          ) : (
                             <>
                               Location: <span className="location-tag">{member.currentArea || 'Unknown'}</span> <span style={{ color: '#666' }}>
-                                ({(() => {
-                                  const diff = (Date.now() - (member.lastUpdate || 0)) / 60000;
-                                  if (diff < 2) return "Right Now";
-                                  if (diff < 90) return `${Math.floor(diff)}m ago`;
-                                  return `${Math.floor(diff / 60)}h ago`;
-                                })()})
+                                ({formatRelativeTime(member.lastUpdate)})
                               </span>
                             </>
                           )
-                        }
+                        )}
                       </p>
                       {member.statusMessage && (Date.now() - (member.statusTimestamp || 0) < STATUS_EXPIRY_MS) && (
                         <p style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0', fontStyle: 'italic' }}>
                           "{member.statusMessage}" <span style={{ color: '#666' }}>
-                            ({(() => {
-                              const diff = (Date.now() - (member.statusTimestamp || 0)) / 60000;
-                              if (diff < 2) return "Right Now";
-                              if (diff < 90) return `${Math.floor(diff)}m ago`;
-                              return `${Math.floor(diff / 60)}h ago`;
-                            })()})
+                            ({formatRelativeTime(member.statusTimestamp)})
                           </span>
                         </p>
                       )}
@@ -7512,17 +7505,11 @@ export default function App() {
                 <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', margin: '0.5rem 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                   📍 {selectedMember.currentArea || "Unknown Location"}
                   <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                    ({(() => {
-                      const diff = (Date.now() - (selectedMember.lastUpdate || 0)) / 60000;
-                      if (diff < 2) return "Right Now";
-                      if (diff < 90) return `${Math.floor(diff)}m ago`;
-                      return `${Math.floor(diff / 60)}h ago`;
-                    })()})
+                    ({formatRelativeTime(selectedMember.lastUpdate)})
                   </span>
                 </p>
               )}
 
-              {/* Friendship Status */}
               {selectedMember.uid !== userData?.uid && (
                 <div style={{ marginBottom: '1.5rem', fontSize: '0.85rem' }}>
                   {userData?.friends?.includes(selectedMember.uid) ? (
