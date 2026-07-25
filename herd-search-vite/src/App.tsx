@@ -1264,7 +1264,8 @@ export default function App() {
             }
           } else {
             // Latest purchase is older than 30 days
-            if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev) {
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev && !isLocalhost) {
               console.log("Subscription Guard: Subscription expired. Resetting to free.");
               await handleAutoDisbandSquad();
               await updateDoc(getUserDocRef(currentUser.uid), {
@@ -1273,14 +1274,17 @@ export default function App() {
               });
             }
           }
-        } else if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev) {
+        } else {
           // No purchases found at all, and they are not free/dev
-          console.log("Subscription Guard: No purchases found and not Dev. Resetting to free.");
-          await handleAutoDisbandSquad();
-          await updateDoc(getUserDocRef(currentUser.uid), {
-            tier: 'free',
-            subscriptionExpiry: null
-          });
+          const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          if (userData.tier !== 'free' && (!userData.subscriptionExpiry || userData.subscriptionExpiry < Date.now()) && !userData.isDev && !isLocalhost) {
+            console.log("Subscription Guard: No purchases found and not Dev. Resetting to free.");
+            await handleAutoDisbandSquad();
+            await updateDoc(getUserDocRef(currentUser.uid), {
+              tier: 'free',
+              subscriptionExpiry: null
+            });
+          }
         }
       } catch (e) {
         console.error("Subscription Guard Error:", e);
