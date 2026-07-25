@@ -358,11 +358,34 @@ export default function App() {
     }
   };
 
+  const handleCanvasClickFullscreen = (event: React.PointerEvent) => {
+    const canvas = fullscreenCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const pos = {
+      x: (event.clientX - rect.left) / rect.width,
+      y: (event.clientY - rect.top) / rect.height
+    };
+
+    const clickedArea = findAreaAtPoint(pos);
+    if (userData?.useGps === false) {
+      setSelectedAreaForCheckIn(clickedArea);
+      setSelectedAreaForVote(null);
+    } else {
+      setSelectedAreaForVote(clickedArea);
+      setSelectedAreaForCheckIn(null);
+    }
+  };
+
   const handlePointerUpFullscreen = (e: React.PointerEvent) => {
     isDraggingRef.current = false;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch (err) {}
+
+    if (!hasMovedRef.current) {
+      handleCanvasClickFullscreen(e);
+    }
   };
   const [gpsRefreshInterval, setGpsRefreshInterval] = useState(60); // Default 60 seconds
   const [gpsError, setGpsError] = useState<string | null>(null);
@@ -4985,6 +5008,109 @@ export default function App() {
                   );
                 })}
               </div>
+
+              {/* Floating Check-In / Vote Controls in Fullscreen Map */}
+              {(selectedAreaForVote || (!userData?.useGps && selectedAreaForCheckIn)) && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '88px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '90%',
+                  maxWidth: '400px',
+                  zIndex: 100001,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  {selectedAreaForVote ? (
+                    <button
+                      onClick={() => {
+                        startVote(selectedAreaForVote);
+                        setSelectedAreaForVote(null);
+                      }}
+                      className="btn w-full"
+                      style={{
+                        background: 'linear-gradient(45deg, #ff0080, #7928ca)',
+                        padding: '16px',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '12px',
+                        color: 'white',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <FaUserFriends size={22} />
+                      Vote we go to {selectedAreaForVote.name}
+                    </button>
+                  ) : (
+                    !userData?.useGps && selectedAreaForCheckIn && (
+                      <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                        <button
+                          onClick={() => {
+                            handleManualCheckIn(selectedAreaForCheckIn);
+                            setSelectedAreaForCheckIn(null);
+                          }}
+                          className="btn btn-primary"
+                          style={{
+                            flex: 2,
+                            background: 'linear-gradient(45deg, var(--primary), var(--secondary))',
+                            padding: '16px',
+                            fontSize: '1rem',
+                            fontWeight: 'bold',
+                            borderRadius: '12px',
+                            boxShadow: '0 4px 15px rgba(3, 218, 198, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap',
+                            border: 'none',
+                            color: 'black',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <FaMapMarkerAlt size={20} />
+                          Check in to {selectedAreaForCheckIn.name}
+                        </button>
+                        <button
+                          onClick={() => {
+                            startVote(selectedAreaForCheckIn);
+                            setSelectedAreaForCheckIn(null);
+                          }}
+                          className="btn"
+                          style={{
+                            flex: 0.8,
+                            background: 'linear-gradient(45deg, #ff0080, #7928ca)',
+                            padding: '16px',
+                            fontSize: '1rem',
+                            fontWeight: 'bold',
+                            borderRadius: '12px',
+                            boxShadow: '0 4px 15px rgba(255, 0, 128, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            color: 'white',
+                            border: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <FaUserFriends size={20} />
+                          Vote
+                        </button>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
             </div>
           )}
 
