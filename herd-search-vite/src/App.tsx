@@ -282,7 +282,7 @@ export default function App() {
   const [isFullscreenMap, setIsFullscreenMap] = useState(false);
   const [fullscreenZoom, setFullscreenZoom] = useState(100);
   const [fullscreenPan, setFullscreenPan] = useState({ x: 0, y: 0 });
-  const [fullscreenMapAspectRatio, setFullscreenMapAspectRatio] = useState(1.3);
+  const [fullscreenMinZoom, setFullscreenMinZoom] = useState(100);
   const fullscreenCanvasRef = useRef<HTMLCanvasElement>(null);
   const fullscreenMapImageRef = useRef<HTMLImageElement>(null);
 
@@ -317,7 +317,7 @@ export default function App() {
       const t2 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
       const ratio = dist / initialPinchDistRef.current;
-      setFullscreenZoom(Math.max(100, Math.min(300, Math.round(initialPinchZoomRef.current * ratio))));
+      setFullscreenZoom(Math.max(fullscreenMinZoom, Math.min(600, Math.round(initialPinchZoomRef.current * ratio))));
     } else if (isDraggingRef.current && e.touches.length === 1 && !isPinchingRef.current) {
       const dx = e.touches[0].clientX - dragStartRef.current.x;
       const dy = e.touches[0].clientY - dragStartRef.current.y;
@@ -2017,7 +2017,13 @@ export default function App() {
     if (!canvas || !mapImage) return;
 
     if (mapImage.naturalHeight > 0) {
-      setFullscreenMapAspectRatio(mapImage.naturalWidth / mapImage.naturalHeight);
+      const ar = mapImage.naturalWidth / mapImage.naturalHeight;
+      const viewWidth = window.innerWidth;
+      const viewHeight = window.innerHeight;
+      const scale = viewHeight / (viewWidth / ar);
+      const minZoomVal = Math.max(100, Math.ceil(scale * 100));
+      setFullscreenMinZoom(minZoomVal);
+      setFullscreenZoom(curr => Math.max(minZoomVal, curr));
     }
 
     if (mapImage.clientWidth > 0) {
@@ -4592,7 +4598,7 @@ export default function App() {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.4)'
               }}>
                 <button
-                  onClick={() => setFullscreenZoom(prev => Math.min(300, prev + 25))}
+                  onClick={() => setFullscreenZoom(prev => Math.min(600, prev + 25))}
                   style={{
                     width: '36px',
                     height: '36px',
@@ -4620,7 +4626,7 @@ export default function App() {
                   {fullscreenZoom}%
                 </div>
                 <button
-                  onClick={() => setFullscreenZoom(prev => Math.max(100, prev - 25))}
+                  onClick={() => setFullscreenZoom(prev => Math.max(fullscreenMinZoom, prev - 25))}
                   style={{
                     width: '36px',
                     height: '36px',
@@ -4640,7 +4646,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => {
-                    setFullscreenZoom(100);
+                    setFullscreenZoom(fullscreenMinZoom);
                     setFullscreenPan({ x: 0, y: 0 });
                   }}
                   style={{
@@ -4673,8 +4679,7 @@ export default function App() {
                 onPointerMove={handlePointerMoveFullscreen}
                 onPointerUp={handlePointerUpFullscreen}
                 style={{
-                  height: '100vh',
-                  width: `calc(100vh * ${fullscreenMapAspectRatio})`,
+                  width: '100%',
                   position: 'relative',
                   transform: `translate(${fullscreenPan.x}px, ${fullscreenPan.y}px) scale(${fullscreenZoom / 100})`,
                   transformOrigin: 'center center',
@@ -4704,7 +4709,7 @@ export default function App() {
                   alt="Map"
                   className="map-image"
                   onLoad={resizeFullscreenCanvas}
-                  style={{ display: 'block', width: '100%', height: '100%', pointerEvents: 'none', userSelect: 'none' }}
+                  style={{ display: 'block', width: '100%', height: 'auto', pointerEvents: 'none', userSelect: 'none' }}
                 />
 
                 {/* Render Active Overlay Icons */}
