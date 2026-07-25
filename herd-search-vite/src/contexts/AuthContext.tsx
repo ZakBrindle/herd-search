@@ -93,7 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             email: user.email?.toLowerCase(),
                             photoURL: user.photoURL,
                             tier: 'free' as Tier,
-                            isDev // Now guaranteed boolean
+                            isDev,
+                            createdAt: Date.now()
                         };
 
                         // Create User Doc

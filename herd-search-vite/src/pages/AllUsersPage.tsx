@@ -47,6 +47,7 @@ const AllUsersPage: React.FC = () => {
     const [sortBy, setSortBy] = useState<'active' | 'money'>('active');
     const [selectedUserForAction, setSelectedUserForAction] = useState<any | null>(null);
     const [actionType, setActionType] = useState<'menu' | 'history' | 'override'>('menu');
+    const [viewMode, setViewMode] = useState<'detailed' | 'simple'>('detailed');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -586,9 +587,9 @@ const AllUsersPage: React.FC = () => {
                         }}
                     />
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
                     {/* Filter Segmented Control */}
-                    <div style={{ display: 'flex', gap: '0.3rem', flex: 1 }}>
+                    <div style={{ display: 'flex', gap: '0.3rem', flex: 1, minWidth: '150px' }}>
                         {['all', 'free', 'paid'].map(t => (
                             <button
                                 key={t}
@@ -612,40 +613,78 @@ const AllUsersPage: React.FC = () => {
                         ))}
                     </div>
 
-                    {/* Sorting Segmented Control */}
-                    <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <button 
-                            onClick={() => setSortBy('active')}
-                            style={{
-                                background: sortBy === 'active' ? 'var(--primary, #03dac6)' : 'transparent',
-                                border: 'none',
-                                color: sortBy === 'active' ? '#000' : '#aaa',
-                                padding: '6px 12px',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '0.75rem',
-                                fontWeight: 'bold',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            Last Active
-                        </button>
-                        <button 
-                            onClick={() => setSortBy('money')}
-                            style={{
-                                background: sortBy === 'money' ? 'var(--primary, #03dac6)' : 'transparent',
-                                border: 'none',
-                                color: sortBy === 'money' ? '#000' : '#aaa',
-                                padding: '6px 12px',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '0.75rem',
-                                fontWeight: 'bold',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            Money Spent
-                        </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {/* Sorting Segmented Control */}
+                        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <button 
+                                onClick={() => setSortBy('active')}
+                                style={{
+                                    background: sortBy === 'active' ? 'var(--primary, #03dac6)' : 'transparent',
+                                    border: 'none',
+                                    color: sortBy === 'active' ? '#000' : '#aaa',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Last Active
+                            </button>
+                            <button 
+                                onClick={() => setSortBy('money')}
+                                style={{
+                                    background: sortBy === 'money' ? 'var(--primary, #03dac6)' : 'transparent',
+                                    border: 'none',
+                                    color: sortBy === 'money' ? '#000' : '#aaa',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Money Spent
+                            </button>
+                        </div>
+
+                        {/* View Mode Toggle: Detailed vs Simple */}
+                        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <button 
+                                onClick={() => setViewMode('detailed')}
+                                style={{
+                                    background: viewMode === 'detailed' ? 'var(--primary, #03dac6)' : 'transparent',
+                                    border: 'none',
+                                    color: viewMode === 'detailed' ? '#000' : '#aaa',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Detailed
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('simple')}
+                                style={{
+                                    background: viewMode === 'simple' ? 'var(--primary, #03dac6)' : 'transparent',
+                                    border: 'none',
+                                    color: viewMode === 'simple' ? '#000' : '#aaa',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Simple
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -665,7 +704,256 @@ const AllUsersPage: React.FC = () => {
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {squad.members.map((user: any) => (
+                            {squad.members.map((user: any) => {
+                                if (viewMode === 'simple') {
+                                    return (
+                                        <div 
+                                            key={user.uid} 
+                                            onClick={() => {
+                                                setSelectedUserForAction(user);
+                                                setActionType('menu');
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                                            style={{
+                                                background: 'rgba(255,255,255,0.03)',
+                                                borderRadius: '16px',
+                                                padding: '1rem',
+                                                border: '1px solid rgba(255,255,255,0.05)',
+                                                position: 'relative',
+                                                cursor: 'pointer',
+                                                transition: 'background 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: '1rem'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <div style={{ position: 'relative' }}>
+                                                    {user.photoURL ? (
+                                                        <img src={user.photoURL} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                                    ) : (
+                                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <FaUser color="#666" size={14} />
+                                                        </div>
+                                                    )}
+                                                    {user.lastUpdate && (Date.now() - user.lastUpdate < 300000) && (
+                                                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', borderRadius: '50%', background: '#03dac6', border: '1.5px solid #121212' }} />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {user.displayName || 'Anonymous'}
+                                                        <span style={{
+                                                            background: user.tier === 'free' ? '#444' : 'linear-gradient(135deg, #03dac6, #018786)',
+                                                            padding: '2px 6px',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.6rem',
+                                                            color: user.tier === 'free' ? '#ccc' : 'black',
+                                                            fontWeight: 'bold',
+                                                            textTransform: 'uppercase'
+                                                        }}>
+                                                            {user.tier}
+                                                        </span>
+                                                    </h3>
+                                                    <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#888' }}>
+                                                        {sortBy === 'active' ? (
+                                                            <span>Last Active: <strong style={{ color: '#ccc' }}>{formatDateTime(user.lastUpdate)}</strong> &bull; {user.currentArea || 'Unknown'}</span>
+                                                        ) : (
+                                                            <span>Money Spent: <strong style={{ color: '#03dac6' }}>£{user.totalSpent.toFixed(2)}</strong> &bull; {user.purchaseCount} purchases</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                                                {user.email}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div 
+                                        key={user.uid} 
+                                        onClick={() => {
+                                            setSelectedUserForAction(user);
+                                            setActionType('menu');
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            borderRadius: '16px',
+                                            padding: '1.25rem',
+                                            border: '1px solid rgba(255,255,255,0.05)',
+                                            position: 'relative',
+                                            cursor: 'pointer',
+                                            transition: 'background 0.2s'
+                                        }}
+                                    >
+                                        {/* Tier Badge */}
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: 0, right: 0,
+                                            background: user.tier === 'free' ? '#444' : 'linear-gradient(135deg, #03dac6, #018786)',
+                                            padding: '4px 12px',
+                                            borderBottomLeftRadius: '12px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 'bold',
+                                            textTransform: 'uppercase'
+                                        }}>
+                                            {user.tier}
+                                        </div>
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                                            <div style={{ position: 'relative' }}>
+                                                {user.photoURL ? (
+                                                    <img src={user.photoURL} alt="" style={{ width: '50px', height: '50px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)' }} />
+                                                ) : (
+                                                    <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <FaUser color="#666" />
+                                                    </div>
+                                                )}
+                                                {user.lastUpdate && (Date.now() - user.lastUpdate < 300000) && (
+                                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', borderRadius: '50%', background: '#03dac6', border: '2px solid #121212' }} />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 style={{ margin: 0, fontSize: '1rem' }}>{user.displayName || 'Anonymous'}</h3>
+                                                <p style={{ margin: 0, fontSize: '0.8rem', color: '#aaa' }}>{user.email}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Info Grid */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.8rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#aaa' }}>
+                                                <FaClock size={12} /> {formatDateTime(user.lastUpdate)}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#aaa' }}>
+                                                <FaMapMarkerAlt size={12} /> {user.currentArea || 'Unknown'}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.useGps ? '#03dac6' : '#ff6b6b' }}>
+                                                {user.useGps ? <FaCheckCircle size={12} /> : <FaTimesCircle size={12} />} GPS {user.useGps ? 'ON' : 'OFF'}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                                <FaUserFriends size={12} style={{ color: '#03dac6' }} /> {user.friends?.length || 0} Friends
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                                <FaUsers size={12} style={{ color: '#bb86fc' }} /> Squad Size: {user.squadSize || 0}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                                 <FaPaperPlane size={12} style={{ color: '#03dac6' }} /> Sent Invites: {user.sentSquadInvites || 0}
+                                             </div>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                                 <FaUserPlus size={12} style={{ color: '#03dac6' }} /> Friend Requests Out: {user.sentFriendRequests || 0}
+                                             </div>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                                 <FaComments size={12} style={{ color: '#03dac6' }} /> Messages Sent: {user.messagesSent || 0}
+                                             </div>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                                 <FaCheckCircle size={12} style={{ color: '#ff6b6b' }} /> Votes Started: {user.votesStarted || 0}
+                                             </div>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                                 <FaStar size={12} style={{ color: '#ffb74d' }} /> Reactions Sent: {user.reactionsCount || 0}
+                                             </div>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.unlockedPersonalisePackage ? '#bb86fc' : '#555', fontWeight: 'bold' }}>
+                                                 Personalisation: {user.unlockedPersonalisePackage ? 'Unlocked' : 'No'}
+                                             </div>
+                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.totalSpent > 0 ? '#03dac6' : '#666', fontWeight: user.totalSpent > 0 ? 'bold' : 'normal' }}>
+                                                 <FaDollarSign size={12} /> £{user.totalSpent.toFixed(2)} spent
+                                             </div>
+                                        </div>
+                                        {user.tier !== 'free' && (
+                                            <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem', fontSize: '0.8rem', color: '#ffb74d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span>⏳ Tier Expires: <strong>{formatDateTime(user.subscriptionExpiry)}</strong></span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
+
+                {/* Solo Users ("All Alone") */}
+                <div className="billing-card" style={{ borderLeft: '4px solid #cf6679' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '0.5rem' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#cf6679' }}>All Alone (Solo Users)</h3>
+                        <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                            Total Users: <strong>{groupedData.alone.length}</strong>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {groupedData.alone.map((user: any) => {
+                            if (viewMode === 'simple') {
+                                return (
+                                    <div 
+                                        key={user.uid} 
+                                        onClick={() => {
+                                            setSelectedUserForAction(user);
+                                            setActionType('menu');
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                                        style={{
+                                            background: 'rgba(255,255,255,0.03)',
+                                            borderRadius: '16px',
+                                            padding: '1rem',
+                                            border: '1px solid rgba(255,255,255,0.05)',
+                                            position: 'relative',
+                                            cursor: 'pointer',
+                                            transition: 'background 0.2s',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: '1rem'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                            <div style={{ position: 'relative' }}>
+                                                {user.photoURL ? (
+                                                    <img src={user.photoURL} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                                ) : (
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <FaUser color="#666" size={14} />
+                                                    </div>
+                                                )}
+                                                {user.lastUpdate && (Date.now() - user.lastUpdate < 300000) && (
+                                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: '10px', height: '10px', borderRadius: '50%', background: '#03dac6', border: '1.5px solid #121212' }} />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {user.displayName || 'Anonymous'}
+                                                    <span style={{
+                                                        background: user.tier === 'free' ? '#444' : 'linear-gradient(135deg, #03dac6, #018786)',
+                                                        padding: '2px 6px',
+                                                        borderRadius: '6px',
+                                                        fontSize: '0.6rem',
+                                                        color: user.tier === 'free' ? '#ccc' : 'black',
+                                                        fontWeight: 'bold',
+                                                        textTransform: 'uppercase'
+                                                    }}>
+                                                        {user.tier}
+                                                    </span>
+                                                </h3>
+                                                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#888' }}>
+                                                    {sortBy === 'active' ? (
+                                                        <span>Last Active: <strong style={{ color: '#ccc' }}>{formatDateTime(user.lastUpdate)}</strong> &bull; {user.currentArea || 'Unknown'}</span>
+                                                    ) : (
+                                                        <span>Money Spent: <strong style={{ color: '#03dac6' }}>£{user.totalSpent.toFixed(2)}</strong> &bull; {user.purchaseCount} purchases</span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                                            {user.email}
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return (
                                 <div 
                                     key={user.uid} 
                                     onClick={() => {
@@ -735,26 +1023,26 @@ const AllUsersPage: React.FC = () => {
                                             <FaUsers size={12} style={{ color: '#bb86fc' }} /> Squad Size: {user.squadSize || 0}
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                             <FaPaperPlane size={12} style={{ color: '#03dac6' }} /> Sent Invites: {user.sentSquadInvites || 0}
-                                         </div>
-                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                             <FaUserPlus size={12} style={{ color: '#03dac6' }} /> Friend Requests Out: {user.sentFriendRequests || 0}
-                                         </div>
-                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                             <FaComments size={12} style={{ color: '#03dac6' }} /> Messages Sent: {user.messagesSent || 0}
-                                         </div>
-                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                             <FaCheckCircle size={12} style={{ color: '#ff6b6b' }} /> Votes Started: {user.votesStarted || 0}
-                                         </div>
-                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                             <FaStar size={12} style={{ color: '#ffb74d' }} /> Reactions Sent: {user.reactionsCount || 0}
-                                         </div>
-                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.unlockedPersonalisePackage ? '#bb86fc' : '#555', fontWeight: 'bold' }}>
-                                             Personalisation: {user.unlockedPersonalisePackage ? 'Unlocked' : 'No'}
-                                         </div>
-                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.totalSpent > 0 ? '#03dac6' : '#666', fontWeight: user.totalSpent > 0 ? 'bold' : 'normal' }}>
-                                             <FaDollarSign size={12} /> £{user.totalSpent.toFixed(2)} spent
-                                         </div>
+                                            <FaPaperPlane size={12} style={{ color: '#03dac6' }} /> Sent Invites: {user.sentSquadInvites || 0}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                            <FaUserPlus size={12} style={{ color: '#03dac6' }} /> Friend Requests Out: {user.sentFriendRequests || 0}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                            <FaComments size={12} style={{ color: '#03dac6' }} /> Messages Sent: {user.messagesSent || 0}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                            <FaCheckCircle size={12} style={{ color: '#ff6b6b' }} /> Votes Started: {user.votesStarted || 0}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
+                                            <FaStar size={12} style={{ color: '#ffb74d' }} /> Reactions Sent: {user.reactionsCount || 0}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.unlockedPersonalisePackage ? '#bb86fc' : '#555', fontWeight: 'bold' }}>
+                                            Personalisation: {user.unlockedPersonalisePackage ? 'Unlocked' : 'No'}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.totalSpent > 0 ? '#03dac6' : '#666', fontWeight: user.totalSpent > 0 ? 'bold' : 'normal' }}>
+                                            <FaDollarSign size={12} /> £{user.totalSpent.toFixed(2)} spent
+                                        </div>
                                     </div>
                                     {user.tier !== 'free' && (
                                         <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem', fontSize: '0.8rem', color: '#ffb74d', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -762,119 +1050,8 @@ const AllUsersPage: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-
-                {/* Solo Users ("All Alone") */}
-                <div className="billing-card" style={{ borderLeft: '4px solid #cf6679' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #333', paddingBottom: '0.5rem' }}>
-                        <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#cf6679' }}>All Alone (Solo Users)</h3>
-                        <div style={{ fontSize: '0.8rem', color: '#888' }}>
-                            Total Users: <strong>{groupedData.alone.length}</strong>
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {groupedData.alone.map((user: any) => (
-                            <div 
-                                key={user.uid} 
-                                onClick={() => {
-                                    setSelectedUserForAction(user);
-                                    setActionType('menu');
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                                style={{
-                                    background: 'rgba(255,255,255,0.03)',
-                                    borderRadius: '16px',
-                                    padding: '1.25rem',
-                                    border: '1px solid rgba(255,255,255,0.05)',
-                                    position: 'relative',
-                                    cursor: 'pointer',
-                                    transition: 'background 0.2s'
-                                }}
-                            >
-                                {/* Tier Badge */}
-                                <div style={{
-                                    position: 'absolute',
-                                    top: 0, right: 0,
-                                    background: user.tier === 'free' ? '#444' : 'linear-gradient(135deg, #03dac6, #018786)',
-                                    padding: '4px 12px',
-                                    borderBottomLeftRadius: '12px',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 'bold',
-                                    textTransform: 'uppercase'
-                                }}>
-                                    {user.tier}
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                                    <div style={{ position: 'relative' }}>
-                                        {user.photoURL ? (
-                                            <img src={user.photoURL} alt="" style={{ width: '50px', height: '50px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)' }} />
-                                        ) : (
-                                            <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <FaUser color="#666" />
-                                            </div>
-                                        )}
-                                        {user.lastUpdate && (Date.now() - user.lastUpdate < 300000) && (
-                                            <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', borderRadius: '50%', background: '#03dac6', border: '2px solid #121212' }} />
-                                        )}
-                                    </div>
-                                    <div>
-                                        <h3 style={{ margin: 0, fontSize: '1rem' }}>{user.displayName || 'Anonymous'}</h3>
-                                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#aaa' }}>{user.email}</p>
-                                    </div>
-                                </div>
-
-                                {/* Info Grid */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.8rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#aaa' }}>
-                                        <FaClock size={12} /> {formatDateTime(user.lastUpdate)}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#aaa' }}>
-                                        <FaMapMarkerAlt size={12} /> {user.currentArea || 'Unknown'}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.useGps ? '#03dac6' : '#ff6b6b' }}>
-                                        {user.useGps ? <FaCheckCircle size={12} /> : <FaTimesCircle size={12} />} GPS {user.useGps ? 'ON' : 'OFF'}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                        <FaUserFriends size={12} style={{ color: '#03dac6' }} /> {user.friends?.length || 0} Friends
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                        <FaUsers size={12} style={{ color: '#bb86fc' }} /> Squad Size: {user.squadSize || 0}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                        <FaPaperPlane size={12} style={{ color: '#03dac6' }} /> Sent Invites: {user.sentSquadInvites || 0}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                        <FaUserPlus size={12} style={{ color: '#03dac6' }} /> Friend Requests Out: {user.sentFriendRequests || 0}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                        <FaComments size={12} style={{ color: '#03dac6' }} /> Messages Sent: {user.messagesSent || 0}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                        <FaCheckCircle size={12} style={{ color: '#ff6b6b' }} /> Votes Started: {user.votesStarted || 0}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ccc' }}>
-                                        <FaStar size={12} style={{ color: '#ffb74d' }} /> Reactions Sent: {user.reactionsCount || 0}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.unlockedPersonalisePackage ? '#bb86fc' : '#555', fontWeight: 'bold' }}>
-                                        Personalisation: {user.unlockedPersonalisePackage ? 'Unlocked' : 'No'}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: user.totalSpent > 0 ? '#03dac6' : '#666', fontWeight: user.totalSpent > 0 ? 'bold' : 'normal' }}>
-                                        <FaDollarSign size={12} /> £{user.totalSpent.toFixed(2)} spent
-                                    </div>
-                                </div>
-                                {user.tier !== 'free' && (
-                                    <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem', fontSize: '0.8rem', color: '#ffb74d', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <span>⏳ Tier Expires: <strong>{formatDateTime(user.subscriptionExpiry)}</strong></span>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                         {groupedData.alone.length === 0 && (
                             <div style={{ textAlign: 'center', padding: '2rem', color: '#555' }}>No solo users active.</div>
                         )}

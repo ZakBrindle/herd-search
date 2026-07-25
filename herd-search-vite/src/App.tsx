@@ -4,7 +4,8 @@ import addFriendImg from './assets/addFriend.png';
 import inviteToSquadImg from './assets/inviteToSquad.png';
 import welcomeWaveImg from './assets/welcomeWave.png';
 import {
-  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaChevronRight, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem, FaUserPlus, FaFirstAid, FaCalendarAlt
+  FaMapMarkerAlt, FaCog, FaTrash, FaPencilAlt, FaMap, FaUserFriends, FaUser, FaTimes, FaGhost, FaComments, FaClock, FaChevronDown, FaCheckCircle, FaSync, FaChevronLeft, FaChevronRight, FaPlus, FaQrcode, FaCamera, FaStar, FaRegStar, FaTint, FaGem, FaUserPlus, FaFirstAid, FaCalendarAlt,
+  FaExpand, FaCompress
 } from 'react-icons/fa';
 import { getAvatarUrl } from './utils/userUtils';
 import {
@@ -276,7 +277,92 @@ export default function App() {
   const [tempCalibration, setTempCalibration] = useState<GPSBounds>({ north: 0, south: 0, east: 0, west: 0 });
   const [pickingLocationFor, setPickingLocationFor] = useState<'NW' | 'SE' | null>(null);
   const [showSplash, setShowSplash] = useState(true);
+
+  // Full Screen Zoom States & Refs
+  const [isFullscreenMap, setIsFullscreenMap] = useState(false);
+  const [fullscreenZoom, setFullscreenZoom] = useState(100);
+  const [fullscreenPan, setFullscreenPan] = useState({ x: 0, y: 0 });
+  const fullscreenCanvasRef = useRef<HTMLCanvasElement>(null);
+  const fullscreenMapImageRef = useRef<HTMLImageElement>(null);
+
+  const isDraggingRef = useRef(false);
+  const isPinchingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const initialPinchDistRef = useRef(0);
+  const initialPinchZoomRef = useRef(100);
+  const hasMovedRef = useRef(false);
   const [gpsRefreshButtonText, setGpsRefreshButtonText] = useState<string | null>(null);
+
+  // Gesture Handlers for Fullscreen Map
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      isPinchingRef.current = true;
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      initialPinchDistRef.current = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      initialPinchZoomRef.current = fullscreenZoom;
+    } else if (e.touches.length === 1) {
+      isDraggingRef.current = true;
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      panStartRef.current = { ...fullscreenPan };
+      hasMovedRef.current = false;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isPinchingRef.current && e.touches.length === 2) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const ratio = dist / initialPinchDistRef.current;
+      setFullscreenZoom(Math.max(100, Math.min(300, Math.round(initialPinchZoomRef.current * ratio))));
+    } else if (isDraggingRef.current && e.touches.length === 1 && !isPinchingRef.current) {
+      const dx = e.touches[0].clientX - dragStartRef.current.x;
+      const dy = e.touches[0].clientY - dragStartRef.current.y;
+      if (Math.hypot(dx, dy) > 5) {
+        hasMovedRef.current = true;
+      }
+      setFullscreenPan({ x: panStartRef.current.x + dx, y: panStartRef.current.y + dy });
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) {
+      isPinchingRef.current = false;
+    }
+    if (e.touches.length === 0) {
+      isDraggingRef.current = false;
+    }
+  };
+
+  const handlePointerDownFullscreen = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    if (isPinchingRef.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isDraggingRef.current = true;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    panStartRef.current = { ...fullscreenPan };
+    hasMovedRef.current = false;
+  };
+
+  const handlePointerMoveFullscreen = (e: React.PointerEvent) => {
+    if (isDraggingRef.current && !isPinchingRef.current) {
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      if (Math.hypot(dx, dy) > 5) {
+        hasMovedRef.current = true;
+      }
+      setFullscreenPan({ x: panStartRef.current.x + dx, y: panStartRef.current.y + dy });
+    }
+  };
+
+  const handlePointerUpFullscreen = (e: React.PointerEvent) => {
+    isDraggingRef.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+  };
   const [gpsRefreshInterval, setGpsRefreshInterval] = useState(60); // Default 60 seconds
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [gpsTimeoutCount, setGpsTimeoutCount] = useState(0);
@@ -1851,38 +1937,8 @@ export default function App() {
   };
 
   // --- Canvas Drawing & Map Logic ---
-  const redrawCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (showZones) {
-      areas.forEach(area => {
-        drawPolygon(ctx, area.polygon, 'rgba(3, 218, 198, 0.3)', 'rgba(3, 218, 198, 0.7)');
-      });
-    }
-
-    if (isDevMode && currentPolygonPoints.current.length > 0) {
-      drawPolygon(ctx, currentPolygonPoints.current, 'rgba(187, 134, 252, 0.3)', 'rgba(187, 134, 252, 0.7)', true);
-    }
-  }, [areas, isDevMode, showZones]);
-
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const mapImage = mapImageRef.current;
-    if (!canvas || !mapImage) return;
-    if (mapImage.clientWidth > 0) {
-      canvas.width = mapImage.clientWidth;
-      canvas.height = mapImage.clientHeight;
-      redrawCanvas();
-    }
-  }, [redrawCanvas]);
-
-  const drawPolygon = (ctx: CanvasRenderingContext2D, points: Point[], fill: string, stroke: string, drawVertices = false) => {
-    if (points.length < 1) return;
-    const canvas = canvasRef.current!;
+  const drawPolygon = (canvas: HTMLCanvasElement | null, ctx: CanvasRenderingContext2D, points: Point[], fill: string, stroke: string, drawVertices = false) => {
+    if (!canvas || points.length < 1) return;
     ctx.fillStyle = fill;
     ctx.strokeStyle = stroke;
     ctx.lineWidth = 2;
@@ -1906,6 +1962,73 @@ export default function App() {
       });
     }
   };
+
+  const redrawCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (showZones) {
+      areas.forEach(area => {
+        drawPolygon(canvas, ctx, area.polygon, 'rgba(3, 218, 198, 0.3)', 'rgba(3, 218, 198, 0.7)');
+      });
+    }
+
+    if (isDevMode && currentPolygonPoints.current.length > 0) {
+      drawPolygon(canvas, ctx, currentPolygonPoints.current, 'rgba(187, 134, 252, 0.3)', 'rgba(187, 134, 252, 0.7)', true);
+    }
+  }, [areas, isDevMode, showZones]);
+
+  const resizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const mapImage = mapImageRef.current;
+    if (!canvas || !mapImage) return;
+    if (mapImage.clientWidth > 0) {
+      canvas.width = mapImage.clientWidth;
+      canvas.height = mapImage.clientHeight;
+      redrawCanvas();
+    }
+  }, [redrawCanvas]);
+
+  const redrawFullscreenCanvas = useCallback(() => {
+    const canvas = fullscreenCanvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (showZones) {
+      areas.forEach(area => {
+        drawPolygon(canvas, ctx, area.polygon, 'rgba(3, 218, 198, 0.3)', 'rgba(3, 218, 198, 0.7)');
+      });
+    }
+
+    if (isDevMode && currentPolygonPoints.current.length > 0) {
+      drawPolygon(canvas, ctx, currentPolygonPoints.current, 'rgba(187, 134, 252, 0.3)', 'rgba(187, 134, 252, 0.7)', true);
+    }
+  }, [areas, isDevMode, showZones]);
+
+  const resizeFullscreenCanvas = useCallback(() => {
+    const canvas = fullscreenCanvasRef.current;
+    const mapImage = fullscreenMapImageRef.current;
+    if (!canvas || !mapImage) return;
+    if (mapImage.clientWidth > 0) {
+      canvas.width = mapImage.clientWidth;
+      canvas.height = mapImage.clientHeight;
+      redrawFullscreenCanvas();
+    }
+  }, [redrawFullscreenCanvas]);
+
+  useEffect(() => {
+    if (isFullscreenMap) {
+      const timer = setTimeout(() => {
+        resizeFullscreenCanvas();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isFullscreenMap, fullscreenZoom, resizeFullscreenCanvas]);
 
   useEffect(() => {
     redrawCanvas();
@@ -4072,6 +4195,38 @@ export default function App() {
 
           {/* Map */}
           <div className="map-container">
+            {/* Full Screen Toggle Button */}
+            <button
+              onClick={() => {
+                setIsFullscreenMap(true);
+                setFullscreenZoom(100);
+                setFullscreenPan({ x: 0, y: 0 });
+              }}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                zIndex: 10,
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                background: 'rgba(15, 15, 26, 0.75)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(15, 15, 26, 0.9)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(15, 15, 26, 0.75)'; }}
+            >
+              <FaExpand size={16} />
+            </button>
+
             <img
               ref={mapImageRef}
               src={(() => {
@@ -4166,10 +4321,20 @@ export default function App() {
               const visibleMembers: UserData[] = [];
 
               // Me (if enabled and not stale)
-              const STALE_THRESHOLD_MS = 100 * 60 * 60 * 1000; // 100 hours
+              const STALE_THRESHOLD_MS = 3 * 60 * 60 * 1000; // 3 hours
               const isLocationStale = (u: UserData) => {
                 if (!u.lastUpdate) return true;
                 return (Date.now() - u.lastUpdate) > STALE_THRESHOLD_MS;
+              };
+
+              const getMapUserOpacity = (lastUpdate?: number): number => {
+                if (!lastUpdate) return 0;
+                const elapsed = Date.now() - lastUpdate;
+                const twoHoursMs = 2 * 60 * 60 * 1000;
+                const threeHoursMs = 3 * 60 * 60 * 1000;
+                if (elapsed <= twoHoursMs) return 1.0;
+                if (elapsed >= threeHoursMs) return 0.0;
+                return 1.0 - (elapsed - twoHoursMs) / (threeHoursMs - twoHoursMs);
               };
 
               if (userData && userData.location && !isLocationStale(userData) && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())) {
@@ -4216,6 +4381,7 @@ export default function App() {
                         top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
                         zIndex: isMe ? 20 : 10,
                         cursor: 'pointer',
+                        opacity: getMapUserOpacity(u.lastUpdate),
                         // Highlight if they are searching for us OR if we are searching for them
                         filter: ((u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)))
                           ? 'drop-shadow(0 0 8px #FFD700) drop-shadow(0 0 12px #FFD700)'
@@ -4287,8 +4453,8 @@ export default function App() {
                         background: '#333',
                         padding: 0
                       }}>
-                        <img src={getAvatarUrl(u1.photoURL, u1.displayName)} style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
-                        <img src={getAvatarUrl(u2.photoURL, u2.displayName)} style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover' }} />
+                        <img src={getAvatarUrl(u1.photoURL, u1.displayName)} style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(u1.lastUpdate) }} />
+                        <img src={getAvatarUrl(u2.photoURL, u2.displayName)} style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(u2.lastUpdate) }} />
                         {/* Divider line */}
                         <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'white' }}></div>
                       </div>
@@ -4320,11 +4486,11 @@ export default function App() {
                       gridTemplateRows: '1fr 1fr'
                     }}>
                       {/* TL */}
-                      <img src={getAvatarUrl(displayUsers[0]?.photoURL, displayUsers[0]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarUrl(displayUsers[0]?.photoURL, displayUsers[0]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(displayUsers[0]?.lastUpdate) }} />
                       {/* TR */}
-                      <img src={getAvatarUrl(displayUsers[1]?.photoURL, displayUsers[1]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarUrl(displayUsers[1]?.photoURL, displayUsers[1]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(displayUsers[1]?.lastUpdate) }} />
                       {/* BL */}
-                      <img src={getAvatarUrl(displayUsers[2]?.photoURL, displayUsers[2]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarUrl(displayUsers[2]?.photoURL, displayUsers[2]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(displayUsers[2]?.lastUpdate) }} />
                       {/* BR (Plus) */}
                       <div style={{ width: '100%', height: '100%', background: '#444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '10px' }}>
                         +
@@ -4364,6 +4530,451 @@ export default function App() {
             })}
 
           </div>
+
+          {/* Fullscreen Map Modal */}
+          {isFullscreenMap && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              background: '#0a0a14',
+              zIndex: 99999,
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {/* Close Button */}
+              <button
+                onClick={() => setIsFullscreenMap(false)}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  left: '16px',
+                  zIndex: 100000,
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: 'rgba(15, 15, 26, 0.75)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(10px)',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <FaCompress size={16} />
+              </button>
+
+              {/* Floating Zoom Controls Panel */}
+              <div style={{
+                position: 'absolute',
+                bottom: '24px',
+                right: '24px',
+                zIndex: 100000,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                background: 'rgba(15, 15, 26, 0.75)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                padding: '8px',
+                borderRadius: '16px',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)'
+              }}>
+                <button
+                  onClick={() => setFullscreenZoom(prev => Math.min(300, prev + 25))}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: 'none',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  +
+                </button>
+                <div style={{
+                  color: 'white',
+                  fontSize: '10px',
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  fontFamily: 'monospace'
+                }}>
+                  {fullscreenZoom}%
+                </div>
+                <button
+                  onClick={() => setFullscreenZoom(prev => Math.max(100, prev - 25))}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: 'none',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  -
+                </button>
+                <button
+                  onClick={() => {
+                    setFullscreenZoom(100);
+                    setFullscreenPan({ x: 0, y: 0 });
+                  }}
+                  style={{
+                    width: '36px',
+                    height: '24px',
+                    borderRadius: '6px',
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    color: '#03dac6',
+                    fontWeight: 'bold',
+                    fontSize: '9px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+
+              {/* Map Container Viewport */}
+              <div 
+                className="map-container"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onPointerDown={handlePointerDownFullscreen}
+                onPointerMove={handlePointerMoveFullscreen}
+                onPointerUp={handlePointerUpFullscreen}
+                style={{
+                  width: '100%',
+                  position: 'relative',
+                  transform: `translate(${fullscreenPan.x}px, ${fullscreenPan.y}px) scale(${fullscreenZoom / 100})`,
+                  transformOrigin: 'center center',
+                  transition: isDraggingRef.current || isPinchingRef.current ? 'none' : 'transform 0.15s ease-out'
+                }}
+              >
+                <img
+                  ref={fullscreenMapImageRef}
+                  src={(() => {
+                    const isForced = forceNoIcons;
+                    const isNoIconsToggled = !!userData?.mapNoIcons;
+                    if (isForced || isNoIconsToggled) {
+                      return "/map-compressed/Beatherder Map No Icons.png";
+                    }
+
+                    const pref = userData?.mapPreference;
+                    const useHQ = !!userData?.useHighQualityImages;
+                    const prefix = useHQ ? "" : "/map-compressed";
+                    if (!pref || pref === 'dynamic' || pref === 'cartoon') {
+                      const hour = new Date().getHours();
+                      return (hour >= 20 || hour < 6) ? `${prefix}/Beatherder Map Dark.png` : `${prefix}/Beatherder Map 2.png`;
+                    }
+                    if (pref === 'cartoon_dark') return `${prefix}/Beatherder Map Dark.png`;
+                    if (pref === 'satellite') return `${prefix}/Beatherder Map.png`;
+                    return `${prefix}/Beatherder Map 2.png`;
+                  })()}
+                  alt="Map"
+                  className="map-image"
+                  onLoad={resizeFullscreenCanvas}
+                  style={{ display: 'block', width: '100%', height: 'auto', pointerEvents: 'none', userSelect: 'none' }}
+                />
+
+                {/* Render Active Overlay Icons */}
+                {(forceNoIcons || userData?.mapNoIcons) && Object.entries(activeOverlays).map(([filename, isEnabled]) => {
+                  if (!isEnabled) return null;
+                  return (
+                    <img
+                      key={filename}
+                      src={`/map-compressed/overlay icons/${filename}`}
+                      alt={filename}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        pointerEvents: 'none',
+                        zIndex: 2,
+                        borderRadius: 'inherit'
+                      }}
+                    />
+                  );
+                })}
+
+                {waterMapExpiry && waterMapExpiry > Date.now() && (
+                  <img
+                    src={userData?.useHighQualityImages ? "/BH water map overlap.png" : "/map-compressed/BH water map overlap.png"}
+                    alt="Water Taps Overlap"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                      zIndex: 3,
+                      borderRadius: 'inherit'
+                    }}
+                  />
+                )}
+
+                {medTentMapExpiry && medTentMapExpiry > Date.now() && (
+                  <img
+                    src={userData?.useHighQualityImages ? "/BH med tent map overlay.png" : "/map-compressed/BH med tent map overlay.png"}
+                    alt="Med Tent Overlap"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                      zIndex: 3,
+                      borderRadius: 'inherit'
+                    }}
+                  />
+                )}
+
+                <canvas
+                  ref={fullscreenCanvasRef}
+                  className="map-canvas"
+                  style={{ pointerEvents: 'none', zIndex: 1 }}
+                />
+
+                {/* CLUSTERED MARKERS (Me + Friends) */}
+                {(() => {
+                  const visibleMembers: UserData[] = [];
+                  const STALE_THRESHOLD_MS = 3 * 60 * 60 * 1000;
+                  const isLocationStale = (u: UserData) => {
+                    if (!u.lastUpdate) return true;
+                    return (Date.now() - u.lastUpdate) > STALE_THRESHOLD_MS;
+                  };
+
+                  const getMapUserOpacity = (lastUpdate?: number): number => {
+                    if (!lastUpdate) return 0;
+                    const elapsed = Date.now() - lastUpdate;
+                    const twoHoursMs = 2 * 60 * 60 * 1000;
+                    const threeHoursMs = 3 * 60 * 60 * 1000;
+                    if (elapsed <= twoHoursMs) return 1.0;
+                    if (elapsed >= threeHoursMs) return 0.0;
+                    return 1.0 - (elapsed - twoHoursMs) / (threeHoursMs - twoHoursMs);
+                  };
+
+                  if (userData && userData.location && !isLocationStale(userData) && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())) {
+                    visibleMembers.push(userData);
+                  }
+
+                  if (!devMapFilterDuration) {
+                    const visibleFriends = friendsData.filter((f: any) => 
+                      !!f.location && 
+                      f.squadId === userData?.squadId && 
+                      !isLocationStale(f) && 
+                      !(f.ghostMode && f.ghostModeExpiry && f.ghostModeExpiry > Date.now())
+                    );
+                    visibleMembers.push(...visibleFriends);
+                  }
+
+                  const clusters = clusterUsers(visibleMembers, 0.05);
+
+                  return clusters.map((cluster) => {
+                    const key = cluster.users.map(u => u.uid).join('-');
+
+                    // --- SINGLE MARKER ---
+                    if (cluster.users.length === 1) {
+                      const u = cluster.users[0];
+                      const isMe = u.uid === userData?.uid;
+                      const isHighlighted = ((u.searchingFor?.uid === userData?.uid && (Date.now() - (u.searchingFor?.timestamp || 0) < 3600000)) || (userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000)));
+                      return (
+                        <div key={u.uid}
+                          className={`user-marker size-${userData?.markerSize || 'normal'}`}
+                          onClick={(e) => {
+                            if (hasMovedRef.current) return;
+                            e.stopPropagation();
+                            if (userData?.useGps === false && u.location) {
+                              const area = findAreaAtPoint(u.location);
+                              if (area) setSelectedAreaForCheckIn(area);
+                            }
+                            setSelectedMember(u);
+                            setSelectedMemberContext('squad');
+                            setActiveModal('member');
+                          }}
+                          style={{
+                            left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
+                            top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
+                            zIndex: isMe ? 20 : 10,
+                            cursor: 'pointer',
+                            opacity: getMapUserOpacity(u.lastUpdate),
+                            filter: isHighlighted
+                              ? 'drop-shadow(0 0 8px #FFD700) drop-shadow(0 0 12px #FFD700)'
+                              : undefined,
+                            transform: `translate(-50%, -50%) scale(${(1 / (fullscreenZoom / 100)) * (isHighlighted ? 1.2 : 1.0)})`,
+                            transition: 'opacity 0.3s ease'
+                          } as any}>
+                          <div
+                            className={`${u.avatarEffects?.includes('spin') ? 'spin-animate' : ''} ${u.avatarEffects?.includes('glow') ? 'glow-animate' : ''} ${u.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}`}
+                            style={{
+                              border: '2px solid',
+                              borderColor: u.avatarColor === 'rainbow' ? 'transparent' : (u.avatarColor || 'white'),
+                              borderRadius: '50%',
+                              padding: '0',
+                              background: 'transparent',
+                              position: 'relative',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              ...(u.avatarEffects?.includes('glow') ? { '--glow-color': u.avatarColor === 'rainbow' ? 'var(--primary)' : (u.avatarColor || 'var(--primary)') } : {})
+                            } as any}
+                          >
+                            <img src={getAvatarUrl(u.photoURL, u.displayName)} className="marker-avatar" alt={u.displayName} style={{ border: 'none', margin: 0 }} />
+                            {u.avatarEffects?.includes('crown') && isEligibleForCrown(u) && (
+                              <span className="crown-icon-marker">👑</span>
+                            )}
+                            {u.avatarEffects?.includes('halo') && (
+                              <img src={`/halo-${u.avatarHaloSkin || 'birthday'}.png`} className="halo-icon-marker" alt="Halo" />
+                            )}
+                            {u.avatarEffects?.includes('partyhat') && (
+                              <img src={getPartyhatImg(u.avatarPartyhatSkin)} className="partyhat-icon-marker" alt="Party Hat" />
+                            )}
+                            {u.avatarEffects?.includes('trafficcone') && (
+                              <img src={getTrafficconeImg(u.avatarTrafficconeSkin)} className="trafficcone-icon-marker" alt="Traffic Cone" />
+                            )}
+                          </div>
+                          {u.ghostMode && u.ghostModeExpiry && u.ghostModeExpiry > Date.now() && (
+                            <div style={{ position: 'absolute', top: '-10px', right: '-10px', fontSize: '20px' }}>👻</div>
+                          )}
+                          <div className="marker-label">
+                            {isMe ? 'You' : u.displayName?.split(' ')[0]}
+                            {userData?.searchingFor?.uid === u.uid && (Date.now() - (userData.searchingFor?.timestamp || 0) < 3600000) && ' 🏮'}
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // --- PAIR MARKER (50/50 Split) ---
+                    if (cluster.users.length === 2) {
+                      const u1 = cluster.users[0];
+                      const u2 = cluster.users[1];
+                      const name1 = (u1.uid === userData?.uid) ? 'You' : u1.displayName?.split(' ')[0];
+                      const name2 = (u2.uid === userData?.uid) ? 'You' : u2.displayName?.split(' ')[0];
+
+                      return (
+                        <div key={key} className={`user-marker size-${userData?.markerSize || 'normal'}`}
+                          onClick={(e) => {
+                            if (hasMovedRef.current) return;
+                            e.stopPropagation();
+                            handleClusterClick(cluster.users, cluster.centroid);
+                          }}
+                          style={{
+                            left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
+                            top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
+                            zIndex: 30,
+                            cursor: 'pointer',
+                            transform: `translate(-50%, -50%) scale(${1 / (fullscreenZoom / 100)})`
+                          }}>
+                          <div className="marker-avatar" style={{
+                            position: 'relative',
+                            overflow: 'hidden',
+                            background: '#333',
+                            padding: 0
+                          }}>
+                            <img src={getAvatarUrl(u1.photoURL, u1.displayName)} style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(u1.lastUpdate) }} />
+                            <img src={getAvatarUrl(u2.photoURL, u2.displayName)} style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(u2.lastUpdate) }} />
+                            <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'white' }}></div>
+                          </div>
+                          <div className="marker-label" style={{ whiteSpace: 'nowrap' }}>{name1} & {name2}</div>
+                        </div>
+                      );
+                    }
+
+                    // --- GROUP MARKER (3+ People) ---
+                    const displayUsers = cluster.users.slice(0, 3);
+
+                    return (
+                      <div key={key} className={`user-marker size-${userData?.markerSize || 'normal'}`}
+                        onClick={(e) => {
+                          if (hasMovedRef.current) return;
+                          e.stopPropagation();
+                          handleClusterClick(cluster.users, cluster.centroid);
+                        }}
+                        style={{
+                          left: `${Math.max(0, Math.min(100, cluster.centroid.x * 100))}%`,
+                          top: `${Math.max(0, Math.min(100, cluster.centroid.y * 100))}%`,
+                          zIndex: 40,
+                          cursor: 'pointer',
+                          transform: `translate(-50%, -50%) scale(${1 / (fullscreenZoom / 100)})`
+                        }}>
+                        <div className="marker-avatar" style={{
+                          position: 'relative',
+                          overflow: 'hidden',
+                          background: '#333',
+                          padding: 0,
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gridTemplateRows: '1fr 1fr'
+                        }}>
+                          <img src={getAvatarUrl(displayUsers[0]?.photoURL, displayUsers[0]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(displayUsers[0]?.lastUpdate) }} />
+                          <img src={getAvatarUrl(displayUsers[1]?.photoURL, displayUsers[1]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(displayUsers[1]?.lastUpdate) }} />
+                          <img src={getAvatarUrl(displayUsers[2]?.photoURL, displayUsers[2]?.displayName)} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: getMapUserOpacity(displayUsers[2]?.lastUpdate) }} />
+                          <div style={{ width: '100%', height: '100%', background: '#444', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '10px' }}>
+                            +
+                          </div>
+                        </div>
+                        <div className="marker-label">Squad</div>
+                      </div>
+                    );
+                  });
+                })()}
+
+                {/* Dev Mode: All Users Markers */}
+                {devMapFilterDuration && allUsersOnMap.map(u => {
+                  if (!u.location) return null;
+                  const isFriend = friendsData.some((f: any) => f.uid === u.uid);
+                  const isMe = u.uid === userData?.uid;
+                  let borderColor = '#999';
+                  if (isMe) borderColor = 'var(--primary)';
+                  else if (isFriend) borderColor = 'var(--secondary)';
+
+                  return (
+                    <div key={u.uid} className={`user-marker size-${userData?.markerSize || 'normal'}`} style={{
+                      left: `${Math.max(0, Math.min(100, u.location.x * 100))}%`,
+                      top: `${Math.max(0, Math.min(100, u.location.y * 100))}%`,
+                      zIndex: isMe ? 20 : 10,
+                      transform: `translate(-50%, -50%) scale(${1 / (fullscreenZoom / 100)})`
+                    }}>
+                      <img
+                        src={getAvatarUrl(u.photoURL, u.displayName)}
+                        className="marker-avatar"
+                        alt={u.displayName}
+                        style={{ borderColor }}
+                      />
+                      <div className="marker-label" style={{ fontSize: '0.6rem' }}>{u.displayName?.split(' ')[0]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* I found them! Button */}
           {userData?.searchingFor && (Date.now() - userData.searchingFor.timestamp < 3600000) && (
@@ -4537,8 +5148,7 @@ export default function App() {
               const squadMembers = [userData, ...friendsData].filter((u: any) => u.squadId === userData.squadId);
               const leaderUid = getSquadLeaderUid();
               return squadMembers
-                .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
-                .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
+                .sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0))
                 .map(member => (
                   <div key={member.uid}
                     className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `}
@@ -4923,7 +5533,7 @@ export default function App() {
               const squadMembers = [userData, ...friendsData].filter((u: any) => u.squadId === userData.squadId);
               const leaderUid = getSquadLeaderUid();
               return squadMembers
-                .sort((a, b) => a.uid === leaderUid ? -1 : b.uid === leaderUid ? 1 : 0)
+                .sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0))
                 .map(member => (
                   <div key={member.uid}
                     className={`card ${member.uid === currentUser.uid ? 'current-user' : ''} `}

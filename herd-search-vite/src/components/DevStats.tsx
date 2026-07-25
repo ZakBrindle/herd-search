@@ -3,7 +3,8 @@ import { collection, getDocs, type DocumentData, collectionGroup } from 'firebas
 import { db } from '../firebase';
 import { 
     FaMapMarkerAlt, FaChartBar, FaGlobe, FaTimes, 
-    FaCalendarAlt, FaFileInvoiceDollar, FaUsers 
+    FaCalendarAlt, FaFileInvoiceDollar, FaUsers,
+    FaUser
 } from 'react-icons/fa';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -19,6 +20,13 @@ type UserData = {
     currentArea?: string;
     squadId?: string;
     squadOwnerId?: string;
+    createdAt?: number;
+    displayName?: string;
+    email?: string;
+    photoURL?: string;
+    totalSpent?: number;
+    signUpTime?: number;
+    purchaseCount?: number;
 };
 
 type Props = {
@@ -35,8 +43,10 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
     const [users, setUsers] = useState<UserData[]>([]);
     const [squads, setSquads] = useState<DocumentData[]>([]);
     const [messages, setMessages] = useState<DocumentData[]>([]);
+    const [purchases, setPurchases] = useState<DocumentData[]>([]);
     const [loading, setLoading] = useState(true);
     const [timeFrame, setTimeFrame] = useState<'1h' | '24h' | '7d' | '30d'>('24h');
+    const [selectedSignupUsers, setSelectedSignupUsers] = useState<UserData[] | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -45,10 +55,12 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
                 const usersSnap = await getDocs(collection(db, 'users'));
                 const squadsSnap = await getDocs(collection(db, 'squads'));
                 const messagesSnap = await getDocs(collectionGroup(db, 'messages'));
+                const purchasesSnap = await getDocs(collection(db, 'purchases'));
 
-                setUsers(usersSnap.docs.map(d => d.data() as UserData));
-                setSquads(squadsSnap.docs.map(d => d.data()));
+                setUsers(usersSnap.docs.map(d => ({ uid: d.id, ...d.data() } as UserData)));
+                setSquads(squadsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
                 setMessages(messagesSnap.docs.map(d => d.data()));
+                setPurchases(purchasesSnap.docs.map(d => d.data()));
             } catch (error) {
                 console.error("Error fetching stats data:", error);
             } finally {
@@ -68,7 +80,24 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
             case '30d': ms = 30 * 24 * 3600 * 1000; break;
         }
 
-        const activeUsers = users.filter(u => u.lastUpdate && (now - u.lastUpdate < ms));
+        // Calculate Spent and Sign Up Time per user
+        const processedUsers = users.map(u => {
+            const userPurchases = purchases.filter(p => p.userId === u.uid && p.status === 'completed');
+            const totalSpent = userPurchases.reduce((sum, p) => {
+                const amount = parseFloat(p.amount?.replace('£', '')) || 0;
+                return sum + amount;
+            }, 0);
+            const userSquad = squads.find(s => s.ownerId === u.uid);
+            const signUpTime = u.createdAt || userSquad?.createdAt || u.lastUpdate || 0;
+            return {
+                ...u,
+                totalSpent,
+                signUpTime,
+                purchaseCount: userPurchases.length
+            };
+        });
+
+        const activeUsers = processedUsers.filter(u => u.lastUpdate && (now - u.lastUpdate < ms));
 
         const tierCounts: { [key: string]: number } = {};
         activeUsers.forEach(u => {
@@ -116,6 +145,9 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
         // Squad Votes Started in Timeframe
         const squadVotesStartedCount = messagesInTimeframe.filter(m => m.senderId === 'system' && m.senderName === 'Squad Vote').length;
 
+        // New Sign Ups list
+        const newSignUpsList = processedUsers.filter(u => u.signUpTime && (now - u.signUpTime < ms));
+
         return {
             totalActive: activeUsers.length,
             tierData,
@@ -124,9 +156,11 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
             activeSquadsCount: activeSquads.length,
             newSquadsInTimeframe: squadsInTimeframe.length,
             messagesSentCount,
-            squadVotesStartedCount
+            squadVotesStartedCount,
+            newSignUpsCount: newSignUpsList.length,
+            newSignUpsList
         };
-    }, [users, squads, messages, timeFrame]);
+    }, [users, squads, messages, purchases, timeFrame]);
 
     if (loading) {
         return (
@@ -311,7 +345,7 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
             {/* Metrics Grid */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
                 gap: '1rem',
                 marginBottom: '1.5rem'
             }}>
@@ -326,6 +360,31 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
                 }}>
                     <span style={{ color: '#03dac6', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Users ({timeFrame})</span>
                     <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'white', textShadow: '0 0 20px rgba(3, 218, 198, 0.3)' }}>{stats.totalActive}</div>
+                </div>
+
+                <div 
+                    onClick={() => setSelectedSignupUsers(stats.newSignUpsList)}
+                    style={{
+                        background: 'rgba(3, 218, 198, 0.05)',
+                        padding: '1.25rem',
+                        borderRadius: '24px',
+                        border: '1px solid rgba(3, 218, 198, 0.2)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s, background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(3, 218, 198, 0.1)'; e.currentTarget.style.transform = 'scale(1.02)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(3, 218, 198, 0.05)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                >
+                    <span style={{ color: '#03dac6', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.5rem', textAlign: 'center' }}>
+                        New Sign Ups ({timeFrame})
+                    </span>
+                    <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'white', textShadow: '0 0 20px rgba(3, 218, 198, 0.3)' }}>
+                        {stats.newSignUpsCount}
+                    </div>
+                    <span style={{ fontSize: '0.55rem', color: '#888', marginTop: '4px' }}>Click to view details</span>
                 </div>
 
                 <div style={{
@@ -465,8 +524,109 @@ export default function DevStats({ onClose, currentMapFilter, onSetMapFilter, on
                         </ResponsiveContainer>
                     </div>
                 </div>
-
             </div>
+
+            {/* Signups Details Modal */}
+            {selectedSignupUsers && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(10, 10, 18, 0.85)',
+                    backdropFilter: 'blur(10px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10005,
+                    padding: '1rem'
+                }}>
+                    <div style={{
+                        background: 'radial-gradient(circle at top right, #1a1a2e, #0f0f1a)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '24px',
+                        padding: '1.5rem',
+                        width: '100%',
+                        maxWidth: '650px',
+                        maxHeight: '80vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.6)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 'bold', color: '#03dac6' }}>
+                                New Sign Ups Details ({timeFrame})
+                            </h3>
+                            <button
+                                onClick={() => setSelectedSignupUsers(null)}
+                                style={{
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: 'none',
+                                    color: 'white',
+                                    padding: '8px 16px',
+                                    borderRadius: '12px',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                        
+                        <div style={{ flex: 1, overflowY: 'auto', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                                        <th style={{ padding: '12px 16px', color: '#aaa', fontWeight: 'bold' }}>Customer Name</th>
+                                        <th style={{ padding: '12px 16px', color: '#aaa', fontWeight: 'bold' }}>Sign Up Date/Time</th>
+                                        <th style={{ padding: '12px 16px', color: '#aaa', fontWeight: 'bold' }}>Last Active Date/Time</th>
+                                        <th style={{ padding: '12px 16px', color: '#aaa', fontWeight: 'bold', textAlign: 'right' }}>Spent</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {selectedSignupUsers
+                                        .sort((a, b) => (b.signUpTime || 0) - (a.signUpTime || 0))
+                                        .map((user, idx) => (
+                                            <tr key={user.uid || idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)', transition: 'background-color 0.2s' }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                            >
+                                                <td style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {user.photoURL ? (
+                                                        <img src={user.photoURL} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
+                                                    ) : (
+                                                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                            <FaUser size={10} color="#666" />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <div style={{ fontWeight: 'bold', color: 'white' }}>{user.displayName || 'Anonymous'}</div>
+                                                        <div style={{ fontSize: '0.7rem', color: '#666' }}>{user.email || 'No Email'}</div>
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '12px 16px', color: '#ccc' }}>
+                                                    {user.signUpTime ? new Date(user.signUpTime).toLocaleString() : 'N/A'}
+                                                </td>
+                                                <td style={{ padding: '12px 16px', color: '#ccc' }}>
+                                                    {user.lastUpdate ? new Date(user.lastUpdate).toLocaleString() : 'Never'}
+                                                </td>
+                                                <td style={{ padding: '12px 16px', color: '#03dac6', fontWeight: 'bold', textAlign: 'right' }}>
+                                                    £{(user.totalSpent || 0).toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    {selectedSignupUsers.length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} style={{ padding: '24px', textAlign: 'center', color: '#555', fontStyle: 'italic' }}>
+                                                No new sign ups in this timeframe.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }
