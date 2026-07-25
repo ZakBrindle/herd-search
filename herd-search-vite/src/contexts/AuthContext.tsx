@@ -125,9 +125,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         });
                     } else {
                         // Existing user checks
-                        const updates: any = {};
-                        if (isDev) updates.isDev = true;
                         const data = userDoc.data();
+                        const updates: any = {};
+                        if (isDev && !data?.isDev) updates.isDev = true;
                         if (!data?.tier) updates.tier = 'free';
                         if (!data?.squadId) {
                             const squadDoc = await addDoc(collection(db, "squads"), {

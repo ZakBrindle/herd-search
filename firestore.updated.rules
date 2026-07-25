@@ -54,6 +54,7 @@ service cloud.firestore {
             'mapPreference', 'hasRated', 'avatarColor', 'avatarEffects', 'useHighQualityImages', 'avatarHaloSkin', 'avatarPartyhatSkin', 'avatarTrafficconeSkin', 'mapNoIcons',
             'markerSize',
             'staleNotificationSent',
+            'isDev',
             'chatCountThisHour',
             'chatHourStart'
           ])
