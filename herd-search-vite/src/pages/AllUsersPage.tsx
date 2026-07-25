@@ -1,6 +1,27 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, type DocumentData, doc, updateDoc, collectionGroup } from 'firebase/firestore';
-import { db } from '../firebase';
+import { collection, getDocs, type DocumentData, doc, updateDoc, collectionGroup, arrayUnion } from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import { getAvatarUrl } from '../utils/userUtils';
+
+const getPartyhatImg = (skin?: string): string => {
+    if (skin === 'dino') return '/dino-hat.png';
+    if (skin === 'princess') return '/princess-hat.png';
+    if (skin === 'wizard') return '/wizard-hat.png';
+    return '/party-hat.png';
+};
+
+const getTrafficconeImg = (skin?: string): string => {
+    if (skin === 'green') return '/traffic-cone-green.png';
+    if (skin === 'purple') return '/traffic-cone-purple.png';
+    if (skin === 'rainbow') return '/traffic-cone-rainbow.png';
+    return '/traffic-cone.png';
+};
+
+const isEligibleForCrown = (user: any): boolean => {
+    const hasSub = user.tier && user.tier !== 'free';
+    const isLeader = user.squadId && user.squadOwnerId === user.uid;
+    return !!(hasSub && isLeader);
+};
 import { 
     FaChevronLeft, FaSearch, FaUser, FaUserFriends, 
     FaMapMarkerAlt, FaClock, FaCheckCircle, FaTimesCircle, 
@@ -48,6 +69,76 @@ const AllUsersPage: React.FC = () => {
     const [selectedUserForAction, setSelectedUserForAction] = useState<any | null>(null);
     const [actionType, setActionType] = useState<'menu' | 'history' | 'override'>('menu');
     const [viewMode, setViewMode] = useState<'detailed' | 'simple'>('detailed');
+
+    const handleForceAddFriend = async () => {
+        const myUid = auth.currentUser?.uid;
+        if (!myUid) {
+            alert("No current user logged in.");
+            return;
+        }
+        if (!selectedUserForAction?.uid) return;
+        try {
+            // Add them to my friends list
+            await updateDoc(doc(db, "users", myUid), {
+                friends: arrayUnion(selectedUserForAction.uid)
+            });
+            // Add me to their friends list
+            await updateDoc(doc(db, "users", selectedUserForAction.uid), {
+                friends: arrayUnion(myUid)
+            });
+            alert(`Successfully forced connection! You and ${selectedUserForAction.displayName || 'this user'} are now friends.`);
+            setSelectedUserForAction(null);
+            window.location.reload();
+        } catch (err: any) {
+            console.error("Force Add Friend failed:", err);
+            alert("Failed to force add friend: " + err.message);
+        }
+    };
+
+    const handleForceAddSquad = async () => {
+        const myUid = auth.currentUser?.uid;
+        if (!myUid) {
+            alert("No current user logged in.");
+            return;
+        }
+        if (!selectedUserForAction?.uid) return;
+        const myProfile = users.find(u => u.uid === myUid);
+        if (!myProfile || !myProfile.squadId) {
+            alert("Could not locate your user profile or your active squad.");
+            return;
+        }
+
+        try {
+            // 1. Force add as friends if not already
+            const isFriend = myProfile.friends?.includes(selectedUserForAction.uid);
+            if (!isFriend) {
+                await updateDoc(doc(db, "users", myUid), {
+                    friends: arrayUnion(selectedUserForAction.uid)
+                });
+                await updateDoc(doc(db, "users", selectedUserForAction.uid), {
+                    friends: arrayUnion(myUid)
+                });
+            }
+
+            // 2. Set squad details on the target user
+            await updateDoc(doc(db, "users", selectedUserForAction.uid), {
+                squadId: myProfile.squadId,
+                squadOwnerId: myProfile.squadOwnerId || myUid
+            });
+
+            // 3. Add to squad members list
+            await updateDoc(doc(db, "squads", myProfile.squadId), {
+                members: arrayUnion(selectedUserForAction.uid)
+            });
+
+            alert(`Successfully forced ${selectedUserForAction.displayName || 'this user'} into your squad!`);
+            setSelectedUserForAction(null);
+            window.location.reload();
+        } catch (err: any) {
+            console.error("Force Add Squad failed:", err);
+            alert("Failed to force add to squad: " + err.message);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -240,7 +331,114 @@ const AllUsersPage: React.FC = () => {
                     </div>
 
                     <div style={{ background: '#1e1e1e', borderRadius: '12px', padding: '1.5rem', border: '1px solid #333', display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '500px', margin: '0 auto' }}>
-                        <h3 style={{ margin: 0, fontSize: '1.2rem', textAlign: 'center', marginBottom: '1rem' }}>Select Action</h3>
+                        {/* Selected User Avatar with Customizations */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <div style={{ position: 'relative', width: '80px', height: '80px', marginBottom: '0.75rem' }}>
+                                {selectedUserForAction.avatarEffects?.includes('crown') && isEligibleForCrown(selectedUserForAction) && (
+                                    <span style={{
+                                        position: 'absolute',
+                                        top: '-20px',
+                                        left: '50%',
+                                        transform: 'translateX(-50%)',
+                                        fontSize: '1.8rem',
+                                        zIndex: 5
+                                    }}>👑</span>
+                                )}
+                                {selectedUserForAction.avatarEffects?.includes('halo') && (
+                                    <img
+                                        src={`/halo-${selectedUserForAction.avatarHaloSkin || 'birthday'}.png`}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-15px',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            width: '40px',
+                                            height: '40px',
+                                            zIndex: 4,
+                                            pointerEvents: 'none'
+                                        }}
+                                        alt="Halo"
+                                    />
+                                )}
+                                {selectedUserForAction.avatarEffects?.includes('partyhat') && (
+                                    <img
+                                        src={getPartyhatImg(selectedUserForAction.avatarPartyhatSkin)}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-15px',
+                                            left: '40%',
+                                            transform: 'translateX(-50%)',
+                                            width: '32px',
+                                            height: '32px',
+                                            zIndex: 5,
+                                            pointerEvents: 'none'
+                                        }}
+                                        alt="Party Hat"
+                                    />
+                                )}
+                                {selectedUserForAction.avatarEffects?.includes('trafficcone') && (
+                                    <img
+                                        src={getTrafficconeImg(selectedUserForAction.avatarTrafficconeSkin)}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-20px',
+                                            left: '15%',
+                                            width: '32px',
+                                            height: '32px',
+                                            zIndex: 5,
+                                            pointerEvents: 'none'
+                                        }}
+                                        alt="Traffic Cone"
+                                    />
+                                )}
+                                <div
+                                    className={`
+                                        ${selectedUserForAction.avatarEffects?.includes('spin') ? 'spin-animate' : ''} 
+                                        ${selectedUserForAction.avatarEffects?.includes('glow') ? 'glow-animate' : ''}
+                                        ${selectedUserForAction.avatarColor === 'rainbow' ? 'rainbow-animate' : ''}
+                                        ${selectedUserForAction.tier !== 'free' && !selectedUserForAction.avatarColor && !selectedUserForAction.avatarEffects?.length ? 'premium-avatar-container' : ''}
+                                    `}
+                                    style={{
+                                        borderRadius: '50%',
+                                        padding: '0',
+                                        border: '3px solid',
+                                        borderColor: selectedUserForAction.avatarColor === 'rainbow' ? 'transparent' : (selectedUserForAction.avatarColor || (selectedUserForAction.tier !== 'free' ? 'transparent' : 'var(--primary, #03dac6)')),
+                                        position: 'relative',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 80,
+                                        height: 80,
+                                        background: (selectedUserForAction.tier !== 'free' && (!selectedUserForAction.avatarColor || selectedUserForAction.avatarColor === 'transparent')) ? 'linear-gradient(45deg, var(--primary, #03dac6), var(--secondary, #bb86fc))' : 'transparent',
+                                        ...(selectedUserForAction.avatarEffects?.includes('glow') ? { '--glow-color': selectedUserForAction.avatarColor === 'rainbow' ? 'var(--primary, #03dac6)' : (selectedUserForAction.avatarColor || 'var(--primary, #03dac6)') } : {})
+                                    } as any}
+                                >
+                                    <img
+                                        src={getAvatarUrl(selectedUserForAction.photoURL, selectedUserForAction.displayName)}
+                                        alt="Avatar"
+                                        style={{ margin: 0, border: 'none', width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                                    />
+                                </div>
+                            </div>
+                            <h2 style={{ margin: 0, fontSize: '1.2rem', textAlign: 'center' }}>
+                                {selectedUserForAction.displayName || 'Anonymous'}
+                            </h2>
+                            <span style={{
+                                padding: '2px 8px',
+                                background: 'rgba(255,255,255,0.08)',
+                                borderRadius: '12px',
+                                fontSize: '0.7rem',
+                                color: '#888',
+                                marginTop: '4px',
+                                textTransform: 'uppercase',
+                                fontWeight: 'bold',
+                                letterSpacing: '0.5px'
+                            }}>
+                                {selectedUserForAction.tier || 'free'}
+                            </span>
+                        </div>
+
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', textAlign: 'center', marginBottom: '0.5rem' }}>Select Action</h3>
                         
                         <button 
                             onClick={() => setActionType('history')}
@@ -274,6 +472,41 @@ const AllUsersPage: React.FC = () => {
                             }}
                         >
                             Manually Override Tier ⚙️
+                        </button>
+
+                        {/* Force Action Buttons */}
+                        <button 
+                            onClick={handleForceAddFriend}
+                            style={{
+                                background: 'linear-gradient(45deg, #4caf50, #2e7d32)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '15px',
+                                borderRadius: '10px',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.1s'
+                            }}
+                        >
+                            Force Add Friend 🤝
+                        </button>
+
+                        <button 
+                            onClick={handleForceAddSquad}
+                            style={{
+                                background: 'linear-gradient(45deg, #ff9800, #f57c00)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '15px',
+                                borderRadius: '10px',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'transform 0.1s'
+                            }}
+                        >
+                            Force Add Squad 👥
                         </button>
 
                         <button 
