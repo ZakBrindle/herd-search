@@ -282,6 +282,7 @@ export default function App() {
   const [isFullscreenMap, setIsFullscreenMap] = useState(false);
   const [fullscreenZoom, setFullscreenZoom] = useState(100);
   const [fullscreenPan, setFullscreenPan] = useState({ x: 0, y: 0 });
+  const [fullscreenMapAspectRatio, setFullscreenMapAspectRatio] = useState(1.3);
   const fullscreenCanvasRef = useRef<HTMLCanvasElement>(null);
   const fullscreenMapImageRef = useRef<HTMLImageElement>(null);
 
@@ -2014,6 +2015,11 @@ export default function App() {
     const canvas = fullscreenCanvasRef.current;
     const mapImage = fullscreenMapImageRef.current;
     if (!canvas || !mapImage) return;
+
+    if (mapImage.naturalHeight > 0) {
+      setFullscreenMapAspectRatio(mapImage.naturalWidth / mapImage.naturalHeight);
+    }
+
     if (mapImage.clientWidth > 0) {
       canvas.width = mapImage.clientWidth;
       canvas.height = mapImage.clientHeight;
@@ -4204,7 +4210,7 @@ export default function App() {
               }}
               style={{
                 position: 'absolute',
-                top: '16px',
+                bottom: '16px',
                 right: '16px',
                 zIndex: 10,
                 width: '40px',
@@ -4667,7 +4673,8 @@ export default function App() {
                 onPointerMove={handlePointerMoveFullscreen}
                 onPointerUp={handlePointerUpFullscreen}
                 style={{
-                  width: '100%',
+                  height: '100vh',
+                  width: `calc(100vh * ${fullscreenMapAspectRatio})`,
                   position: 'relative',
                   transform: `translate(${fullscreenPan.x}px, ${fullscreenPan.y}px) scale(${fullscreenZoom / 100})`,
                   transformOrigin: 'center center',
@@ -4697,7 +4704,7 @@ export default function App() {
                   alt="Map"
                   className="map-image"
                   onLoad={resizeFullscreenCanvas}
-                  style={{ display: 'block', width: '100%', height: 'auto', pointerEvents: 'none', userSelect: 'none' }}
+                  style={{ display: 'block', width: '100%', height: '100%', pointerEvents: 'none', userSelect: 'none' }}
                 />
 
                 {/* Render Active Overlay Icons */}
