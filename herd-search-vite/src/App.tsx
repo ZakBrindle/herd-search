@@ -6826,7 +6826,7 @@ export default function App() {
                 <div style={{ display: 'flex', gap: '10px' }}>
                   {[
                     { hours: 1, label: 'Fade after 1 hour', sub: 'Gone by 2h' },
-                    { hours: 2, label: 'Fade after 2 hours', sub: 'Gone by 3h (Default)' },
+                    { hours: 2, label: 'Fade after 2 hours', sub: 'Gone by 3h' },
                     { hours: 3, label: 'Fade after 3 hours', sub: 'Gone by 4h' }
                   ].map(({ hours, label, sub }) => {
                     const isSelected = (userData?.markerFadeHours || 2) === hours;
