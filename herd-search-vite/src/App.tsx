@@ -4259,7 +4259,7 @@ export default function App() {
               style={{
                 position: 'absolute',
                 bottom: '16px',
-                right: '16px',
+                left: '16px',
                 zIndex: 10,
                 width: '40px',
                 height: '40px',
@@ -4597,33 +4597,7 @@ export default function App() {
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              {/* Close Button */}
-              <button
-                onClick={() => setIsFullscreenMap(false)}
-                style={{
-                  position: 'absolute',
-                  top: '16px',
-                  left: '16px',
-                  zIndex: 100000,
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: 'rgba(15, 15, 26, 0.75)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  backdropFilter: 'blur(10px)',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <FaCompress size={16} />
-              </button>
-
-              {/* Floating Zoom Controls Panel */}
+              {/* Floating Zoom & Exit Fullscreen Controls Panel */}
               <div style={{
                 position: 'absolute',
                 bottom: '24px',
@@ -4631,6 +4605,7 @@ export default function App() {
                 zIndex: 100000,
                 display: 'flex',
                 flexDirection: 'column',
+                alignItems: 'center',
                 gap: '8px',
                 background: 'rgba(15, 15, 26, 0.75)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -4641,26 +4616,28 @@ export default function App() {
               }}>
                 <button
                   onClick={() => setFullscreenZoom(prev => Math.min(600, prev + 25))}
+                  title="Zoom In"
                   style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.08)',
                     border: 'none',
                     color: 'white',
                     fontWeight: 'bold',
-                    fontSize: '18px',
+                    fontSize: '22px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    transition: 'background 0.2s'
                   }}
                 >
                   +
                 </button>
                 <div style={{
                   color: 'white',
-                  fontSize: '10px',
+                  fontSize: '11px',
                   textAlign: 'center',
                   fontWeight: 'bold',
                   fontFamily: 'monospace'
@@ -4669,45 +4646,44 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => setFullscreenZoom(prev => Math.max(fullscreenMinZoom, prev - 25))}
+                  title="Zoom Out"
                   style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '10px',
-                    background: 'rgba(255,255,255,0.05)',
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.08)',
                     border: 'none',
                     color: 'white',
                     fontWeight: 'bold',
-                    fontSize: '18px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  -
-                </button>
-                <button
-                  onClick={() => {
-                    setFullscreenZoom(fullscreenMinZoom);
-                    setFullscreenPan({ x: 0, y: 0 });
-                  }}
-                  style={{
-                    width: '36px',
-                    height: '24px',
-                    borderRadius: '6px',
-                    background: 'rgba(255,255,255,0.1)',
-                    border: 'none',
-                    color: '#03dac6',
-                    fontWeight: 'bold',
-                    fontSize: '9px',
+                    fontSize: '22px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    textTransform: 'uppercase'
+                    transition: 'background 0.2s'
                   }}
                 >
-                  Reset
+                  -
+                </button>
+                {/* Exit Fullscreen Button directly UNDER Zoom controls */}
+                <button
+                  onClick={() => setIsFullscreenMap(false)}
+                  title="Exit Fullscreen"
+                  style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.12)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <FaCompress size={18} />
                 </button>
               </div>
 
