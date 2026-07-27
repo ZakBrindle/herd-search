@@ -40,6 +40,7 @@ export type UserData = DocumentData & {
     avatarHaloSkin?: string;
     avatarPartyhatSkin?: string;
     useHighQualityImages?: boolean;
+    markerFadeHours?: number;
 };
 
 interface AuthContextType {

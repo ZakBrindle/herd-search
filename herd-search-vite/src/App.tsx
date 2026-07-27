@@ -4375,7 +4375,9 @@ export default function App() {
               const visibleMembers: UserData[] = [];
 
               // Me (if enabled and not stale)
-              const STALE_THRESHOLD_MS = 3 * 60 * 60 * 1000; // 3 hours
+              const fadeHours = userData?.markerFadeHours || 2;
+              const fadeStartMs = fadeHours * 60 * 60 * 1000;
+              const STALE_THRESHOLD_MS = (fadeHours + 1) * 60 * 60 * 1000;
               const isLocationStale = (u: UserData) => {
                 if (!u.lastUpdate) return true;
                 return (Date.now() - u.lastUpdate) > STALE_THRESHOLD_MS;
@@ -4384,11 +4386,9 @@ export default function App() {
               const getMapUserOpacity = (lastUpdate?: number): number => {
                 if (!lastUpdate) return 0;
                 const elapsed = Date.now() - lastUpdate;
-                const twoHoursMs = 2 * 60 * 60 * 1000;
-                const threeHoursMs = 3 * 60 * 60 * 1000;
-                if (elapsed <= twoHoursMs) return 1.0;
-                if (elapsed >= threeHoursMs) return 0.0;
-                return 1.0 - (elapsed - twoHoursMs) / (threeHoursMs - twoHoursMs);
+                if (elapsed <= fadeStartMs) return 1.0;
+                if (elapsed >= STALE_THRESHOLD_MS) return 0.0;
+                return 1.0 - (elapsed - fadeStartMs) / (STALE_THRESHOLD_MS - fadeStartMs);
               };
 
               if (userData && userData.location && !isLocationStale(userData) && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())) {
@@ -4819,7 +4819,9 @@ export default function App() {
                 {/* CLUSTERED MARKERS (Me + Friends) */}
                 {(() => {
                   const visibleMembers: UserData[] = [];
-                  const STALE_THRESHOLD_MS = 3 * 60 * 60 * 1000;
+                  const fadeHours = userData?.markerFadeHours || 2;
+                  const fadeStartMs = fadeHours * 60 * 60 * 1000;
+                  const STALE_THRESHOLD_MS = (fadeHours + 1) * 60 * 60 * 1000;
                   const isLocationStale = (u: UserData) => {
                     if (!u.lastUpdate) return true;
                     return (Date.now() - u.lastUpdate) > STALE_THRESHOLD_MS;
@@ -4828,11 +4830,9 @@ export default function App() {
                   const getMapUserOpacity = (lastUpdate?: number): number => {
                     if (!lastUpdate) return 0;
                     const elapsed = Date.now() - lastUpdate;
-                    const twoHoursMs = 2 * 60 * 60 * 1000;
-                    const threeHoursMs = 3 * 60 * 60 * 1000;
-                    if (elapsed <= twoHoursMs) return 1.0;
-                    if (elapsed >= threeHoursMs) return 0.0;
-                    return 1.0 - (elapsed - twoHoursMs) / (threeHoursMs - twoHoursMs);
+                    if (elapsed <= fadeStartMs) return 1.0;
+                    if (elapsed >= STALE_THRESHOLD_MS) return 0.0;
+                    return 1.0 - (elapsed - fadeStartMs) / (STALE_THRESHOLD_MS - fadeStartMs);
                   };
 
                   if (userData && userData.location && !isLocationStale(userData) && !(userData.ghostMode && userData.ghostModeExpiry && userData.ghostModeExpiry > Date.now())) {
@@ -6605,10 +6605,10 @@ export default function App() {
                 <h3 style={{ fontSize: '1.1rem', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FaUser color="#03dac6" /> Map Markers
                 </h3>
-                <p style={{ margin: '0 0 15px 0', fontSize: '0.85rem', color: '#888' }}>
-                  Choose the display size of user markers on the map.
+                <p style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#888' }}>
+                  Choose the display size of user markers on the map:
                 </p>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
                   {(['normal', 'small', 'tiny'] as const).map((size) => {
                     const isSelected = (userData?.markerSize || 'normal') === size;
                     return (
@@ -6634,6 +6634,48 @@ export default function App() {
                         }}
                       >
                         {size}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <p style={{ margin: '15px 0 10px 0', fontSize: '0.85rem', color: '#888' }}>
+                  Choose when inactive markers start fading from the map:
+                </p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {[
+                    { hours: 1, label: 'Fade after 1 hour', sub: 'Gone by 2h' },
+                    { hours: 2, label: 'Fade after 2 hours', sub: 'Gone by 3h (Default)' },
+                    { hours: 3, label: 'Fade after 3 hours', sub: 'Gone by 4h' }
+                  ].map(({ hours, label, sub }) => {
+                    const isSelected = (userData?.markerFadeHours || 2) === hours;
+                    return (
+                      <button
+                        key={hours}
+                        onClick={() => {
+                          if (currentUser) {
+                            updateDoc(getUserDocRef(currentUser.uid), { markerFadeHours: hours }).catch(console.error);
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 6px',
+                          backgroundColor: isSelected ? '#03dac6' : '#1e1e1e',
+                          color: isSelected ? '#000' : '#fff',
+                          border: isSelected ? 'none' : '1px solid #333',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          transition: 'all 0.2s',
+                          fontSize: '0.8rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <span>{label}</span>
+                        <span style={{ fontSize: '0.7rem', opacity: isSelected ? 0.8 : 0.6, fontWeight: 'normal' }}>{sub}</span>
                       </button>
                     );
                   })}
