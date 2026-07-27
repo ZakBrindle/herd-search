@@ -284,6 +284,7 @@ export default function App() {
   const [outgoingSquadInvites, setOutgoingSquadInvites] = useState<DocumentData[]>([]);
   const [incomingFriendRequests, setIncomingFriendRequests] = useState<DocumentData[]>([]);
   const [outgoingFriendRequests, setOutgoingFriendRequests] = useState<DocumentData[]>([]);
+  const [alsoInviteToSquad, setAlsoInviteToSquad] = useState(false);
   const [incomingSquadJoinRequests, setIncomingSquadJoinRequests] = useState<DocumentData[]>([]);
   const [currentStatusInput, setCurrentStatusInput] = useState('');
   const [publicProfileCache, setPublicProfileCache] = useState<{ [uid: string]: any }>({});
@@ -3047,6 +3048,12 @@ export default function App() {
       await updateDoc(doc(db, "squadInvites", invite.id), {
         status: "declined"
       });
+      if (invite.linkedFriendRequestId) {
+        await updateDoc(doc(db, "friendRequests", invite.linkedFriendRequestId), {
+          status: "declined",
+          updatedAt: Date.now()
+        }).catch(console.error);
+      }
       showAlert("Squad invite declined.");
     } catch (error) {
       console.error("Error declining squad invite:", error);
@@ -3057,6 +3064,9 @@ export default function App() {
   const handleWithdrawSquadInvite = async (invite: DocumentData) => {
     try {
       await deleteDoc(doc(db, "squadInvites", invite.id));
+      if (invite.linkedFriendRequestId) {
+        await deleteDoc(doc(db, "friendRequests", invite.linkedFriendRequestId)).catch(console.error);
+      }
     } catch (error) {
       console.error("Error withdrawing squad invite:", error);
       showAlert("Could not withdraw squad invite.");
@@ -3402,7 +3412,19 @@ export default function App() {
     return () => { unsubIn(); unsubOut(); unsubFreqIn(); unsubFreqOut(); unsubJoinIn(); };
   }, [currentUser?.uid]);
 
-  const handleSendFriendRequest = async (friendUid: string) => {
+  const hasAvailableSquadInvites = (): boolean => {
+    if (!userData || !userData.squadId) return false;
+    if (userData.uid !== userData.squadOwnerId) return false;
+    const myTier = hasActiveSubscription(userData) ? (userData.tier || 'free') : 'free';
+    if (myTier === 'free') return false;
+    const squadMembers = [userData, ...friendsData].filter((u: any) => u.squadId === userData.squadId);
+    const limit = TIER_LIMITS[myTier];
+    const currentCount = squadMembers.length - 1;
+    const pendingCount = outgoingSquadInvites.filter((inv: any) => inv.from === currentUser?.uid).length;
+    return Math.max(0, limit - (currentCount + pendingCount)) > 0;
+  };
+
+  const handleSendFriendRequest = async (friendUid: string, inviteToSquad?: boolean) => {
     if (!currentUser || !userData) return;
     try {
       // 1. Check if already friends
@@ -3436,6 +3458,67 @@ export default function App() {
         }
       }
 
+      if (inviteToSquad) {
+        if (!hasAvailableSquadInvites()) {
+          showAlert("No squad invite spots available!");
+          return;
+        }
+        const squadInvRef = doc(collection(db, "squadInvites"));
+        const friendReqRef = doc(collection(db, "friendRequests"));
+        const now = Date.now();
+
+        await setDoc(friendReqRef, {
+          from: currentUser.uid,
+          to: friendUid,
+          status: 'pending',
+          createdAt: now,
+          updatedAt: now,
+          linkedSquadInviteId: squadInvRef.id
+        });
+
+        await setDoc(squadInvRef, {
+          squadId: userData.squadId,
+          from: currentUser.uid,
+          to: friendUid,
+          createdAt: now,
+          status: 'pending',
+          linkedFriendRequestId: friendReqRef.id
+        });
+
+        const friendName = getDisplayNameByUid(friendUid);
+        if (userData.squadId) {
+          addDoc(collection(db, "squads", userData.squadId, "messages"), {
+            senderId: 'system',
+            senderName: 'Squad Info',
+            senderPhotoURL: '',
+            content: `${userData.displayName} invited ${friendName} to the squad!`,
+            type: 'status_update',
+            createdAt: now
+          }).catch(console.error);
+        }
+
+        try {
+          const friendSnap = await getDoc(getUserDocRef(friendUid));
+          if (friendSnap.exists() && friendSnap.data().fcmToken) {
+            fetch('/api/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tokens: [friendSnap.data().fcmToken],
+                title: 'Friend & Squad Request! 👥🛡️',
+                body: `${userData.displayName?.split(' ')[0]} sent you a friend request and invited you to join their squad!`,
+                data: { type: 'friend_and_squad_request', fromUid: userData.uid }
+              })
+            }).catch(err => console.error("Notification API failed:", err));
+          }
+        } catch (e) { console.warn("Could not send notification:", e); }
+
+        showAlert("Friend Request + Squad Invite sent!");
+        setFriendEmail('');
+        setAlsoInviteToSquad(false);
+        return;
+      }
+
       await addDoc(collection(db, "friendRequests"), {
         from: currentUser.uid,
         to: friendUid,
@@ -3466,6 +3549,7 @@ export default function App() {
 
       showAlert("Friend request sent!");
       setFriendEmail('');
+      setAlsoInviteToSquad(false);
     } catch (e) {
       console.error(e);
       showAlert("Failed to send friend request.");
@@ -3493,14 +3577,99 @@ export default function App() {
     }
   };
 
+  const handleAcceptLinkedRequest = async (friendReq: DocumentData, squadInvite?: DocumentData) => {
+    if (!currentUser) return;
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Mutual Friend add
+      batch.update(getUserDocRef(currentUser.uid), { friends: arrayUnion(friendReq.from) });
+      batch.update(getUserDocRef(friendReq.from), { friends: arrayUnion(currentUser.uid) });
+      batch.delete(doc(db, "friendRequests", friendReq.id));
+
+      // 2. Squad add
+      const targetInvite = squadInvite || incomingSquadInvites.find(inv => inv.id === friendReq.linkedSquadInviteId || (inv.from === friendReq.from && inv.linkedFriendRequestId === friendReq.id));
+
+      if (targetInvite && targetInvite.squadId) {
+        batch.update(doc(db, "squads", targetInvite.squadId), {
+          members: arrayUnion(currentUser.uid)
+        });
+        batch.update(getUserDocRef(currentUser.uid), {
+          squadId: targetInvite.squadId,
+          squadOwnerId: targetInvite.from
+        });
+        batch.update(doc(db, "squadInvites", targetInvite.id), {
+          status: "accepted"
+        });
+
+        const messageRef = doc(collection(db, "squads", targetInvite.squadId, "messages"));
+        batch.set(messageRef, {
+          senderId: 'system',
+          senderName: 'Squad Info',
+          senderPhotoURL: '',
+          content: `${userData?.displayName || 'Someone'} joined the squad! 🥳`,
+          type: 'status_update',
+          createdAt: Date.now()
+        });
+      }
+
+      await batch.commit();
+      showAlert("Accepted Friend Request & Squad Invite!");
+    } catch (e) {
+      console.error(e);
+      showAlert("Error accepting request.");
+    }
+  };
+
   const handleDeclineFriendRequest = async (request: DocumentData) => {
     try {
       await updateDoc(doc(db, "friendRequests", request.id), {
         status: "declined",
         updatedAt: Date.now()
       });
+      if (request.linkedSquadInviteId) {
+        await updateDoc(doc(db, "squadInvites", request.linkedSquadInviteId), {
+          status: "declined"
+        }).catch(console.error);
+      }
       showAlert("Friend request declined.");
     } catch (e) { console.error(e); }
+  };
+
+  const handleDeclineLinkedRequest = async (friendReq: DocumentData, squadInvite?: DocumentData) => {
+    try {
+      await updateDoc(doc(db, "friendRequests", friendReq.id), {
+        status: "declined",
+        updatedAt: Date.now()
+      });
+      const targetInvite = squadInvite || incomingSquadInvites.find(inv => inv.id === friendReq.linkedSquadInviteId || (inv.from === friendReq.from && inv.linkedFriendRequestId === friendReq.id));
+      if (targetInvite) {
+        await updateDoc(doc(db, "squadInvites", targetInvite.id), {
+          status: "declined"
+        }).catch(console.error);
+      }
+      showAlert("Request declined.");
+    } catch (e) { console.error(e); }
+  };
+
+  const handleRevokeLinkedRequest = async (item: DocumentData) => {
+    try {
+      if (item.linkedSquadInviteId) {
+        await deleteDoc(doc(db, "friendRequests", item.id)).catch(console.error);
+        await deleteDoc(doc(db, "squadInvites", item.linkedSquadInviteId)).catch(console.error);
+      } else if (item.linkedFriendRequestId) {
+        await deleteDoc(doc(db, "squadInvites", item.id)).catch(console.error);
+        await deleteDoc(doc(db, "friendRequests", item.linkedFriendRequestId)).catch(console.error);
+      } else if (outgoingFriendRequests.some(r => r.id === item.id)) {
+        await updateDoc(doc(db, "friendRequests", item.id), { status: "declined", updatedAt: Date.now() });
+      } else {
+        await deleteDoc(doc(db, "squadInvites", item.id));
+      }
+      showAlert("Revoked request.");
+    } catch (e) {
+      console.error(e);
+      showAlert("Could not revoke request.");
+    }
   };
 
   const handleSendSquadJoinRequest = async (squadId: string, leaderUid: string) => {
@@ -5592,19 +5761,43 @@ export default function App() {
           {(incomingFriendRequests.length > 0 || incomingSquadInvites.length > 0 || incomingSquadJoinRequests.length > 0) && (
             <>
               <h2 className="section-title">Requests</h2>
-              {/* Incoming Friend Requests */}
-              {incomingFriendRequests.map(req => (
-                <div key={req.id} className="card">
-                  <div>
-                    <strong>{getDisplayNameByUid(req.from)}</strong> wants to be friends.
+              {/* Incoming Friend Requests (and Linked Friend + Squad Requests) */}
+              {incomingFriendRequests.map(req => {
+                const linkedSquadInvite = incomingSquadInvites.find(inv => inv.id === req.linkedSquadInviteId || (inv.from === req.from && inv.linkedFriendRequestId === req.id));
+                if (linkedSquadInvite) {
+                  return (
+                    <div key={req.id} className="card" style={{ borderLeft: '4px solid #03dac6', background: 'rgba(3,218,198,0.06)', flexDirection: 'column', alignItems: 'stretch' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div>
+                          <strong>{getDisplayNameByUid(req.from)}</strong>
+                          <div style={{ fontSize: '0.8rem', color: '#03dac6', fontWeight: 'bold', marginTop: '2px' }}>
+                            Friend & Squad Request 👥🛡️
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '2px' }}>
+                            Friend request pending • Squad invite pending
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleAcceptLinkedRequest(req, linkedSquadInvite)} className="btn btn-primary" style={{ flex: 1, padding: '6px 12px', fontSize: '0.8rem', fontWeight: 'bold' }}>Accept Both</button>
+                        <button onClick={() => handleDeclineLinkedRequest(req, linkedSquadInvite)} className="btn btn-danger" style={{ flex: 1, padding: '6px 12px', fontSize: '0.8rem' }}>Decline</button>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={req.id} className="card">
+                    <div>
+                      <strong>{getDisplayNameByUid(req.from)}</strong> wants to be friends.
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => handleAcceptFriendRequest(req)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
+                      <button onClick={() => handleDeclineFriendRequest(req)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => handleAcceptFriendRequest(req)} className="btn btn-primary" style={{ padding: '4px 8px' }}>✔</button>
-                    <button onClick={() => handleDeclineFriendRequest(req)} className="btn btn-danger" style={{ padding: '4px 8px' }}>✘</button>
-                  </div>
-                </div>
-              ))}
-              {/* Incoming Squad Join Requests (Someone wants to join ME) */}
+                );
+              })}
+              {/* Incoming Squad Join Requests */}
               {incomingSquadJoinRequests.map(req => (
                 <div key={req.id} className="card" style={{ borderLeft: '4px solid var(--secondary)' }}>
                   <div>
@@ -5616,8 +5809,8 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              {/* Incoming Squad Invites (A leader invited ME) */}
-              {incomingSquadInvites.map(invite => (
+              {/* Incoming Squad Invites (Unlinked) */}
+              {incomingSquadInvites.filter(inv => !inv.linkedFriendRequestId && !incomingFriendRequests.some(r => r.linkedSquadInviteId === inv.id)).map(invite => (
                 <div key={invite.id} className="card">
                   <div>
                     <strong>{getDisplayNameByUid(invite.from)}</strong> invited you to their squad.
@@ -5632,22 +5825,34 @@ export default function App() {
           )}
 
           {/* Outgoing Requests */}
-          {outgoingFriendRequests.length > 0 && <h3 className="section-subtitle">Sent</h3>}
+          {(outgoingFriendRequests.length > 0 || outgoingSquadInvites.length > 0) && <h3 className="section-subtitle">Sent</h3>}
           {outgoingFriendRequests.map(req => {
             const canRevoke = (Date.now() - (req.createdAt || 0)) > 30 * 60 * 1000;
+            const isLinked = !!req.linkedSquadInviteId || outgoingSquadInvites.some(inv => inv.linkedFriendRequestId === req.id);
             return (
-              <div key={req.id} className="card" style={{ opacity: 0.7, flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+              <div key={req.id} className="card" style={{ opacity: 0.85, flexDirection: 'column', alignItems: 'flex-start', gap: '4px', borderLeft: isLinked ? '3px solid #03dac6' : 'none' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                  <span>To {getDisplayNameByUid(req.to)} (Friend Request)</span>
+                  <span>To <strong>{getDisplayNameByUid(req.to)}</strong> {isLinked ? '(Friend + Squad Invite 👥🛡️)' : '(Friend Request)'}</span>
                   {canRevoke && (
-                    <button className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleDeclineFriendRequest(req)}>Revoke</button>
+                    <button className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleRevokeLinkedRequest(req)}>Revoke</button>
                   )}
                 </div>
-                <span style={{ fontSize: '0.8rem' }}>Pending {canRevoke ? '' : '(Can revoke in 30m)'}</span>
+                <span style={{ fontSize: '0.8rem', color: '#aaa' }}>
+                  {isLinked ? 'Friend request pending • Squad invite pending' : 'Friend request pending'} {canRevoke ? '' : '(Can revoke in 30m)'}
+                </span>
               </div>
             );
           })}
-          {(incomingFriendRequests.length === 0 && incomingSquadInvites.length === 0 && incomingSquadJoinRequests.length === 0 && outgoingFriendRequests.length === 0) && (
+          {outgoingSquadInvites.filter(inv => !inv.linkedFriendRequestId && !outgoingFriendRequests.some(r => r.linkedSquadInviteId === inv.id)).map(invite => (
+            <div key={invite.id} className="card" style={{ opacity: 0.85, flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                <span>To <strong>{getDisplayNameByUid(invite.to)}</strong> (Squad Invite)</span>
+                <button className="btn btn-danger" style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleRevokeLinkedRequest(invite)}>Revoke</button>
+              </div>
+              <span style={{ fontSize: '0.8rem', color: '#aaa' }}>Squad invite pending</span>
+            </div>
+          ))}
+          {(incomingFriendRequests.length === 0 && incomingSquadInvites.length === 0 && incomingSquadJoinRequests.length === 0 && outgoingFriendRequests.length === 0 && outgoingSquadInvites.length === 0) && (
             <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginBottom: '1rem', fontStyle: 'italic' }}>No pending requests.</p>
           )}
 
@@ -7535,16 +7740,30 @@ export default function App() {
                       <FaUserFriends /> Friends
                     </span>
                   ) : (
-                    <button
-                      onClick={() => {
-                        handleSendFriendRequest(selectedMember.uid);
-                        setSelectedMember(null);
-                      }}
-                      className="btn"
-                      style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid #444', borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', cursor: 'pointer' }}
-                    >
-                      + Send Friend Request
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                      {hasAvailableSquadInvites() && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#ccc', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={alsoInviteToSquad}
+                            onChange={(e) => setAlsoInviteToSquad(e.target.checked)}
+                            style={{ width: '16px', height: '16px', accentColor: '#03dac6', cursor: 'pointer' }}
+                          />
+                          <span>Also invite to Squad 🛡️</span>
+                        </label>
+                      )}
+                      <button
+                        onClick={() => {
+                          handleSendFriendRequest(selectedMember.uid, alsoInviteToSquad);
+                          setSelectedMember(null);
+                          setAlsoInviteToSquad(false);
+                        }}
+                        className="btn"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid #444', borderRadius: '20px', padding: '8px 16px', fontSize: '0.8rem', cursor: 'pointer' }}
+                      >
+                        + Send Friend Request
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
@@ -8402,9 +8621,10 @@ export default function App() {
                     const friendProfile = publicProfileCache[req.from];
                     const displayName = getDisplayNameByUid(req.from);
                     const photoURL = (friendProfile && typeof friendProfile === 'object') ? friendProfile.photoURL : null;
+                    const linkedSquadInvite = incomingSquadInvites.find(inv => inv.id === req.linkedSquadInviteId || (inv.from === req.from && inv.linkedFriendRequestId === req.id));
 
                     return (
-                      <div key={req.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '16px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div key={req.id} className="card" style={{ flexDirection: 'column', alignItems: 'stretch', padding: '16px', background: 'rgba(255,255,255,0.03)', border: linkedSquadInvite ? '1px solid #03dac6' : '1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
                           <div style={{
                             width: '44px',
@@ -8431,7 +8651,9 @@ export default function App() {
                           </div>
                           <div style={{ flex: 1 }}>
                             <strong style={{ fontSize: '1rem', display: 'block' }}>{displayName === req.from ? 'Someone' : displayName}</strong>
-                            <span style={{ fontSize: '0.8rem', color: '#888' }}>wants to be friends.</span>
+                            <span style={{ fontSize: '0.8rem', color: linkedSquadInvite ? '#03dac6' : '#888', fontWeight: linkedSquadInvite ? 'bold' : 'normal' }}>
+                              {linkedSquadInvite ? 'Friend Request & Squad Invite 👥🛡️' : 'wants to be friends.'}
+                            </span>
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '10px' }}>
@@ -8439,11 +8661,15 @@ export default function App() {
                             className="btn btn-primary"
                             style={{ flex: 1, height: '40px', fontWeight: 'bold' }}
                             onClick={() => {
-                              handleAcceptFriendRequest(req);
+                              if (linkedSquadInvite) {
+                                handleAcceptLinkedRequest(req, linkedSquadInvite);
+                              } else {
+                                handleAcceptFriendRequest(req);
+                              }
                               if (incomingFriendRequests.length <= 1) setActiveModal(null);
                             }}
                           >
-                            Accept
+                            {linkedSquadInvite ? 'Accept Both' : 'Accept'}
                           </button>
                           <button
                             className="btn"
@@ -8456,7 +8682,11 @@ export default function App() {
                               fontWeight: '600'
                             }}
                             onClick={() => {
-                              handleDeclineFriendRequest(req);
+                              if (linkedSquadInvite) {
+                                handleDeclineLinkedRequest(req, linkedSquadInvite);
+                              } else {
+                                handleDeclineFriendRequest(req);
+                              }
                               if (incomingFriendRequests.length <= 1) setActiveModal(null);
                             }}
                           >
@@ -8760,6 +8990,31 @@ export default function App() {
               />
             </div>
 
+            {hasAvailableSquadInvites() && (
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '15px',
+                padding: '10px 14px',
+                background: 'rgba(3, 218, 198, 0.08)',
+                borderRadius: '10px',
+                border: '1px solid rgba(3, 218, 198, 0.2)',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: '500'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={alsoInviteToSquad}
+                  onChange={(e) => setAlsoInviteToSquad(e.target.checked)}
+                  style={{ width: '18px', height: '18px', accentColor: '#03dac6', cursor: 'pointer' }}
+                />
+                <span>Also invite to Squad 🛡️</span>
+              </label>
+            )}
+
             <button
               onClick={async () => {
                 if (!friendEmail || !currentUser) return;
@@ -8785,10 +9040,11 @@ export default function App() {
                     showAlert("You are already friends with this user!");
                     setFriendEmail('');
                   } else {
-                    await handleSendFriendRequest(friendUid);
+                    await handleSendFriendRequest(friendUid, alsoInviteToSquad);
 
                     setActiveModal(null);
                     setFriendEmail('');
+                    setAlsoInviteToSquad(false);
                   }
                 } catch (e) {
                   console.error(e);
